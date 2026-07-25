@@ -157,7 +157,6 @@ document.addEventListener('DOMContentLoaded', function () {
             displayPredictionResult(currentPrediction);
           } catch (err) {
             console.error('Prediction Generation Error:', err);
-            // Fallback display if error occurs
             if (scanningOverlay) scanningOverlay.style.display = 'none';
             if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'block';
             showToast('เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง');
@@ -167,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Display Prediction Results (Defensive & Robust)
+  // Display Prediction Results
   function displayPredictionResult(pred) {
     if (!pred) return;
 
@@ -210,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Smart Paotang Link & Copy Action
+  // Smart Paotang Link & Copy Action (Robust & Popup-Blocker Safe)
   const btnBuyPaotang = document.querySelectorAll('.btn-buy-paotang');
   const modalQr = document.getElementById('modal-qr');
   const modalQrClose = document.getElementById('modal-qr-close');
@@ -225,22 +224,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       copyToClipboard(numberToCopy);
 
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! เลือกช่องทางเปิดแอปเป๋าตังได้ทันที`);
 
-      if (isMobile) {
-        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กำลังเปิดแอปเป๋าตัง...`);
-        setTimeout(() => {
-          window.location.href = 'paotang://';
-          setTimeout(() => {
-            const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            window.location.href = isiOS ? 
-              'https://apps.apple.com/th/app/paotang/id1324901416' : 
-              'https://play.google.com/store/apps/details?id=th.or.ktb.paotang';
-          }, 1800);
-        }, 300);
-      } else {
-        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กรุณาสแกน QR Code เพื่อเปิดแอปเป๋าตัง`);
-        if (modalQr) modalQr.classList.add('active');
+      if (modalQr) {
+        modalQr.classList.add('active');
       }
     });
   });
