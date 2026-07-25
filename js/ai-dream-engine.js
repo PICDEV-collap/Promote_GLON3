@@ -15,6 +15,14 @@ const AIDreamEngine = (function () {
       blessing: 'แนะนำให้ทำบุญถวายสังฆทานน้ำดื่ม หรือร่วมสร้างอุโบสถเพื่อเปิดทิศทางโชคลาภ'
     },
     {
+      keywords: ['ขี้', 'อุจจาระ', 'สาดขี้', 'เหยียบขี้', 'ขี้ใส่', 'สิ่งปฏิกูล'],
+      element: 'ธาตุดิน / ดาวเสาร์ (๗)',
+      luckyDigitsPrimary: ['0', '8', '5'],
+      luckyDigitsSecondary: ['7', '3'],
+      meaning: 'โบราณท่านว่า ฝันเห็นอุจจาระ จับขี้ หรือสัมผัสสิ่งปฏิกูล ถือเป็นนิมิตโชคลาภเงินทองมหาศาลทับตัว ยิ่งฝันว่าเปรอะเปื้อนตัว ยิ่งสื่อถึงเงินทองไหลมาเทมา ทรัพย์สินเพิ่มพูนอย่างไม่คาดฝัน',
+      blessing: 'แนะนำทำบุญบริจาคค่าน้ำประปา หรือทำความสะอาดลานวัดเพื่อต้อนรับทรัพย์ใหญ่'
+    },
+    {
       keywords: ['พระ', 'เหรียญพระ', 'พระพุทธรูป', 'วัด', 'พระสงฆ์', 'เกจิ', 'สามเณร', 'โบสถ์'],
       element: 'ธาตุไฟ / ดาวพฤหัสบดี (๕)',
       luckyDigitsPrimary: ['9', '8', '5'],
@@ -47,7 +55,7 @@ const AIDreamEngine = (function () {
       blessing: 'แนะนำเติมน้ำมันตะเกียง หรือถวายหลอดไฟสังฆทานเพื่อเพิ่มความสว่างไสวในดวงชะตา'
     },
     {
-      keywords: ['ศพ', 'คนตาย', 'โลงศพ', 'งานศพ', 'กระดูก', 'วิญญาณ'],
+      keywords: ['ศพ', 'คนตาย', 'โลงศพ', 'งานศพ', 'กระดูก', 'วิญญาณ', 'ผี'],
       element: 'ธาตุดิน / ดาวเสาร์ (๗)',
       luckyDigitsPrimary: ['0', '4', '7'],
       luckyDigitsSecondary: ['6', '9'],
@@ -87,6 +95,22 @@ const AIDreamEngine = (function () {
       blessing: 'แนะนำให้อาหารสัตว์ หรือทำบุญศูนย์อนุรักษ์ช้าง'
     },
     {
+      keywords: ['เสือ', 'จระเข้', 'สิงโต', 'สัตว์ร้าย'],
+      element: 'ธาตุไฟ / ดาวอังคาร (๓)',
+      luckyDigitsPrimary: ['3', '8', '1'],
+      luckyDigitsSecondary: ['4', '7'],
+      meaning: 'ฝันเห็นเสือ จระเข้ หรือสัตว์น่าเกรงขาม สื่อถึงพลังอำนาจ ชัยชนะเหนืออุปสรรคทั้งปวง และการได้รับโชคลาภจากการเสี่ยงโชคก้อนใหญ่',
+      blessing: 'แนะนำไหว้ศาลเจ้าพ่อเสือ หรือทำบุญไถ่ชีวิตโคกระบือ'
+    },
+    {
+      keywords: ['สุนัข', 'หมา', 'แมว', 'สัตว์เลี้ยง'],
+      element: 'ธาตุลม / ดาวพุธ (๔)',
+      luckyDigitsPrimary: ['4', '7', '2'],
+      luckyDigitsSecondary: ['5', '8'],
+      meaning: 'ฝันเห็นสุนัขหรือแมว สื่อถึงมิตรบริวารนำโชค ความจงรักภักดี และข่าวดีจากญาติมิตรใกล้ชิดที่จะนำพาโชคลาภมาให้',
+      blessing: 'แนะนำบริจาคอาหารสัตว์พิการหรือสุนัขจรจัด'
+    },
+    {
       keywords: ['เงิน', 'ทอง', 'ธนบัตร', 'แหวนทอง', 'สมบัติ', 'แก้วแหวนเงินทอง'],
       element: 'ธาตุทอง / ดาวศุกร์ (๖)',
       luckyDigitsPrimary: ['6', '2', '9'],
@@ -96,8 +120,9 @@ const AIDreamEngine = (function () {
     }
   ];
 
-  // Default fallback entry for unmapped dreams
+  // Safe fallback entry for unmapped dreams
   const defaultEntry = {
+    keywords: ['สัญลักษณ์สวรรค์'],
     element: 'ธาตุจักรวาล / สุริยคราสมงคล',
     luckyDigitsPrimary: ['7', '8', '9'],
     luckyDigitsSecondary: ['3', '5'],
@@ -152,20 +177,22 @@ const AIDreamEngine = (function () {
    */
   function generatePrediction(dreamInput) {
     const analysis = analyzeDreamText(dreamInput);
-    const primaryMatch = analysis.matched[0];
+    const primaryMatch = analysis.matched[0] || defaultEntry;
     const seed = hashString(analysis.rawText || 'magic-dream');
 
-    // Combine digits pool
+    // Combine digits pool safely
     let pool = [];
     analysis.matched.forEach(m => {
-      pool.push(...m.luckyDigitsPrimary, ...m.luckyDigitsSecondary);
+      if (m && m.luckyDigitsPrimary && m.luckyDigitsSecondary) {
+        pool.push(...m.luckyDigitsPrimary, ...m.luckyDigitsSecondary);
+      }
     });
     if (pool.length < 5) pool.push('9', '8', '5', '3', '1');
 
     // Pick 3 digits for N3 Direct
-    const d1 = pool[seed % pool.length];
-    const d2 = pool[(seed + 3) % pool.length];
-    const d3 = pool[(seed + 7) % pool.length];
+    const d1 = pool[seed % pool.length] || '7';
+    const d2 = pool[(seed + 3) % pool.length] || '8';
+    const d3 = pool[(seed + 7) % pool.length] || '9';
 
     const n3Direct = `${d1}${d2}${d3}`;
 
@@ -181,21 +208,26 @@ const AIDreamEngine = (function () {
     const confidence = ((seed % 74) / 10 + 92.5).toFixed(1);
 
     // Combine all descriptions if multiple keywords matched
-    let combinedMeaning = primaryMatch.meaning;
+    let combinedMeaning = primaryMatch.meaning || defaultEntry.meaning;
     if (analysis.matched.length > 1) {
       combinedMeaning += ' นอกจากนี้สัญลักษณ์เสริมยังชี้ถือกำเนิดพละกำลังมหาศาล สอดรับกับตัวเลขหลักของ N3';
     }
 
+    // Safe extraction of matched symbols string
+    const symbolsStr = analysis.matched
+      .map(m => (m && m.keywords && m.keywords.length > 0 ? m.keywords[0] : 'สัญลักษณ์มงคล'))
+      .join(', ');
+
     return {
       dreamText: analysis.rawText || 'ความฝันมงคลสวรรค์',
-      element: primaryMatch.element,
+      element: primaryMatch.element || defaultEntry.element,
       n3Direct: n3Direct,
       n3Tod: n3Tod,
       n2Digit: n2Digit,
       confidence: `${confidence}%`,
       meaning: combinedMeaning,
-      blessing: primaryMatch.blessing,
-      matchedSymbols: analysis.matched.map(m => m.keywords[0]).join(', ')
+      blessing: primaryMatch.blessing || defaultEntry.blessing,
+      matchedSymbols: symbolsStr
     };
   }
 
