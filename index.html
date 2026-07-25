@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="เว็บไซต์โปรโมทสลากกินแบ่งรัฐบาล N3 (GLO N3) สลาก 3 หลัก ใบละ 20 บาท พร้อมระบบ AI ทำนายฝันวิเคราะห์เลขเด็ด 3 ตัวตรง 3 ตัวโต๊ด และ 2 ตัวตรง คัดลอกไปซื้อผ่านแอปเป๋าตังและร้านค้าของเราได้ทันที">
+  <meta name="keywords" content="สลาก N3, GLO N3, หวย N3, สลากกินแบ่งรัฐบาล 3 หลัก, ทำนายฝัน AI, เลขเด็ด N3, แอปเป๋าตัง, ร้านค้าสลาก N3, ทำนายฝันแม่นๆ">
+  <meta property="og:title" content="สลาก N3 (GLO N3) - AI ทำนายฝันเลขเด็ด & โปรโมทสลาก 3 หลัก">
+  <meta property="og:description" content="สลากกินแบ่งรัฐบาล N3 ใบละ 20 บาท ลุ้น 4 รางวัลใหญ่ พร้อมระบบ AI ถอดรหัสนิมิตทำนายฝันวิเคราะห์ชุดตัวเลข N3">
+  <meta property="og:type" content="website">
+
+  <title>สลาก N3 (GLO N3) - โปรโมทสลาก 3 หลัก & ระบบ AI ทำนายฝันวิเคราะห์ตัวเลข</title>
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Background Particle Canvas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Navigation Header -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="#" class="brand-logo">
+        <div class="logo-icon">N3</div>
+        <div class="brand-text">
+          <span class="brand-title">GLO N3 PORTAL</span>
+          <span class="brand-sub">สลากกินแบ่งรัฐบาล 3 หลัก</span>
+        </div>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#hero" class="nav-link active">หน้าแรก</a></li>
+        <li><a href="#features" class="nav-link">จุดเด่น N3</a></li>
+        <li><a href="#ai-dream" class="nav-link">AI ทำนายฝัน</a></li>
+        <li><a href="#calculator" class="nav-link">คำนวณเงินรางวัล</a></li>
+        <li><a href="#guide" class="nav-link">วิธีซื้อเป๋าตัง</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button id="btn-sound" class="btn-sound" title="เปิด/ปิดเสียงเอฟเฟกต์">
+          <i id="sound-icon" class="fas fa-volume-up"></i>
+        </button>
+
+        <!-- Official Shop Button -->
+        <a href="#" class="btn btn-outline btn-our-shop" style="border-color: var(--color-emerald); color: var(--color-emerald-light);">
+          <i class="fas fa-store"></i> ร้านค้าของเรา
+        </a>
+
+        <button class="btn btn-gold btn-buy-paotang">
+          <i class="fas fa-wallet"></i> เป๋าตัง
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="hero" class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <span class="badge badge-gold">
+            <i class="fas fa-sparkles"></i> มิติใหม่แห่งการลุ้นโชค สลาก N3
+          </span>
+          <h1>
+            สลากกินแบ่งรัฐบาล <br>
+            <span class="text-gradient-gold">GLO N3</span> ใบละ <span class="text-gradient-emerald">20 บาท</span>
+          </h1>
+          <p class="hero-desc">
+            ลุ้นรับ 4 รางวัลใหญ่ (3 ตัวตรง, 3 ตัวโต๊ด, 2 ตัวตรง และรางวัลพิเศษ) สะดวก ปลอดภัย ซื้อตรงผ่าน <strong>ร้านค้าของเรา</strong> และแอปพลิเคชัน <strong>"เป๋าตัง"</strong> พร้อมระบบ <strong>AI ช่วยทำนายฝันถอดรหัสตัวเลขมงคล</strong>
+          </p>
+
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="#ai-dream" class="btn btn-gold">
+              <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝันหาเลข N3 ด้วย AI
+            </a>
+            
+            <a href="#" class="btn btn-emerald btn-our-shop">
+              <i class="fas fa-shopping-bag"></i> สั่งซื้อสลากที่ร้านค้าของเรา
+            </a>
+
+            <button class="btn btn-outline btn-buy-paotang">
+              <i class="fas fa-mobile-alt"></i> ซื้อผ่านแอปเป๋าตัง
+            </button>
+          </div>
+
+          <div class="hero-stats">
+            <div class="stat-item">
+              <span class="stat-value">20 ฿</span>
+              <span class="stat-label">ราคาใบละ</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">4 รางวัล</span>
+              <span class="stat-label">ประเภทเงินรางวัล</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">100% AI</span>
+              <span class="stat-label">ทำนายฝันแม่นยำ</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-card-preview">
+          <div class="glass-ticket">
+            <div class="ticket-header">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-shield-alt" style="color: var(--color-gold);"></i>
+                <span style="font-weight: 700;">GLO N3 DIGITAL TICKET</span>
+              </div>
+              <span class="ticket-badge">ใบละ 20.-</span>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+              ชุดเลขเด็ด N3 มงคลประจำเป็น
+            </div>
+
+            <div class="ticket-numbers">
+              <div class="num-ball">7</div>
+              <div class="num-ball">8</div>
+              <div class="num-ball">9</div>
+            </div>
+
+            <div style="text-align: center; color: var(--color-emerald-light); font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem;">
+              <i class="fas fa-check-circle"></i> ลุ้น 3 ตรง | 3 โต๊ด | 2 ตรง | รางวัลพิเศษ
+            </div>
+
+            <div class="ticket-footer">
+              สำนักงานสลากกินแบ่งรัฐบาล (GLO) • ซื้อผ่านร้านค้าของเรา / เป๋าตัง
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: GLO N3 Features -->
+  <section id="features">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-emerald"><i class="fas fa-star"></i> WHY GLO N3</span>
+        <h2>ทำไมสลาก <span class="text-gradient-gold">GLO N3</span> ถึงได้รับความนิยมสูงสุด</h2>
+        <p>ยกระดับการซื้อสลากยุคดิจิทัล ถูกต้องตามกฎหมาย ได้รับเงินรางวัลเต็มจำนวนโดยไม่หักค่าธรรมเนียมแอบแฝง</p>
+      </div>
+
+      <div class="n3-features-grid">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="fas fa-tags"></i></div>
+          <h3>ราคาเพียง 20 บาท/ใบ</h3>
+          <p>เข้าถึงง่าย สบายกระเป๋า เลือกซื้อตัวเลขที่ต้องการได้อิสระผ่านร้านค้าของเราหรือแอปพลิเคชันเป๋าตังตลอด 24 ชม.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="color: var(--color-emerald); border-color: var(--border-emerald); background: rgba(16, 185, 129, 0.1);"><i class="fas fa-trophy"></i></div>
+          <h3>ลุ้นรับถึง 4 รางวัล</h3>
+          <p>รางวัล 3 ตัวตรง, 3 ตัวโต๊ด, 2 ตัวตรง และรางวัลพิเศษ (Jackpot) สัดส่วนเงินรางวัล 60% ของยอดขาย</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="color: var(--color-cyan); border-color: rgba(6, 182, 212, 0.3); background: rgba(6, 182, 212, 0.1);"><i class="fas fa-brain"></i></div>
+          <h3>AI ช่วยเลือกตัวเลข</h3>
+          <p>ระบบ AI ถอดรหัสนิมิตทำนายฝัน แปลงความฝันของคุณให้กลายเป็นชุดเลขเด็ด N3 ที่ตรงกับดวงชะตา</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="color: var(--color-purple); border-color: rgba(139, 92, 246, 0.3); background: rgba(139, 92, 246, 0.1);"><i class="fas fa-store"></i></div>
+          <h3>บริการสะดวกรวดเร็ว</h3>
+          <p>เลือกซื้อสลาก N3 ได้โดยตรงจากหน้าร้านค้าของเรา บริการด้วยความจริงใจ รวดเร็ว และเป็นกันเอง</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: AI Dream Interpreter -->
+  <section id="ai-dream" class="ai-dream-section">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-gold"><i class="fas fa-brain"></i> ASTRO-NUMEROLOGY AI ENGINE</span>
+        <h2><span class="text-gradient-gold">AI ทำนายฝัน</span> วิเคราะห์ตัวเลข N3 มงคล</h2>
+        <p>พิมพ์ความฝันของคุณ หรือคลิกเลือกคีย์เวิร์ดฝันยอดนิยมเพื่อให้ AI วิเคราะห์ถอดรหัสตัวเลขเด็ดประจำวัน</p>
+      </div>
+
+      <div class="dream-box-wrapper">
+        <!-- Input Form State -->
+        <div id="dream-box-content">
+          <form id="dream-form">
+            <div class="dream-input-group">
+              <textarea id="dream-input" class="dream-textarea" placeholder="พิมพ์ความฝันของคุณ เช่น ฝันเห็นงูใหญ่สีทองเลื้อยผ่านหน้าบ้าน, ฝันว่าได้จับปลาตัวใหญ่, ฝันเห็นพระสงฆ์ ฯลฯ"></textarea>
+            </div>
+
+            <div class="quick-tags-label"><i class="fas fa-fire" style="color: var(--color-gold);"></i> เลือกความฝันยอดนิยมอย่างรวดเร็ว:</div>
+            <div class="quick-tags">
+              <button type="button" class="tag-btn" data-tag="งู">🐍 ฝันเห็นงู / พญานาค</button>
+              <button type="button" class="tag-btn" data-tag="พระ">☸️ ฝันเห็นพระ / โบสถ์</button>
+              <button type="button" class="tag-btn" data-tag="ปลา">🐟 ฝันว่าจับปลา</button>
+              <button type="button" class="tag-btn" data-tag="น้ำท่วม">🌊 ฝันเห็นน้ำท่วม / ทะเล</button>
+              <button type="button" class="tag-btn" data-tag="ไฟไหม้">🔥 ฝันเห็นไฟไหม้</button>
+              <button type="button" class="tag-btn" data-tag="ศพ">⚰️ ฝันเห็นคนตาย / ศพ</button>
+              <button type="button" class="tag-btn" data-tag="อุ้มเด็ก">👶 ฝันว่าอุ้มเด็ก</button>
+              <button type="button" class="tag-btn" data-tag="รถยนต์">🚗 ฝันเห็นรถ / ทะเบียนรถ</button>
+              <button type="button" class="tag-btn" data-tag="เงิน">💰 ฝันว่าได้เงิน / ทอง</button>
+            </div>
+
+            <div style="text-align: center;">
+              <button type="submit" class="btn btn-gold" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
+                <i class="fas fa-atom"></i> เริ่มการทำนายฝัน & ถอดรหัสเลข N3
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Scanning Progress State -->
+        <div id="scanning-overlay" class="ai-scanning-overlay">
+          <div class="ai-scanner-orb">
+            <i class="fas fa-microchip" style="font-size: 2.5rem; color: #000;"></i>
+          </div>
+          <div id="scan-step-text" class="scan-step-text">กำลังสแกนสัญลักษณ์และถอดรหัสนิมิต...</div>
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">ระบบ AI กำลังประมวลผลศาสตร์ตัวเลขสถิติสลาก N3 ร่วมกับดวงชะตาประจำวัน</p>
+        </div>
+
+        <!-- AI Dream Result State -->
+        <div id="result-container" class="ai-result-container">
+          <div class="result-card">
+            <div class="result-header">
+              <div>
+                <span class="badge badge-emerald"><i class="fas fa-check-circle"></i> ถอดรหัสความฝันสำเร็จ</span>
+                <h3 id="res-dream-title" style="font-size: 1.5rem; margin-top: 0.5rem; color: var(--color-gold-light);">"ฝันเห็นงู"</h3>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.85rem; color: var(--text-muted);">พลังงานธาตุประจำเป็น</div>
+                <div id="res-element" style="font-weight: 700; color: var(--color-emerald-light);">ธาตุน้ำ / ดาวเกตุ (๙)</div>
+              </div>
+            </div>
+
+            <div class="prediction-highlight">
+              <div class="pred-box featured">
+                <div class="pred-title"><i class="fas fa-star" style="color: var(--color-gold);"></i> เลขเด็ด 3 ตัวตรง N3</div>
+                <div id="res-n3-direct" class="pred-number text-gradient-gold">789</div>
+                <div style="font-size: 0.8rem; color: var(--text-gold);">ตรงตามหลักกำลังวัน</div>
+              </div>
+
+              <div class="pred-box">
+                <div class="pred-title">เลขเด็ด 3 ตัวโต๊ด (สลับหลัก)</div>
+                <div id="res-n3-tod" class="pred-number" style="color: var(--color-cyan);">798, 879</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">โอกาสถูกรางวัลสูง</div>
+              </div>
+
+              <div class="pred-box">
+                <div class="pred-title">เลขเด็ด 2 ตัวตรง N3</div>
+                <div id="res-n2-digit" class="pred-number" style="color: var(--color-emerald-light);">89</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">ดึงจากท้าย 2 หลัก</div>
+              </div>
+            </div>
+
+            <div class="dream-analysis-text">
+              <h4 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-scroll"></i> คำทำนายฝันเชิงลึก & เคล็ดลับรับโชค:</h4>
+              <p id="res-meaning" style="color: var(--text-primary); margin-bottom: 0.75rem;">
+                ฝันเห็นงูถือเป็นนิมิตมงคลยิ่งใหญ่ สื่อถึงโชคลาภก้อนโตที่จะเข้ามารวดเร็วฉับพลัน
+              </p>
+              <div style="font-size: 0.95rem; color: var(--color-emerald-light);">
+                <i class="fas fa-hands-praying"></i> <strong>ข้อแนะนำเสริมดวง:</strong> <span id="res-blessing">แนะนำตักบาตรเช้าหรือบริจาคทานน้ำดื่ม</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+              <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                ดรรชนีความแม่นยำ AI: <strong id="res-confidence" style="color: var(--color-gold);">98.5%</strong>
+              </div>
+            </div>
+
+            <div class="result-actions">
+              <!-- Direct Shop Action Button -->
+              <a href="#" class="btn btn-emerald btn-our-shop">
+                <i class="fas fa-shopping-bag"></i> คัดลอกเลข & ไปร้านค้าของเรา
+              </a>
+              <button class="btn btn-gold btn-buy-paotang">
+                <i class="fas fa-wallet"></i> ซื้อผ่านแอปเป๋าตัง
+              </button>
+              <button id="btn-copy-num" class="btn btn-outline">
+                <i class="fas fa-copy"></i> คัดลอกเฉพาะเลขเด็ด
+              </button>
+              <button id="btn-reset-dream" class="btn btn-outline">
+                <i class="fas fa-redo"></i> ทำนายฝันเรื่องใหม่
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: N3 Prize Simulator / Calculator -->
+  <section id="calculator">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-emerald"><i class="fas fa-calculator"></i> SIMULATION & ODDS</span>
+        <h2>จำลองคำนวณเงินรางวัล <span class="text-gradient-emerald">สลาก N3</span></h2>
+        <p>คำนวณส่วนแบ่งเงินรางวัลสลาก N3 ทั้ง 4 ประเภทตามเกณฑ์จริง 60% ของยอดขายสลาก</p>
+      </div>
+
+      <div class="calculator-box">
+        <div class="calc-inputs">
+          <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-sliders-h" style="color: var(--color-gold);"></i> กำหนดยอดขายสลาก N3 (จำลอง)</h3>
+          
+          <label for="calc-sales">ยอดขายรวมสลาก N3 ในงวดนี้ (บาท):</label>
+          <input type="number" id="calc-sales" class="calc-input-field" value="1000000" step="100000">
+
+          <div style="background: rgba(255, 255, 255, 0.03); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-glass);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--text-secondary);">จำนวนสลากรวม:</span>
+              <strong id="calc-tickets" style="color: var(--color-gold);">50,000 ใบ</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-secondary);">รวมเงินรางวัลทั้งหมด (60%):</span>
+              <strong id="calc-prize-total" style="color: var(--color-emerald-light);">600,000 ฿</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-results">
+          <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-chart-pie" style="color: var(--color-emerald);"></i> สัดส่วนเงินรางวัลแต่ละประเภท</h3>
+
+          <div class="prize-breakdown-list">
+            <div class="prize-item">
+              <div>
+                <strong>3 ตัวตรง (30%)</strong>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">ตรงทั้ง 3 หลัก ถูกตรงตำแหน่ง</div>
+              </div>
+              <span id="calc-n3-direct" style="font-weight: 700; font-size: 1.15rem; color: var(--color-gold);">180,000 ฿</span>
+            </div>
+
+            <div class="prize-item">
+              <div>
+                <strong>3 ตัวโต๊ด (30%)</strong>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">สลับตำแหน่งได้ทั้ง 3 หลัก</div>
+              </div>
+              <span id="calc-n3-tod" style="font-weight: 700; font-size: 1.15rem; color: var(--color-cyan);">180,000 ฿</span>
+            </div>
+
+            <div class="prize-item">
+              <div>
+                <strong>2 ตัวตรง (39%)</strong>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">ตรงกับ 2 หลักท้าย</div>
+              </div>
+              <span id="calc-n2-direct" style="font-weight: 700; font-size: 1.15rem; color: var(--color-emerald-light);">234,000 ฿</span>
+            </div>
+
+            <div class="prize-item special">
+              <div>
+                <strong style="color: var(--color-gold);"><i class="fas fa-crown"></i> รางวัลพิเศษ Jackpot (1%)</strong>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">สุ่มเลือกจากผู้ถูกรางวัล 3 ตัวตรง</div>
+              </div>
+              <span id="calc-special" style="font-weight: 800; font-size: 1.25rem; color: var(--color-gold);">6,000 ฿</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: Paotang Buying Guide -->
+  <section id="guide">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-gold"><i class="fas fa-book"></i> EASY STEPS GUIDE</span>
+        <h2>วิธีสั่งซื้อสลาก <span class="text-gradient-gold">GLO N3</span></h2>
+        <p>ขั้นตอนง่ายๆ ในการสั่งซื้อสลาก N3 ผ่านร้านค้าของเรา หรือ แอปพลิเคชันเป๋าตัง</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h3>ทำนายฝันรับเลข N3</h3>
+          <p>กรอกความฝันในระบบ AI เพื่อสกัดชุดตัวเลขมงคล 3 ตัวตรง, 3 ตัวโต๊ด และ 2 ตัว</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h3>เลือกช่องทางสั่งซื้อ</h3>
+          <p>กดปุ่ม <strong>"ร้านค้าของเรา"</strong> เพื่อซื้อโดยตรง หรือเลือกซื้อผ่านแอปเป๋าตัง</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h3>คัดลอกตัวเลข</h3>
+          <p>ระบบจะคัดลอกชุดเลขเด็ด N3 ลง Clipboard ให้อัตโนมัติ เพื่อนำไปวางค้นหาได้ทันที</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">4</div>
+          <h3>ยืนยันและรับสลาก</h3>
+          <p>ชำระเงินตามจำนวนใบ (ใบละ 20 บาท) และรับสลาก N3 พร้อมลุ้น 4 รางวัลใหญ่</p>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 3.5rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+        <a href="#" class="btn btn-emerald btn-our-shop" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
+          <i class="fas fa-shopping-cart"></i> สั่งซื้อทันทีที่ร้านค้าของเรา
+        </a>
+        <button class="btn btn-gold btn-buy-paotang" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
+          <i class="fas fa-wallet"></i> เข้าสู่แอปเป๋าตัง
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modals: Desktop QR Code Popup -->
+  <div id="modal-qr" class="modal-overlay">
+    <div class="modal-card">
+      <button id="modal-qr-close" class="modal-close">&times;</button>
+      <div style="width: 56px; height: 56px; background: rgba(255, 215, 0, 0.1); border: 1px solid var(--border-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-gold); font-size: 1.5rem;">
+        <i class="fas fa-qrcode"></i>
+      </div>
+      <h3>สแกนเพื่อเปิดแอป "เป๋าตัง"</h3>
+      <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem;">
+        ใช้กล้องสมาร์ทโฟนสแกน QR Code ด้านล่างเพื่อเข้าสู่แอปเป๋าตัง และซื้อสลาก N3 ได้ทันที
+      </p>
+
+      <div class="qr-placeholder">
+        <!-- SVG Generated High quality QR Placeholder -->
+        <svg viewBox="0 0 200 200" width="190" height="190">
+          <rect width="200" height="200" fill="#ffffff" />
+          <!-- Corner Marks -->
+          <rect x="15" y="15" width="45" height="45" fill="#0f172a" />
+          <rect x="23" y="23" width="29" height="29" fill="#ffffff" />
+          <rect x="29" y="29" width="17" height="17" fill="#0f172a" />
+
+          <rect x="140" y="15" width="45" height="45" fill="#0f172a" />
+          <rect x="148" y="23" width="29" height="29" fill="#ffffff" />
+          <rect x="154" y="29" width="17" height="17" fill="#0f172a" />
+
+          <rect x="15" y="140" width="45" height="45" fill="#0f172a" />
+          <rect x="23" y="148" width="29" height="29" fill="#ffffff" />
+          <rect x="29" y="154" width="17" height="17" fill="#0f172a" />
+
+          <!-- Center Logo -->
+          <rect x="75" y="75" width="50" height="50" rx="10" fill="#ffd700" />
+          <text x="100" y="107" font-family="'Prompt', sans-serif" font-weight="900" font-size="22" fill="#000" text-anchor="middle">N3</text>
+
+          <!-- Decorative QR Dots -->
+          <rect x="75" y="20" width="10" height="10" fill="#0f172a" />
+          <rect x="95" y="20" width="10" height="10" fill="#0f172a" />
+          <rect x="115" y="35" width="10" height="10" fill="#0f172a" />
+          <rect x="20" y="75" width="10" height="10" fill="#0f172a" />
+          <rect x="35" y="95" width="10" height="10" fill="#0f172a" />
+          <rect x="140" y="80" width="10" height="10" fill="#0f172a" />
+          <rect x="165" y="110" width="10" height="10" fill="#0f172a" />
+          <rect x="80" y="145" width="10" height="10" fill="#0f172a" />
+          <rect x="110" y="165" width="10" height="10" fill="#0f172a" />
+          <rect x="145" y="150" width="10" height="10" fill="#0f172a" />
+        </svg>
+      </div>
+
+      <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid var(--border-gold); padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--color-gold-light);">
+        <i class="fas fa-info-circle"></i> คัดลอกชุดเลขเด็ด N3 เรียบร้อยแล้ว สามารถกดค้นหาในแอปได้ทันที
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals: Shop URL Configurator Modal -->
+  <div id="modal-shop-config" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <button id="modal-shop-close" class="modal-close">&times;</button>
+      <div style="width: 56px; height: 56px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--border-emerald); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-emerald-light); font-size: 1.5rem;">
+        <i class="fas fa-store"></i>
+      </div>
+      <h3>ร้านค้าของเรา (Official Shop)</h3>
+      <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">
+        ระบบได้ทำการคัดลอกเลขเด็ด N3 เรียบร้อยแล้ว! กำลังนำคุณไปยังหน้าร้านค้า...
+      </p>
+
+      <div style="margin-bottom: 1.5rem; text-align: left;">
+        <label for="shop-url-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">ตั้งค่าลิงก์ร้านค้าของคุณ (URL):</label>
+        <input type="url" id="shop-url-input" class="calc-input-field" value="https://line.me" placeholder="เช่น https://shop.yourdomain.com หรือ https://line.me/R/ti/p/@yourshop" style="margin-bottom: 0.5rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted);">* สามารถเปลี่ยนเป็นลิงก์ร้านค้า LINE Official, Facebook, หรือเว็บไซต์ร้านค้าของคุณได้ตลอดเวลา</div>
+      </div>
+
+      <div style="display: flex; gap: 1rem;">
+        <button id="btn-save-shop-url" class="btn btn-emerald" style="flex: 1;">
+          <i class="fas fa-external-link-alt"></i> ไปที่ร้านค้าทันที
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="brand-logo" style="margin-bottom: 1rem;">
+            <div class="logo-icon">N3</div>
+            <div class="brand-text">
+              <span class="brand-title">GLO N3 PORTAL</span>
+              <span class="brand-sub">สำนักงานสลากกินแบ่งรัฐบาล</span>
+            </div>
+          </div>
+          <p style="font-size: 0.9rem; max-width: 400px; color: var(--text-muted);">
+            เว็บไซต์นี้จัดทำขึ้นเพื่อโปรโมทและประชาสัมพันธ์การจำหน่ายสลากกินแบ่งรัฐบาล N3 (สลาก 3 หลัก) ผ่านร้านค้าของเราและแอปพลิเคชันเป๋าตัง พร้อมนำเสนอระบบ AI ช่วยทำนายฝันเพื่อความบันเทิงและเสริมสิริมงคล
+          </p>
+        </div>
+
+        <div>
+          <h4 style="color: #fff; margin-bottom: 1rem;">เมนูด่วน</h4>
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem;">
+            <li><a href="#hero" style="color: var(--text-secondary); text-decoration: none;">หน้าแรก</a></li>
+            <li><a href="#features" style="color: var(--text-secondary); text-decoration: none;">จุดเด่นสลาก N3</a></li>
+            <li><a href="#ai-dream" style="color: var(--text-secondary); text-decoration: none;">AI ทำนายฝัน N3</a></li>
+            <li><a href="#calculator" style="color: var(--text-secondary); text-decoration: none;">คำนวณรางวัล N3</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 style="color: #fff; margin-bottom: 1rem;">ช่องทางซื้อสลาก N3</h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            สั่งซื้อสลาก N3 ได้สะดวกและปลอดภัยที่ร้านค้าของเรา หรือผ่านแอปพลิเคชันเป๋าตัง
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+            <a href="#" class="btn btn-emerald btn-our-shop" style="font-size: 0.9rem; padding: 0.6rem 1rem;">
+              <i class="fas fa-shopping-bag"></i> สั่งซื้อที่ร้านค้าของเรา
+            </a>
+            <button class="btn btn-outline btn-buy-paotang" style="font-size: 0.9rem; padding: 0.6rem 1rem;">
+              <i class="fas fa-wallet"></i> เข้าสู่แอปเป๋าตัง
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        &copy; 2026 GLO N3 Portal & AI Dream Interpreter. All rights reserved. • สำนักงานสลากกินแบ่งรัฐบาล (GLO)
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Scripts -->
+  <script src="js/sound-effects.js"></script>
+  <script src="js/particle-canvas.js"></script>
+  <script src="js/ai-dream-engine.js"></script>
+  <script src="js/n3-calculator.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
