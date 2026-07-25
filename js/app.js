@@ -6,33 +6,36 @@
 document.addEventListener('DOMContentLoaded', function () {
   // Navigation Scroll Effect
   const navbar = document.querySelector('.navbar');
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 50) {
-      navbar.classList.add('scrolled');
-    } else {
-      navbar.classList.remove('scrolled');
-    }
-  });
+  if (navbar) {
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+  }
 
   // Sound Toggle Listener
   const btnSound = document.getElementById('btn-sound');
   const soundIcon = document.getElementById('sound-icon');
   if (btnSound) {
     btnSound.addEventListener('click', () => {
-      const isMuted = SoundEngine.toggleMute();
-      if (isMuted) {
-        soundIcon.className = 'fas fa-volume-mute';
-        showToast('ปิดเสียงเอฟเฟกต์แล้ว');
-      } else {
-        soundIcon.className = 'fas fa-volume-up';
-        SoundEngine.playClick();
-        showToast('เปิดเสียงเอฟเฟกต์แล้ว');
+      try {
+        const isMuted = SoundEngine.toggleMute();
+        if (soundIcon) {
+          soundIcon.className = isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+        }
+        showToast(isMuted ? 'ปิดเสียงเอฟเฟกต์แล้ว' : 'เปิดเสียงเอฟเฟกต์แล้ว');
+        if (!isMuted) SoundEngine.playClick();
+      } catch (e) {
+        console.warn(e);
       }
     });
   }
 
   // Shop Link Management System
-  const DEFAULT_SHOP_URL = 'https://line.me'; // Default Shop URL (LINE, Webshop, Facebook, etc.)
+  const DEFAULT_SHOP_URL = 'https://line.me';
   let currentShopUrl = localStorage.getItem('glo_n3_shop_url') || DEFAULT_SHOP_URL;
 
   const btnOurShopList = document.querySelectorAll('.btn-our-shop');
@@ -48,18 +51,16 @@ document.addEventListener('DOMContentLoaded', function () {
   btnOurShopList.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      SoundEngine.playClick();
+      try { SoundEngine.playClick(); } catch (err) {}
 
-      // Copy lucky number if available
       let numberToCopy = '000';
-      if (currentPrediction) {
+      if (currentPrediction && currentPrediction.n3Direct) {
         numberToCopy = currentPrediction.n3Direct;
       }
       copyToClipboard(numberToCopy);
 
-      showToast(`คัดลอกเลขเด็ด N3 (${numberToCopy}) แล้ว! กำลังนำคุณไปยังร้านค้าของเรา...`);
+      showToast(`คัดลอกเลขเด็ด N3 (${numberToCopy}) แล้ว! กำลังนำคุณไปยังร้านค้า...`);
 
-      // Open modal if user wants to customize URL or click directly to open
       if (modalShopConfig) {
         modalShopConfig.classList.add('active');
       } else {
@@ -76,11 +77,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (btnSaveShopUrl) {
     btnSaveShopUrl.addEventListener('click', () => {
-      SoundEngine.playClick();
-      const newUrl = shopUrlInput.value.trim() || DEFAULT_SHOP_URL;
+      try { SoundEngine.playClick(); } catch (err) {}
+      const newUrl = (shopUrlInput ? shopUrlInput.value.trim() : '') || DEFAULT_SHOP_URL;
       currentShopUrl = newUrl;
       localStorage.setItem('glo_n3_shop_url', currentShopUrl);
-      modalShopConfig.classList.remove('active');
+      if (modalShopConfig) modalShopConfig.classList.remove('active');
       showToast('เปิดหน้าร้านค้าของคุณแล้ว!');
       window.open(currentShopUrl, '_blank');
     });
@@ -91,7 +92,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const dreamInput = document.getElementById('dream-input');
   tagBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      SoundEngine.playClick();
+      try { SoundEngine.playClick(); } catch (err) {}
+      if (!dreamInput) return;
       const tagText = btn.dataset.tag || btn.innerText;
       if (dreamInput.value.trim() === '') {
         dreamInput.value = `ฝันเห็น${tagText}`;
@@ -115,19 +117,19 @@ document.addEventListener('DOMContentLoaded', function () {
   if (dreamForm) {
     dreamForm.addEventListener('submit', function (e) {
       e.preventDefault();
-      const inputVal = dreamInput.value.trim();
+      const inputVal = dreamInput ? dreamInput.value.trim() : '';
 
       if (!inputVal) {
         showToast('กรุณากรอกความฝันหรือเลือกคีย์เวิร์ดฝันก่อนครับ');
         return;
       }
 
-      SoundEngine.playScanChime();
+      try { SoundEngine.playScanChime(); } catch (err) {}
 
       // UI Switch to Scanning
-      dreamBoxWrapper.style.display = 'none';
-      resultContainer.style.display = 'none';
-      scanningOverlay.style.display = 'flex';
+      if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'none';
+      if (resultContainer) resultContainer.style.display = 'none';
+      if (scanningOverlay) scanningOverlay.style.display = 'flex';
 
       const scanSteps = [
         'กำลังสแกนสัญลักษณ์และถอดรหัสนิมิต...',
@@ -137,41 +139,60 @@ document.addEventListener('DOMContentLoaded', function () {
       ];
 
       let stepIdx = 0;
-      progressBarFill.style.width = '0%';
+      if (progressBarFill) progressBarFill.style.width = '0%';
 
       const interval = setInterval(() => {
         stepIdx++;
         if (stepIdx < scanSteps.length) {
-          scanStepText.innerText = scanSteps[stepIdx];
-          progressBarFill.style.width = `${(stepIdx / scanSteps.length) * 100}%`;
-          SoundEngine.playScanChime();
+          if (scanStepText) scanStepText.innerText = scanSteps[stepIdx];
+          if (progressBarFill) progressBarFill.style.width = `${(stepIdx / scanSteps.length) * 100}%`;
+          try { SoundEngine.playScanChime(); } catch (err) {}
         } else {
           clearInterval(interval);
-          progressBarFill.style.width = '100%';
+          if (progressBarFill) progressBarFill.style.width = '100%';
 
-          // Generate Result
-          currentPrediction = AIDreamEngine.generatePrediction(inputVal);
-          displayPredictionResult(currentPrediction);
+          // Generate Result safely
+          try {
+            currentPrediction = AIDreamEngine.generatePrediction(inputVal);
+            displayPredictionResult(currentPrediction);
+          } catch (err) {
+            console.error('Prediction Generation Error:', err);
+            // Fallback display if error occurs
+            if (scanningOverlay) scanningOverlay.style.display = 'none';
+            if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'block';
+            showToast('เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง');
+          }
         }
-      }, 700);
+      }, 500);
     });
   }
 
-  // Display Prediction Results
+  // Display Prediction Results (Defensive & Robust)
   function displayPredictionResult(pred) {
-    scanningOverlay.style.display = 'none';
-    resultContainer.style.display = 'block';
+    if (!pred) return;
 
-    document.getElementById('res-dream-title').innerText = `"${pred.dreamText}"`;
-    document.getElementById('res-element').innerText = pred.element;
-    document.getElementById('res-n3-direct').innerText = pred.n3Direct;
-    document.getElementById('res-n3-tod').innerText = pred.n3Tod;
-    document.getElementById('res-n2-digit').innerText = pred.n2Digit;
-    document.getElementById('res-confidence').innerText = pred.confidence;
-    document.getElementById('res-meaning').innerText = pred.meaning;
-    document.getElementById('res-blessing').innerText = pred.blessing;
+    if (scanningOverlay) scanningOverlay.style.display = 'none';
+    if (resultContainer) resultContainer.style.display = 'block';
 
-    SoundEngine.playRevealFanfare();
+    const elDreamTitle = document.getElementById('res-dream-title');
+    const elElement = document.getElementById('res-element');
+    const elN3Direct = document.getElementById('res-n3-direct');
+    const elN3Tod = document.getElementById('res-n3-tod');
+    const elN2Digit = document.getElementById('res-n2-digit');
+    const elConfidence = document.getElementById('res-confidence');
+    const elMeaning = document.getElementById('res-meaning');
+    const elBlessing = document.getElementById('res-blessing');
+
+    if (elDreamTitle) elDreamTitle.innerText = `"${pred.dreamText}"`;
+    if (elElement) elElement.innerText = pred.element;
+    if (elN3Direct) elN3Direct.innerText = pred.n3Direct;
+    if (elN3Tod) elN3Tod.innerText = pred.n3Tod;
+    if (elN2Digit) elN2Digit.innerText = pred.n2Digit;
+    if (elConfidence) elConfidence.innerText = pred.confidence;
+    if (elMeaning) elMeaning.innerText = pred.meaning;
+    if (elBlessing) elBlessing.innerText = pred.blessing;
+
+    try { SoundEngine.playRevealFanfare(); } catch (err) {}
     showToast('ทำนายฝันและคำนวณเลข N3 สำเร็จแล้ว!');
   }
 
@@ -179,11 +200,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnResetDream = document.getElementById('btn-reset-dream');
   if (btnResetDream) {
     btnResetDream.addEventListener('click', () => {
-      SoundEngine.playClick();
-      resultContainer.style.display = 'none';
-      dreamBoxWrapper.style.display = 'block';
-      dreamInput.value = '';
-      dreamInput.focus();
+      try { SoundEngine.playClick(); } catch (err) {}
+      if (resultContainer) resultContainer.style.display = 'none';
+      if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'block';
+      if (dreamInput) {
+        dreamInput.value = '';
+        dreamInput.focus();
+      }
     });
   }
 
@@ -194,36 +217,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
   btnBuyPaotang.forEach(btn => {
     btn.addEventListener('click', () => {
-      SoundEngine.playClick();
+      try { SoundEngine.playClick(); } catch (err) {}
 
-      // Copy lucky number if available
       let numberToCopy = '000';
-      if (currentPrediction) {
+      if (currentPrediction && currentPrediction.n3Direct) {
         numberToCopy = currentPrediction.n3Direct;
       }
       copyToClipboard(numberToCopy);
 
-      // Detect User Device (Mobile vs Desktop)
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       if (isMobile) {
         showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กำลังเปิดแอปเป๋าตัง...`);
-        // Try opening Deep Link with fallback
         setTimeout(() => {
           window.location.href = 'paotang://';
-          // Fallback timer if app doesn't open in 2s
           setTimeout(() => {
             const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isiOS) {
-              window.location.href = 'https://apps.apple.com/th/app/paotang/id1324901416';
-            } else {
-              window.location.href = 'https://play.google.com/store/apps/details?id=th.or.ktb.paotang';
-            }
+            window.location.href = isiOS ? 
+              'https://apps.apple.com/th/app/paotang/id1324901416' : 
+              'https://play.google.com/store/apps/details?id=th.or.ktb.paotang';
           }, 1800);
         }, 300);
       } else {
-        // Desktop: Open QR Code Popup
-        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กรุณาสแกน QR Code ด้วยมือถือเพื่อเปิดแอปเป๋าตัง`);
+        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กรุณาสแกน QR Code เพื่อเปิดแอปเป๋าตัง`);
         if (modalQr) modalQr.classList.add('active');
       }
     });
@@ -231,30 +247,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (modalQrClose) {
     modalQrClose.addEventListener('click', () => {
-      modalQr.classList.remove('active');
+      if (modalQr) modalQr.classList.remove('active');
     });
   }
 
   // Clipboard Utility
   function copyToClipboard(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text);
-    } else {
-      const el = document.createElement('textarea');
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+      SoundEngine.playCopySuccess();
+    } catch (e) {
+      console.warn('Clipboard copy error:', e);
     }
-    SoundEngine.playCopySuccess();
   }
 
   // Copy Direct Button Listener
   const btnCopyNum = document.getElementById('btn-copy-num');
   if (btnCopyNum) {
     btnCopyNum.addEventListener('click', () => {
-      if (currentPrediction) {
+      if (currentPrediction && currentPrediction.n3Direct) {
         copyToClipboard(currentPrediction.n3Direct);
         showToast(`คัดลอกเลขเด็ด 3 ตัวตรง (${currentPrediction.n3Direct}) เรียบร้อยแล้ว!`);
       }
@@ -291,12 +311,19 @@ document.addEventListener('DOMContentLoaded', function () {
       const sales = parseFloat(calcSalesInput.value) || 1000000;
       const res = N3Calculator.calculatePrizePool(sales);
 
-      document.getElementById('calc-tickets').innerText = `${res.ticketCount.toLocaleString()} ใบ`;
-      document.getElementById('calc-prize-total').innerText = N3Calculator.formatBaht(res.prizePoolTotal);
-      document.getElementById('calc-n3-direct').innerText = N3Calculator.formatBaht(res.n3DirectPool);
-      document.getElementById('calc-n3-tod').innerText = N3Calculator.formatBaht(res.n3TodPool);
-      document.getElementById('calc-n2-direct').innerText = N3Calculator.formatBaht(res.n2DirectPool);
-      document.getElementById('calc-special').innerText = N3Calculator.formatBaht(res.specialJackpotPool);
+      const elTickets = document.getElementById('calc-tickets');
+      const elPrizeTotal = document.getElementById('calc-prize-total');
+      const elN3Direct = document.getElementById('calc-n3-direct');
+      const elN3Tod = document.getElementById('calc-n3-tod');
+      const elN2Direct = document.getElementById('calc-n2-direct');
+      const elSpecial = document.getElementById('calc-special');
+
+      if (elTickets) elTickets.innerText = `${res.ticketCount.toLocaleString()} ใบ`;
+      if (elPrizeTotal) elPrizeTotal.innerText = N3Calculator.formatBaht(res.prizePoolTotal);
+      if (elN3Direct) elN3Direct.innerText = N3Calculator.formatBaht(res.n3DirectPool);
+      if (elN3Tod) elN3Tod.innerText = N3Calculator.formatBaht(res.n3TodPool);
+      if (elN2Direct) elN2Direct.innerText = N3Calculator.formatBaht(res.n2DirectPool);
+      if (elSpecial) elSpecial.innerText = N3Calculator.formatBaht(res.specialJackpotPool);
     }
 
     calcSalesInput.addEventListener('input', updateCalculator);
