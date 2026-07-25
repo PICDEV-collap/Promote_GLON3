@@ -1,6 +1,6 @@
 /* ==========================================================================
    GLO N3 - Main Application Logic & User Interaction Controller
-   Smart Paotang Linker, Official Shop Router, Dream Prediction UI Flow
+   Smart Paotang Linker, Native Mobile App Deep Link Launcher, Official Shop Router
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -209,13 +209,32 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Smart Paotang Link & Copy Action (Robust & Popup-Blocker Safe)
+  // Native Mobile Paotang App Launcher
+  function launchNativePaotangApp() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isAndroid = /android/i.test(userAgent);
+    const isiOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+    if (isAndroid) {
+      // Official Android Intent format for launching installed Paotang app natively
+      window.location.href = 'intent://#Intent;scheme=paotang;package=th.or.ktb.paotang;end';
+    } else if (isiOS) {
+      // iOS Custom Scheme
+      window.location.href = 'paotang://';
+    } else {
+      // Desktop / Other: Open Web Portal
+      window.open('https://paotang.krungthai.com', '_blank');
+    }
+  }
+
+  // Smart Paotang Button Click Controller
   const btnBuyPaotang = document.querySelectorAll('.btn-buy-paotang');
   const modalQr = document.getElementById('modal-qr');
   const modalQrClose = document.getElementById('modal-qr-close');
 
   btnBuyPaotang.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
       try { SoundEngine.playClick(); } catch (err) {}
 
       let numberToCopy = '000';
@@ -224,10 +243,14 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       copyToClipboard(numberToCopy);
 
-      showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! เลือกช่องทางเปิดแอปเป๋าตังได้ทันที`);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      if (modalQr) {
-        modalQr.classList.add('active');
+      if (isMobile) {
+        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กำลังสะกิดเปิดแอปเป๋าตัง...`);
+        launchNativePaotangApp();
+      } else {
+        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! สแกน QR Code หรือเปิดแอปเป๋าตัง`);
+        if (modalQr) modalQr.classList.add('active');
       }
     });
   });
