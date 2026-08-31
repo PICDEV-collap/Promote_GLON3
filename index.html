@@ -17,6 +17,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+  <!-- PWA Manifest & Mobile App Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffd700">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GLO N3 AI">
+
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -24,6 +31,23 @@
 
   <!-- Background Particle Canvas -->
   <canvas id="particle-canvas"></canvas>
+
+  <!-- PWA Install Floating Banner -->
+  <div id="pwa-install-banner" class="pwa-install-banner">
+    <div class="pwa-banner-content">
+      <div style="width: 40px; height: 40px; background: rgba(255, 215, 0, 0.2); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--color-gold); font-size: 1.25rem;">
+        <i class="fas fa-mobile-alt"></i>
+      </div>
+      <div>
+        <strong style="font-size: 0.9rem; color: #fff;">ติดตั้ง GLO N3 App</strong>
+        <div style="font-size: 0.75rem; color: var(--text-secondary);">เปิดใช้งานสะดวกรวดเร็วจากหน้าจอมือถือ</div>
+      </div>
+      <button id="btn-pwa-install" class="btn btn-gold" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">
+        ติดตั้ง
+      </button>
+      <button id="btn-pwa-close" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;">&times;</button>
+    </div>
+  </div>
 
   <!-- White-label Dynamic Partner Banner -->
   <div id="agent-banner" class="agent-banner">
@@ -49,7 +73,9 @@
         <li><a href="#hero" class="nav-link active">หน้าแรก</a></li>
         <li><a href="#features" class="nav-link">จุดเด่น N3</a></li>
         <li><a href="#ai-dream" class="nav-link">AI ทำนายฝัน</a></li>
+        <li><a href="#tarot-horoscope" class="nav-link">ไพ่ยิปซี 3D</a></li>
         <li><a href="#results-stats" class="nav-link">ตรวจผล & สถิติ</a></li>
+        <li><a href="#poster-studio" class="nav-link">สตูดิโอโปสเตอร์</a></li>
         <li><a href="#calculator" class="nav-link">คำนวณเงินรางวัล</a></li>
         <li><a href="#guide" class="nav-link">วิธีซื้อเป๋าตัง</a></li>
       </ul>
@@ -87,6 +113,40 @@
           <p class="hero-desc">
             ลุ้นรับ 4 รางวัลใหญ่ (3 ตัวตรง, 3 ตัวโต๊ด, 2 ตัวตรง และรางวัลพิเศษ) สะดวก ปลอดภัย ซื้อตรงผ่าน <strong>ร้านค้าของเรา</strong> และแอปพลิเคชัน <strong>"เป๋าตัง"</strong> พร้อมระบบ <strong>AI ช่วยทำนายฝันถอดรหัสตัวเลขมงคล</strong>
           </p>
+
+          <!-- Real-time Next Draw Countdown Widget -->
+          <div class="draw-countdown-box">
+            <div>
+              <div style="font-size: 0.8rem; color: var(--color-gold); font-weight: 600;">
+                <i class="fas fa-broadcast-tower"></i> นับถอยหลังวันออกสลาก N3 งวดถัดไป:
+              </div>
+              <div id="cd-target-date" style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500;">
+                16 กันยายน 2569 (14:30 น.)
+              </div>
+            </div>
+
+            <div class="countdown-timer-group">
+              <div class="cd-block">
+                <span id="cd-days" class="cd-val">00</span>
+                <span class="cd-lbl">วัน</span>
+              </div>
+              <span class="cd-colon">:</span>
+              <div class="cd-block">
+                <span id="cd-hours" class="cd-val">00</span>
+                <span class="cd-lbl">ชม.</span>
+              </div>
+              <span class="cd-colon">:</span>
+              <div class="cd-block">
+                <span id="cd-minutes" class="cd-val">00</span>
+                <span class="cd-lbl">นาที</span>
+              </div>
+              <span class="cd-colon">:</span>
+              <div class="cd-block">
+                <span id="cd-seconds" class="cd-val" style="color: var(--color-emerald-light);">00</span>
+                <span class="cd-lbl">วินาที</span>
+              </div>
+            </div>
+          </div>
 
           <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
             <a href="#ai-dream" class="btn btn-gold">
@@ -283,8 +343,12 @@
               <p id="res-meaning" style="color: var(--text-primary); margin-bottom: 0.75rem;">
                 ฝันเห็นงูถือเป็นนิมิตมงคลยิ่งใหญ่ สื่อถึงโชคลาภก้อนโตที่จะเข้ามารวดเร็วฉับพลัน
               </p>
-              <div style="font-size: 0.95rem; color: var(--color-emerald-light);">
+              <div style="font-size: 0.95rem; color: var(--color-emerald-light); margin-bottom: 0.75rem;">
                 <i class="fas fa-hands-praying"></i> <strong>ข้อแนะนำเสริมดวง:</strong> <span id="res-blessing">แนะนำตักบาตรเช้าหรือบริจาคทานน้ำดื่ม</span>
+              </div>
+              <div id="res-poem-box" style="padding: 0.85rem; background: rgba(255, 215, 0, 0.06); border: 1px dashed var(--border-gold); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--color-gold-light); font-style: italic; white-space: pre-line; text-align: center;">
+                นิมิตฝันแห่งโชคลาภพาพบสุข / สิ่งศักดิ์สิทธิ์ปลดเปลื้องทุกข์ดับตัณหา
+                เลขมงคล 789 เด่นในสายตา / รับทรัพย์ใหญ่สลาก N3 สมดั่งใจ
               </div>
             </div>
 
@@ -314,6 +378,123 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: AI Daily Tarot & Birthday Numerology -->
+  <section id="tarot-horoscope">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-emerald"><i class="fas fa-hat-wizard"></i> 3D MYSTICAL TAROT & ZODIAC</span>
+        <h2><span class="text-gradient-emerald">ไพ่ยิปซี 3D</span> & ดูดวงวันเกิดสลาก N3</h2>
+        <p>เปิดไพ่ทาโรต์ 3 มิติ 3 ใบ (อดีต-ปัจจุบัน-อนาคต) เพื่อถอดรหัสตัวเลขมงคลประจำดวงชะตา หรือเลือกดูดวงตามราศีเกิด</p>
+      </div>
+
+      <!-- 3D Tarot Cards Display -->
+      <div class="tarot-cards-container">
+        <!-- Card 1 -->
+        <div id="tarot-card-1" class="tarot-card-wrapper flipped">
+          <div class="tarot-card-inner">
+            <div class="tarot-back">
+              <div class="tarot-back-pattern"><i class="fas fa-sun"></i></div>
+              <div style="font-size: 0.8rem; color: var(--color-gold); margin-top: 0.75rem;">คลิกเพื่อเปิดไพ่</div>
+            </div>
+            <div class="tarot-front">
+              <div id="tarot-icon-1" class="tarot-icon-badge">🪄</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">ใบที่ 1: พลังหนุน</div>
+              <div id="tarot-name-1" class="tarot-card-name">The Magician</div>
+              <div id="tarot-digit-1" class="tarot-digit-pill">เลขเด่น: 1</div>
+              <p id="tarot-desc-1" class="tarot-fortune-desc">ปัญญาเฉียบแหลม หยิบจับอะไรก็เป็นเงินทอง</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div id="tarot-card-2" class="tarot-card-wrapper flipped">
+          <div class="tarot-card-inner">
+            <div class="tarot-back">
+              <div class="tarot-back-pattern"><i class="fas fa-moon"></i></div>
+              <div style="font-size: 0.8rem; color: var(--color-gold); margin-top: 0.75rem;">คลิกเพื่อเปิดไพ่</div>
+            </div>
+            <div class="tarot-front">
+              <div id="tarot-icon-2" class="tarot-icon-badge">🎡</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">ใบที่ 2: โอกาส</div>
+              <div id="tarot-name-2" class="tarot-card-name">Wheel of Fortune</div>
+              <div id="tarot-digit-2" class="tarot-digit-pill">เลขเด่น: 0</div>
+              <p id="tarot-desc-2" class="tarot-fortune-desc">โชคชะตาพลิกผันสู่ความร่ำรวย ลาภลอยมหาศาล</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div id="tarot-card-3" class="tarot-card-wrapper flipped">
+          <div class="tarot-card-inner">
+            <div class="tarot-back">
+              <div class="tarot-back-pattern"><i class="fas fa-star"></i></div>
+              <div style="font-size: 0.8rem; color: var(--color-gold); margin-top: 0.75rem;">คลิกเพื่อเปิดไพ่</div>
+            </div>
+            <div class="tarot-front">
+              <div id="tarot-icon-3" class="tarot-icon-badge">☀️</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">ใบที่ 3: โชคลาภ</div>
+              <div id="tarot-name-3" class="tarot-card-name">The Sun</div>
+              <div id="tarot-digit-3" class="tarot-digit-pill">เลขเด่น: 9</div>
+              <p id="tarot-desc-3" class="tarot-fortune-desc">มหาโชคลาภ ความสำเร็จสว่างไสวสูงสุด</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarot Prediction Summary & Action -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; max-width: 750px; margin: 0 auto 2.5rem auto;">
+        <div style="display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+          <div>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">3 ตัวตรงจากไพ่:</span>
+            <strong id="tarot-res-direct" style="font-size: 1.5rem; color: var(--color-gold); margin-left: 0.4rem;">109</strong>
+          </div>
+          <div>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">3 ตัวโต๊ด:</span>
+            <strong id="tarot-res-tod" style="font-size: 1.5rem; color: var(--color-cyan); margin-left: 0.4rem;">190, 019</strong>
+          </div>
+          <div>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">2 ตัวตรง:</span>
+            <strong id="tarot-res-2digit" style="font-size: 1.5rem; color: var(--color-emerald-light); margin-left: 0.4rem;">09</strong>
+          </div>
+        </div>
+
+        <p id="tarot-combined-fortune" style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 1.25rem;">
+          ไพ่ทั้งสามใบชี้ถึงพลัง The Magician ผสานกับ The Sun นำพาโชคใหญ่ N3 เลข 109 มีโอกาสถูกรางวัลสูงในงวดนี้
+        </p>
+
+        <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+          <button id="btn-draw-tarot" class="btn btn-emerald">
+            <i class="fas fa-magic"></i> สับไพ่และเปิดไพ่ 3 ใบใหม่
+          </button>
+          <button id="btn-copy-tarot" class="btn btn-outline">
+            <i class="fas fa-copy"></i> คัดลอกเลขไพ่ยิปซี
+          </button>
+        </div>
+      </div>
+
+      <!-- Birthday Zodiac Numerology Box -->
+      <div class="checker-card" style="max-width: 750px; margin: 0 auto;">
+        <h3 style="color: var(--color-gold); margin-bottom: 1rem;"><i class="fas fa-star-and-crescent"></i> ดูดวงตัวเลขตามราศีเกิด</h3>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 1rem;">
+          <select id="zodiac-select" class="checker-select" style="margin-bottom: 0;">
+            <!-- Filled by JS -->
+          </select>
+          <button id="btn-check-zodiac" class="btn btn-gold">
+            <i class="fas fa-calculator"></i> วิเคราะห์เลขราศี
+          </button>
+        </div>
+
+        <div id="zodiac-result-box" style="display: none; background: rgba(0, 0, 0, 0.35); padding: 1rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-gold);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <strong id="zodiac-res-title" style="color: var(--color-gold-light);">ราศีเมษ (ธาตุไฟ)</strong>
+            <span style="font-size: 0.9rem; color: var(--color-emerald-light);">3 ตัวตรง: <strong id="zodiac-res-num" style="font-size: 1.2rem; color: var(--color-gold);">194</strong></span>
+          </div>
+          <p id="zodiac-res-desc" style="font-size: 0.85rem; color: var(--text-secondary);"></p>
         </div>
       </div>
     </div>
@@ -405,6 +586,80 @@
           <div>
             <div style="font-size: 0.85rem; color: var(--color-cyan); font-weight: 600;"><i class="fas fa-snowflake"></i> ตัวเลขน่าจับตา (Cold Numbers):</div>
             <div id="stat-cold-chips" class="stats-chip-group"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: Agent Poster Marketing Studio -->
+  <section id="poster-studio">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-gold"><i class="fas fa-palette"></i> MARKETING STUDIO</span>
+        <h2>สตูดิโอสร้างป้าย <span class="text-gradient-gold">โปสเตอร์โปรโมท N3</span></h2>
+        <p>สร้างรูปภาพป้ายโฆษณาหน้าร้านและแบนเนอร์โปรโมทสลาก N3 พร้อมชื่อร้านและช่องทางติดต่อของคุณใน 1 คลิก</p>
+      </div>
+
+      <div class="poster-studio-grid">
+        <!-- Poster Controls -->
+        <div class="poster-controls-box">
+          <h3 style="color: var(--color-gold); margin-bottom: 1.25rem;"><i class="fas fa-sliders-h"></i> ปรับแต่งข้อมูลป้ายโปสเตอร์</h3>
+
+          <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">สัดส่วนภาพ:</label>
+            <div class="theme-chip-group">
+              <button type="button" class="theme-chip active" data-ratio="square"><i class="fas fa-square"></i> สี่เหลี่ยม 1:1 (Feed/LINE)</button>
+              <button type="button" class="theme-chip" data-ratio="story"><i class="fas fa-mobile-alt"></i> แนวตั้ง 9:16 (Story/TikTok)</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">ธีมกราฟิก:</label>
+            <div class="theme-chip-group">
+              <button type="button" class="theme-chip active" data-theme="gold">🌟 Cyber Gold</button>
+              <button type="button" class="theme-chip" data-theme="emerald">💎 Emerald Wealth</button>
+              <button type="button" class="theme-chip" data-theme="midnight">🌌 Midnight Neon</button>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <div>
+              <label for="poster-shop-name" style="font-size: 0.8rem; color: var(--text-secondary);">ชื่อร้านค้าของคุณ:</label>
+              <input type="text" id="poster-shop-name" class="calc-input-field" value="ร้านสลาก N3 มหามงคล">
+            </div>
+            <div>
+              <label for="poster-draw-date" style="font-size: 0.8rem; color: var(--text-secondary);">งวดประจำวันที่:</label>
+              <input type="text" id="poster-draw-date" class="calc-input-field" value="16 กันยายน 2569">
+            </div>
+            <div>
+              <label for="poster-numbers" style="font-size: 0.8rem; color: var(--text-secondary);">3 ชุดเลขเด็ดแนะนำ (คั่นด้วยจุลภาค):</label>
+              <input type="text" id="poster-numbers" class="calc-input-field" value="789, 532, 904">
+            </div>
+            <div>
+              <label for="poster-line" style="font-size: 0.8rem; color: var(--text-secondary);">LINE ID:</label>
+              <input type="text" id="poster-line" class="calc-input-field" value="@glon3">
+            </div>
+            <div>
+              <label for="poster-tel" style="font-size: 0.8rem; color: var(--text-secondary);">เบอร์โทรติดต่อ:</label>
+              <input type="text" id="poster-tel" class="calc-input-field" value="02-528-9999">
+            </div>
+          </div>
+
+          <button id="btn-update-poster" class="btn btn-emerald" style="width: 100%;">
+            <i class="fas fa-sync-alt"></i> อัปเดตพรีวิวโปสเตอร์
+          </button>
+        </div>
+
+        <!-- Poster Preview & Download -->
+        <div class="poster-preview-panel">
+          <h3 style="color: var(--color-gold); margin-bottom: 1rem;"><i class="fas fa-image"></i> พรีวิวโปสเตอร์หน้าร้าน</h3>
+          <img id="poster-preview-img" class="poster-canvas-img" alt="GLO N3 Marketing Poster Preview">
+          
+          <div style="display: flex; gap: 0.75rem;">
+            <button id="btn-download-poster" class="btn btn-gold" style="flex: 1; padding: 0.9rem 1.25rem;">
+              <i class="fas fa-download"></i> ดาวน์โหลดโปสเตอร์ PNG (High-DPI)
+            </button>
           </div>
         </div>
       </div>
@@ -718,6 +973,10 @@
   <script src="js/share-card.js"></script>
   <script src="js/voice-input.js"></script>
   <script src="js/agent-system.js"></script>
+  <script src="js/pwa-installer.js"></script>
+  <script src="js/n3-countdown.js"></script>
+  <script src="js/poster-studio.js"></script>
+  <script src="js/tarot-engine.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,15 +1,74 @@
 /* ==========================================================================
-   GLO N3 - Main Application Logic & Feature Controller
-   - Smart Paotang Linker & Deep Link Launcher
-   - AI Dream Engine & Voice-to-Text Controller
+   GLO N3 - Main Application Logic & Comprehensive Feature Controller
+   - PWA Service Worker & Install Prompt Controller
+   - Next Draw Real-time Countdown Ticker
+   - White-label Dynamic Agent Branding & Affiliate Link Generator
+   - AI Dream Engine & Voice-to-Text Speech Recognition
    - High-DPI Social Share Card Generator
-   - N3 Prize Checker & Historical Results Engine
-   - Statistics & 3D Lucky Ball Roller
-   - White-label Dynamic Partner/Affiliate System
+   - 3D Mystical Tarot Reading & Birthday Zodiac Numerology
+   - N3 Prize Checker & Statistics Engine
+   - Agent Poster & Banner Marketing Studio
+   - Official Shop Router & Smart Paotang Launcher
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function () {
-  // 1. White-label Agent System Initialization
+  // -------------------------------------------------------------------------
+  // 1. PWA Installation & Service Worker Registrar
+  // -------------------------------------------------------------------------
+  PWAInstaller.registerServiceWorker();
+
+  const pwaInstallBanner = document.getElementById('pwa-install-banner');
+  const btnPwaInstall = document.getElementById('btn-pwa-install');
+  const btnPwaClose = document.getElementById('btn-pwa-close');
+
+  PWAInstaller.initInstallPrompt(
+    // onPromptReady
+    () => {
+      if (pwaInstallBanner) pwaInstallBanner.style.display = 'block';
+    },
+    // onInstalled
+    () => {
+      if (pwaInstallBanner) pwaInstallBanner.style.display = 'none';
+      showToast('🎉 ติดตั้งแอป GLO N3 สำเร็จแล้ว!');
+    }
+  );
+
+  if (btnPwaInstall) {
+    btnPwaInstall.addEventListener('click', async () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      const installed = await PWAInstaller.promptInstall();
+      if (installed && pwaInstallBanner) {
+        pwaInstallBanner.style.display = 'none';
+      }
+    });
+  }
+
+  if (btnPwaClose && pwaInstallBanner) {
+    btnPwaClose.addEventListener('click', () => {
+      pwaInstallBanner.style.display = 'none';
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 2. Real-time Next Draw Countdown Ticker
+  // -------------------------------------------------------------------------
+  const cdTargetDate = document.getElementById('cd-target-date');
+  const cdDays = document.getElementById('cd-days');
+  const cdHours = document.getElementById('cd-hours');
+  const cdMinutes = document.getElementById('cd-minutes');
+  const cdSeconds = document.getElementById('cd-seconds');
+
+  N3Countdown.startTicker((rem) => {
+    if (cdTargetDate) cdTargetDate.innerText = rem.targetDateText;
+    if (cdDays) cdDays.innerText = String(rem.days).padStart(2, '0');
+    if (cdHours) cdHours.innerText = String(rem.hours).padStart(2, '0');
+    if (cdMinutes) cdMinutes.innerText = String(rem.minutes).padStart(2, '0');
+    if (cdSeconds) cdSeconds.innerText = String(rem.seconds).padStart(2, '0');
+  });
+
+  // -------------------------------------------------------------------------
+  // 3. White-label Agent System Initialization
+  // -------------------------------------------------------------------------
   AgentSystem.applyAgentBranding();
 
   // Navigation Scroll Effect
@@ -43,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 2. Shop & Affiliate System Modal Controllers
+  // 4. Shop & Affiliate System Modal Controllers
   // -------------------------------------------------------------------------
   const DEFAULT_SHOP_URL = 'https://line.me';
   let currentShopUrl = localStorage.getItem('glo_n3_shop_url') || DEFAULT_SHOP_URL;
@@ -65,7 +124,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const agentGeneratedUrl = document.getElementById('agent-generated-url');
   const btnCopyAffiliateUrl = document.getElementById('btn-copy-affiliate-url');
 
-  // Modal Tabs Switcher
   if (tabBtnShop && tabBtnAffiliate) {
     tabBtnShop.addEventListener('click', () => {
       tabBtnShop.classList.add('active');
@@ -152,16 +210,14 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 3. AI Dream Interpreter & Voice Input Engine
+  // 5. AI Dream Interpreter & Voice Input Engine
   // -------------------------------------------------------------------------
   const dreamInput = document.getElementById('dream-input');
   const btnVoiceInput = document.getElementById('btn-voice-input');
   const voiceStatusHint = document.getElementById('voice-status-hint');
 
-  // Initialize Voice-to-Text if supported
   if (VoiceInputEngine.isSupported && btnVoiceInput) {
     VoiceInputEngine.initRecognition(
-      // onResult
       (transcript, isFinal) => {
         if (dreamInput) {
           dreamInput.value = transcript;
@@ -170,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
       },
-      // onStateChange
       (isListening) => {
         if (isListening) {
           btnVoiceInput.classList.add('recording');
@@ -181,7 +236,6 @@ document.addEventListener('DOMContentLoaded', function () {
           if (voiceStatusHint) voiceStatusHint.classList.remove('active');
         }
       },
-      // onError
       (err) => {
         console.warn('Voice Input error:', err);
         showToast('เกิดข้อผิดพลาดในการฟังเสียง หรือยังไม่ได้อนุญาตการใช้ไมโครโฟน');
@@ -197,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Quick Dream Tag Click Handlers
   const tagBtns = document.querySelectorAll('.tag-btn');
   tagBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -213,7 +266,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // AI Dream Form Submission & Progress Simulation
   const dreamForm = document.getElementById('dream-form');
   const dreamBoxWrapper = document.getElementById('dream-box-content');
   const scanningOverlay = document.getElementById('scanning-overlay');
@@ -229,7 +281,8 @@ document.addEventListener('DOMContentLoaded', function () {
     n2Digit: '89',
     confidence: '98.5%',
     meaning: 'ฝันเห็นงูหรือพญานาค ถือเป็นนิมิตหมายมงคลยิ่งใหญ่ สื่อถึงโชคลาภก้อนโต การเจริญด้วยลาภยศและวาสนา',
-    blessing: 'แนะนำทำบุญถวายสังฆทานน้ำดื่ม หรือร่วมสร้างอุโบสถเพื่อเปิดทิศทางโชคลาภ'
+    blessing: 'แนะนำทำบุญถวายสังฆทานน้ำดื่ม หรือร่วมสร้างอุโบสถเพื่อเปิดทิศทางโชคลาภ',
+    poem: 'นิมิตฝันแห่งโชคลาภพาพบสุข / สิ่งศักดิ์สิทธิ์ปลดเปลื้องทุกข์ดับตัณหา\nเลขมงคล 789 เด่นในสายตา / รับทรัพย์ใหญ่สลาก N3 สมดั่งใจ'
   };
 
   if (dreamForm) {
@@ -244,7 +297,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       try { SoundEngine.playScanChime(); } catch (err) {}
 
-      // UI Switch to Scanning
       if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'none';
       if (resultContainer) resultContainer.style.display = 'none';
       if (scanningOverlay) scanningOverlay.style.display = 'flex';
@@ -283,7 +335,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Display Prediction Results
   function displayPredictionResult(pred) {
     if (!pred) return;
 
@@ -298,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const elConfidence = document.getElementById('res-confidence');
     const elMeaning = document.getElementById('res-meaning');
     const elBlessing = document.getElementById('res-blessing');
+    const elPoemBox = document.getElementById('res-poem-box');
 
     if (elDreamTitle) elDreamTitle.innerText = `"${pred.dreamText}"`;
     if (elElement) elElement.innerText = pred.element;
@@ -307,12 +359,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (elConfidence) elConfidence.innerText = pred.confidence;
     if (elMeaning) elMeaning.innerText = pred.meaning;
     if (elBlessing) elBlessing.innerText = pred.blessing;
+    if (elPoemBox && pred.poem) elPoemBox.innerText = pred.poem;
 
     try { SoundEngine.playRevealFanfare(); } catch (err) {}
     showToast('ทำนายฝันและคำนวณเลข N3 สำเร็จแล้ว!');
   }
 
-  // Reset Dream Search
   const btnResetDream = document.getElementById('btn-reset-dream');
   if (btnResetDream) {
     btnResetDream.addEventListener('click', () => {
@@ -327,7 +379,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 4. Social Share Card Generator & Modals
+  // 6. Social Share Card Generator & Modals
   // -------------------------------------------------------------------------
   const btnShareCard = document.getElementById('btn-share-card');
   const modalShareCard = document.getElementById('modal-share-card');
@@ -340,16 +392,7 @@ document.addEventListener('DOMContentLoaded', function () {
     btnShareCard.addEventListener('click', () => {
       try { SoundEngine.playClick(); } catch (err) {}
       const agentInfo = AgentSystem.getAgentInfo();
-      const pred = currentPrediction || {
-        dreamText: 'ฝันเห็นงูใหญ่สีทอง',
-        element: 'ธาตุน้ำ / ดาวเกตุ (๙)',
-        n3Direct: '789',
-        n3Tod: '798, 879',
-        n2Digit: '89',
-        confidence: '98.5%',
-        meaning: 'ฝันมงคลนำพาโชคลาภก้อนโต',
-        blessing: 'ทำบุญตักบาตรเสริมดวง'
-      };
+      const pred = currentPrediction;
 
       try {
         const cardDataUrl = ShareCardEngine.renderCardCanvas(pred, agentInfo);
@@ -387,7 +430,230 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 5. N3 Results Checker Controller
+  // 7. 3D Mystical Tarot & Birthday Zodiac Engine Controller
+  // -------------------------------------------------------------------------
+  const tarotCardWrappers = [
+    document.getElementById('tarot-card-1'),
+    document.getElementById('tarot-card-2'),
+    document.getElementById('tarot-card-3')
+  ];
+
+  const tarotIcon1 = document.getElementById('tarot-icon-1');
+  const tarotName1 = document.getElementById('tarot-name-1');
+  const tarotDigit1 = document.getElementById('tarot-digit-1');
+  const tarotDesc1 = document.getElementById('tarot-desc-1');
+
+  const tarotIcon2 = document.getElementById('tarot-icon-2');
+  const tarotName2 = document.getElementById('tarot-name-2');
+  const tarotDigit2 = document.getElementById('tarot-digit-2');
+  const tarotDesc2 = document.getElementById('tarot-desc-2');
+
+  const tarotIcon3 = document.getElementById('tarot-icon-3');
+  const tarotName3 = document.getElementById('tarot-name-3');
+  const tarotDigit3 = document.getElementById('tarot-digit-3');
+  const tarotDesc3 = document.getElementById('tarot-desc-3');
+
+  const tarotResDirect = document.getElementById('tarot-res-direct');
+  const tarotResTod = document.getElementById('tarot-res-tod');
+  const tarotRes2Digit = document.getElementById('tarot-res-2digit');
+  const tarotCombinedFortune = document.getElementById('tarot-combined-fortune');
+  const btnDrawTarot = document.getElementById('btn-draw-tarot');
+  const btnCopyTarot = document.getElementById('btn-copy-tarot');
+
+  // Toggle card flip on manual card click
+  tarotCardWrappers.forEach(card => {
+    if (card) {
+      card.addEventListener('click', () => {
+        try { SoundEngine.playClick(); } catch (e) {}
+        card.classList.toggle('flipped');
+      });
+    }
+  });
+
+  let currentTarotDirect = '109';
+
+  function handleDrawTarot() {
+    try { SoundEngine.playScanChime(); } catch (e) {}
+
+    // Flip all back first
+    tarotCardWrappers.forEach(c => { if (c) c.classList.remove('flipped'); });
+
+    setTimeout(() => {
+      const drawn = TarotEngine.draw3Cards();
+      currentTarotDirect = drawn.n3Direct;
+
+      // Update Card 1
+      if (tarotIcon1) tarotIcon1.innerText = drawn.cards[0].icon;
+      if (tarotName1) tarotName1.innerText = drawn.cards[0].name;
+      if (tarotDigit1) tarotDigit1.innerText = `เลขเด่น: ${drawn.cards[0].digit}`;
+      if (tarotDesc1) tarotDesc1.innerText = drawn.cards[0].fortune;
+
+      // Update Card 2
+      if (tarotIcon2) tarotIcon2.innerText = drawn.cards[1].icon;
+      if (tarotName2) tarotName2.innerText = drawn.cards[1].name;
+      if (tarotDigit2) tarotDigit2.innerText = `เลขเด่น: ${drawn.cards[1].digit}`;
+      if (tarotDesc2) tarotDesc2.innerText = drawn.cards[1].fortune;
+
+      // Update Card 3
+      if (tarotIcon3) tarotIcon3.innerText = drawn.cards[2].icon;
+      if (tarotName3) tarotName3.innerText = drawn.cards[2].name;
+      if (tarotDigit3) tarotDigit3.innerText = `เลขเด่น: ${drawn.cards[2].digit}`;
+      if (tarotDesc3) tarotDesc3.innerText = drawn.cards[2].fortune;
+
+      // Update Summary
+      if (tarotResDirect) tarotResDirect.innerText = drawn.n3Direct;
+      if (tarotResTod) tarotResTod.innerText = drawn.n3Tod;
+      if (tarotRes2Digit) tarotRes2Digit.innerText = drawn.n2Digit;
+      if (tarotCombinedFortune) tarotCombinedFortune.innerText = drawn.combinedFortune;
+
+      // Flip forward sequentially
+      tarotCardWrappers.forEach((c, idx) => {
+        setTimeout(() => {
+          if (c) c.classList.add('flipped');
+          try { SoundEngine.playClick(); } catch (e) {}
+        }, (idx + 1) * 250);
+      });
+
+      setTimeout(() => {
+        try { SoundEngine.playRevealFanfare(); } catch (e) {}
+        showToast(`เปิดไพ่สำเร็จ! เลขเด็ด N3: ${drawn.n3Direct}`);
+      }, 1000);
+    }, 400);
+  }
+
+  if (btnDrawTarot) {
+    btnDrawTarot.addEventListener('click', handleDrawTarot);
+  }
+
+  if (btnCopyTarot) {
+    btnCopyTarot.addEventListener('click', () => {
+      copyToClipboard(currentTarotDirect);
+      showToast(`คัดลอกเลขไพ่ยิปซี (${currentTarotDirect}) เรียบร้อยแล้ว!`);
+    });
+  }
+
+  // Birthday Zodiac Selector
+  const zodiacSelect = document.getElementById('zodiac-select');
+  const btnCheckZodiac = document.getElementById('btn-check-zodiac');
+  const zodiacResultBox = document.getElementById('zodiac-result-box');
+  const zodiacResTitle = document.getElementById('zodiac-res-title');
+  const zodiacResNum = document.getElementById('zodiac-res-num');
+  const zodiacResDesc = document.getElementById('zodiac-res-desc');
+
+  if (zodiacSelect && TarotEngine.zodiacSigns) {
+    zodiacSelect.innerHTML = TarotEngine.zodiacSigns.map((z, idx) =>
+      `<option value="${idx}">${z.name}</option>`
+    ).join('');
+  }
+
+  if (btnCheckZodiac) {
+    btnCheckZodiac.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      const selectedIdx = parseInt(zodiacSelect ? zodiacSelect.value : '0', 10) || 0;
+      const res = TarotEngine.calculateZodiacFortune(0, selectedIdx);
+
+      if (zodiacResultBox) {
+        zodiacResultBox.style.display = 'block';
+        if (zodiacResTitle) zodiacResTitle.innerText = `${res.zodiacName} (${res.element})`;
+        if (zodiacResNum) zodiacResNum.innerText = res.n3Direct;
+        if (zodiacResDesc) zodiacResDesc.innerText = `${res.advice} • ชุดเลขโต๊ด: ${res.n3Tod} • 2 ตัวตรง: ${res.n2Digit}`;
+        showToast(`วิเคราะห์ตัวเลขชาว ${res.zodiacName} สำเร็จแล้ว!`);
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 8. Agent Poster Marketing Studio Controller
+  // -------------------------------------------------------------------------
+  const posterShopNameInput = document.getElementById('poster-shop-name');
+  const posterDrawDateInput = document.getElementById('poster-draw-date');
+  const posterNumbersInput = document.getElementById('poster-numbers');
+  const posterLineInput = document.getElementById('poster-line');
+  const posterTelInput = document.getElementById('poster-tel');
+  const btnUpdatePoster = document.getElementById('btn-update-poster');
+  const btnDownloadPoster = document.getElementById('btn-download-poster');
+  const posterPreviewImg = document.getElementById('poster-preview-img');
+
+  let currentPosterRatio = 'square';
+  let currentPosterTheme = 'gold';
+
+  // Sync with current Agent Branding
+  const initialAgent = AgentSystem.getAgentInfo();
+  if (posterShopNameInput && initialAgent.isCustomAgent) posterShopNameInput.value = initialAgent.name;
+  if (posterLineInput && initialAgent.isCustomAgent) posterLineInput.value = initialAgent.line;
+  if (posterTelInput && initialAgent.isCustomAgent) posterTelInput.value = initialAgent.tel;
+
+  // Theme & Ratio Chip Selectors
+  const ratioChips = document.querySelectorAll('.theme-chip[data-ratio]');
+  ratioChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      ratioChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentPosterRatio = chip.dataset.ratio;
+      refreshPosterPreview();
+    });
+  });
+
+  const themeChips = document.querySelectorAll('.theme-chip[data-theme]');
+  themeChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      themeChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentPosterTheme = chip.dataset.theme;
+      refreshPosterPreview();
+    });
+  });
+
+  function getPosterConfig() {
+    const rawNumbers = posterNumbersInput ? posterNumbersInput.value : '789, 532, 904';
+    const parsedNumbers = rawNumbers.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+    return {
+      ratio: currentPosterRatio,
+      theme: currentPosterTheme,
+      shopName: posterShopNameInput ? posterShopNameInput.value.trim() : 'ร้านสลาก N3 มหามงคล',
+      drawDate: posterDrawDateInput ? posterDrawDateInput.value.trim() : '16 กันยายน 2569',
+      numbers: parsedNumbers.length >= 3 ? parsedNumbers : ['789', '532', '904'],
+      line: posterLineInput ? posterLineInput.value.trim() : '@glon3',
+      tel: posterTelInput ? posterTelInput.value.trim() : '02-528-9999'
+    };
+  }
+
+  function refreshPosterPreview() {
+    if (!posterPreviewImg) return;
+    try {
+      const config = getPosterConfig();
+      const posterDataUrl = PosterStudio.renderPoster(config);
+      posterPreviewImg.src = posterDataUrl;
+    } catch (e) {
+      console.warn('Poster render error:', e);
+    }
+  }
+
+  if (btnUpdatePoster) {
+    btnUpdatePoster.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      refreshPosterPreview();
+      showToast('อัปเดตพรีวิวโปสเตอร์แล้ว!');
+    });
+  }
+
+  if (btnDownloadPoster) {
+    btnDownloadPoster.addEventListener('click', () => {
+      try { SoundEngine.playCopySuccess(); } catch (e) {}
+      const config = getPosterConfig();
+      PosterStudio.downloadPoster(config);
+      showToast('กำลังดาวน์โหลดรูปภาพโปสเตอร์ High-DPI...');
+    });
+  }
+
+  // Initial render
+  setTimeout(refreshPosterPreview, 200);
+
+  // -------------------------------------------------------------------------
+  // 9. N3 Results Checker Controller
   // -------------------------------------------------------------------------
   const checkerDrawSelect = document.getElementById('checker-draw-select');
   const checkerNumberInput = document.getElementById('checker-number-input');
@@ -398,7 +664,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const checkerResMsg = document.getElementById('checker-res-msg');
   const checkerPrizesList = document.getElementById('checker-prizes-list');
 
-  // Populate Draw Select Dropdown
   if (checkerDrawSelect && N3Checker.drawHistory) {
     checkerDrawSelect.innerHTML = N3Checker.drawHistory.map(d =>
       `<option value="${d.id}">งวด ${d.dateText} (เลข 3 ตรง: ${d.winning3Direct})</option>`
@@ -488,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 6. Statistics & 3D Lucky Ball Roller
+  // 10. Statistics & 3D Lucky Ball Roller
   // -------------------------------------------------------------------------
   const statHotChips = document.getElementById('stat-hot-chips');
   const statColdChips = document.getElementById('stat-cold-chips');
@@ -501,7 +766,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnRollLucky = document.getElementById('btn-roll-lucky');
   const btnCopyRolled = document.getElementById('btn-copy-rolled');
 
-  // Load and display statistics
   const stats = N3Checker.getNumberStatistics();
   if (statTodayPower && stats.todayPower) {
     statTodayPower.innerHTML = `<i class="fas fa-calendar-day"></i> ${stats.todayPower.day} • กำลังวัน: ${stats.todayPower.power}`;
@@ -525,7 +789,6 @@ document.addEventListener('DOMContentLoaded', function () {
     btnRollLucky.addEventListener('click', () => {
       try { SoundEngine.playScanChime(); } catch (err) {}
 
-      // Animate Balls rolling
       const balls = [ball1, ball2, ball3];
       balls.forEach(b => { if (b) b.classList.add('rolling'); });
 
@@ -563,7 +826,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 7. Native Mobile Paotang Launcher & General Utilities
+  // 11. Native Mobile Paotang Launcher & General Utilities
   // -------------------------------------------------------------------------
   function launchNativePaotangApp() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -663,7 +926,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 8. N3 Simulator Calculator Handler
+  // 12. N3 Simulator Calculator Handler
   // -------------------------------------------------------------------------
   const calcSalesInput = document.getElementById('calc-sales');
   if (calcSalesInput) {

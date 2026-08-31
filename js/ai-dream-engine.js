@@ -218,6 +218,9 @@ const AIDreamEngine = (function () {
       .map(m => (m && m.keywords && m.keywords.length > 0 ? m.keywords[0] : 'สัญลักษณ์มงคล'))
       .join(', ');
 
+    // Generate Astrological 4-Line Thai Rhyme / Blessing Poem
+    const poem = generateAstroPoem(primaryMatch, n3Direct, symbolsStr);
+
     return {
       dreamText: analysis.rawText || 'ความฝันมงคลสวรรค์',
       element: primaryMatch.element || defaultEntry.element,
@@ -227,13 +230,78 @@ const AIDreamEngine = (function () {
       confidence: `${confidence}%`,
       meaning: combinedMeaning,
       blessing: primaryMatch.blessing || defaultEntry.blessing,
-      matchedSymbols: symbolsStr
+      matchedSymbols: symbolsStr,
+      poem: poem
     };
+  }
+
+  /**
+   * Generates bespoke 4-line Thai auspicious astrology poem
+   */
+  function generateAstroPoem(match, n3Num, symbol) {
+    const p1 = `นิมิตฝันแห่งโชคลาภพาพบสุข`;
+    const p2 = `สิ่งศักดิ์สิทธิ์ปลดเปลื้องทุกข์ดับตัณหา`;
+    const p3 = `เลขมงคล ${n3Num} เด่นในสายตา`;
+    const p4 = `รับทรัพย์ใหญ่สลาก N3 สมดั่งใจ`;
+    return `${p1} / ${p2}\n${p3} / ${p4}`;
+  }
+
+  /**
+   * Optional Gemini API Deep Dream Interpreter Hook
+   */
+  async function analyzeWithGeminiAPI(dreamText, apiKey) {
+    if (!apiKey) {
+      return generatePrediction(dreamText);
+    }
+
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const prompt = `คุณคือโหราจารย์ผู้เชี่ยวชาญศาสตร์ตัวเลขสลาก N3 (สลาก 3 หลัก) จงทำนายฝันนี้: "${dreamText}" และส่งคืนเป็น JSON Format ตามนี้เท่านั้น:
+{
+  "element": "ธาตุและดวงดาว",
+  "n3Direct": "เลข 3 ตัวตรง เช่น 789",
+  "n3Tod": "เลข 3 ตัวโต๊ด เช่น 798, 879",
+  "n2Digit": "เลข 2 ตัวตรง เช่น 89",
+  "meaning": "คำทำนายฝันเชิงลึก 2-3 บรรทัด",
+  "blessing": "ข้อแนะนำเสริมดวง",
+  "poem": "บทกลอนมงคล 4 วรรค"
+}`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+
+      return {
+        dreamText: dreamText,
+        element: parsed.element || 'ธาตุจักรวาล',
+        n3Direct: parsed.n3Direct || '789',
+        n3Tod: parsed.n3Tod || '798, 879',
+        n2Digit: parsed.n2Digit || '89',
+        confidence: '99.9%',
+        meaning: parsed.meaning || 'ฝันมงคลนำพาโชคลาภใหญ่',
+        blessing: parsed.blessing || 'ทำบุญเสริมบารมี',
+        poem: parsed.poem || '',
+        isGeminiAI: true
+      };
+    } catch (e) {
+      console.warn('Gemini API call fallback to local engine:', e);
+      return generatePrediction(dreamText);
+    }
   }
 
   return {
     analyzeDreamText,
     generatePrediction,
+    analyzeWithGeminiAPI,
     dreamDictionary
   };
 })();

@@ -1276,6 +1276,246 @@ footer {
 }
 
 /* ==========================================================================
+   LIVE DRAW COUNTDOWN WIDGET
+   ========================================================================== */
+.draw-countdown-box {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.countdown-timer-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cd-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.6rem;
+  min-width: 48px;
+}
+
+.cd-val {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-gold);
+}
+
+.cd-lbl {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.cd-colon {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-gold);
+}
+
+/* ==========================================================================
+   PWA INSTALL FLOATING BANNER
+   ========================================================================== */
+.pwa-install-banner {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99;
+  background: rgba(18, 26, 43, 0.95);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), var(--glow-gold);
+  backdrop-filter: blur(16px);
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.pwa-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ==========================================================================
+   AGENT POSTER MARKETING STUDIO
+   ========================================================================== */
+.poster-studio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.poster-controls-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+}
+
+.poster-preview-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  text-align: center;
+}
+
+.theme-chip-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.theme-chip {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-glass);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+  transition: var(--transition-fast);
+}
+
+.theme-chip.active {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.poster-canvas-img {
+  max-width: 100%;
+  max-height: 480px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-gold);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  margin-bottom: 1.25rem;
+}
+
+/* ==========================================================================
+   3D TAROT CARDS & HOROSCOPE
+   ========================================================================== */
+.tarot-cards-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin: 2rem 0;
+  perspective: 1000px;
+}
+
+.tarot-card-wrapper {
+  background: transparent;
+  height: 320px;
+  cursor: pointer;
+}
+
+.tarot-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-style: preserve-3d;
+}
+
+.tarot-card-wrapper.flipped .tarot-card-inner {
+  transform: rotateY(180deg);
+}
+
+.tarot-front, .tarot-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+
+.tarot-back {
+  background: linear-gradient(135deg, #151c30 0%, #070a14 100%);
+  border: 2px solid var(--border-gold);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+}
+
+.tarot-back-pattern {
+  width: 80%;
+  height: 80%;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: var(--color-gold);
+}
+
+.tarot-front {
+  background: linear-gradient(135deg, #1a2744 0%, #0b1329 100%);
+  border: 2px solid var(--border-emerald);
+  transform: rotateY(180deg);
+  box-shadow: var(--glow-emerald);
+}
+
+.tarot-icon-badge {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tarot-card-name {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-gold-light);
+  margin-bottom: 0.35rem;
+}
+
+.tarot-digit-pill {
+  background: rgba(255, 215, 0, 0.2);
+  border: 1px solid var(--border-gold);
+  color: var(--color-gold);
+  font-weight: 800;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.tarot-fortune-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* ==========================================================================
    RESPONSIVE MEDIA QUERIES (Mobile & Tablet Optimization)
    ========================================================================== */
 
@@ -1399,6 +1639,23 @@ footer {
   .results-grid-wrapper {
     grid-template-columns: 1fr;
     gap: 1.25rem;
+  }
+
+  .poster-studio-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .tarot-cards-container {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .tarot-card-wrapper {
+    height: 280px;
+    max-width: 260px;
+    margin: 0 auto;
+    width: 100%;
   }
 
   .checker-card, .stats-card, .roller-card, .history-card {
