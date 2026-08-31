@@ -955,6 +955,327 @@ footer {
 }
 
 /* ==========================================================================
+   AGENT BANNER (White-label Partner Header)
+   ========================================================================== */
+.agent-banner {
+  display: none;
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+  border-bottom: 1px solid var(--border-gold);
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  text-align: center;
+  position: relative;
+  z-index: 101;
+  backdrop-filter: blur(8px);
+}
+
+.agent-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   VOICE-TO-TEXT DREAM INPUT
+   ========================================================================== */
+.dream-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.btn-voice-input {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid var(--border-gold);
+  color: var(--color-gold);
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  z-index: 5;
+}
+
+.btn-voice-input:hover {
+  background: rgba(255, 215, 0, 0.3);
+  transform: scale(1.08);
+  box-shadow: var(--glow-gold);
+}
+
+.btn-voice-input.recording {
+  background: #f43f5e !important;
+  border-color: #f43f5e !important;
+  color: #fff !important;
+  animation: pulseMic 1.2s infinite ease-in-out;
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.8);
+}
+
+@keyframes pulseMic {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+  70% { transform: scale(1.12); box-shadow: 0 0 0 14px rgba(244, 63, 94, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+.voice-status-hint {
+  font-size: 0.8rem;
+  color: var(--color-rose);
+  margin-top: 0.35rem;
+  display: none;
+  font-weight: 500;
+}
+
+.voice-status-hint.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ==========================================================================
+   RESULTS CHECKER & STATISTICS SECTION
+   ========================================================================== */
+.results-grid-wrapper {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 1.75rem;
+  margin-bottom: 2.5rem;
+}
+
+.checker-card, .stats-card, .roller-card, .history-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+}
+
+.checker-card::before, .roller-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-gold), var(--color-emerald), var(--color-cyan));
+}
+
+.checker-input-wrapper {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.checker-num-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  color: var(--color-gold);
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 6px;
+  padding: 0.75rem 1rem;
+  outline: none;
+  transition: var(--transition-normal);
+}
+
+.checker-num-input:focus {
+  border-color: var(--color-gold-light);
+  box-shadow: var(--glow-gold);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.checker-select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  padding: 0.75rem 1rem;
+  outline: none;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.checker-select option {
+  background: #0b1329;
+  color: #fff;
+}
+
+.checker-result-box {
+  display: none;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  animation: fadeIn 0.4s ease;
+}
+
+.checker-result-box.won {
+  display: block;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid var(--border-emerald);
+  box-shadow: var(--glow-emerald);
+}
+
+.checker-result-box.lost {
+  display: block;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+}
+
+.prize-badge-won {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-sm);
+  margin-top: 0.5rem;
+  border-left: 3px solid var(--color-gold);
+}
+
+/* Statistics Chips */
+.stats-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1.25rem 0;
+}
+
+.digit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.digit-chip.hot {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid var(--border-gold);
+  color: var(--color-gold);
+}
+
+.digit-chip.cold {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  color: var(--color-cyan);
+}
+
+/* 3D Lucky Roller Box */
+.roller-balls-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.roller-ball {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle at 30% 30%, #fff9c4 0%, #ffd700 40%, #d4af37 80%, #996515 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #0f172a;
+  box-shadow: var(--glow-gold), inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  border: 2px solid #fff;
+  transition: transform 0.3s ease;
+}
+
+.roller-ball.rolling {
+  animation: rollBall 0.6s infinite ease-in-out alternate;
+}
+
+@keyframes rollBall {
+  0% { transform: translateY(0) rotate(0deg) scale(1); }
+  50% { transform: translateY(-14px) rotate(180deg) scale(1.1); }
+  100% { transform: translateY(0) rotate(360deg) scale(1); }
+}
+
+/* ==========================================================================
+   SHARE CARD MODAL & PREVIEW
+   ========================================================================== */
+.share-card-preview-wrapper {
+  text-align: center;
+  margin: 1.25rem 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.share-card-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-gold);
+}
+
+/* Tab Switcher for Modals */
+.modal-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 0.5rem;
+}
+
+.modal-tab-btn {
+  flex: 1;
+  padding: 0.6rem 0.85rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+.modal-tab-btn.active {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--color-gold);
+  border: 1px solid var(--border-gold);
+}
+
+/* ==========================================================================
    RESPONSIVE MEDIA QUERIES (Mobile & Tablet Optimization)
    ========================================================================== */
 
@@ -1073,6 +1394,25 @@ footer {
 
   .calculator-box {
     padding: 1.25rem 1rem;
+  }
+
+  .results-grid-wrapper {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .checker-card, .stats-card, .roller-card, .history-card {
+    padding: 1.35rem 1rem;
+  }
+
+  .roller-balls-wrapper {
+    gap: 0.6rem;
+  }
+
+  .roller-ball {
+    width: 58px;
+    height: 58px;
+    font-size: 1.75rem;
   }
 
   .prize-item {

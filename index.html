@@ -25,6 +25,15 @@
   <!-- Background Particle Canvas -->
   <canvas id="particle-canvas"></canvas>
 
+  <!-- White-label Dynamic Partner Banner -->
+  <div id="agent-banner" class="agent-banner">
+    <div class="container agent-banner-content">
+      <span><i class="fas fa-certificate" style="color: var(--color-gold);"></i> ตัวแทนจำหน่ายสลาก N3 ได้รับอนุญาต: <strong id="agent-banner-shop-name" style="color: var(--color-gold-light);">GLO N3 Official Partner</strong></span>
+      <span class="agent-chip" id="agent-banner-line"><i class="fab fa-line" style="color: #00c300;"></i> LINE: @glon3</span>
+      <span class="agent-chip" id="agent-banner-tel" style="display: none;"><i class="fas fa-phone-alt"></i> โทร: 02-528-9999</span>
+    </div>
+  </div>
+
   <!-- Navigation Header -->
   <nav class="navbar">
     <div class="container">
@@ -40,6 +49,7 @@
         <li><a href="#hero" class="nav-link active">หน้าแรก</a></li>
         <li><a href="#features" class="nav-link">จุดเด่น N3</a></li>
         <li><a href="#ai-dream" class="nav-link">AI ทำนายฝัน</a></li>
+        <li><a href="#results-stats" class="nav-link">ตรวจผล & สถิติ</a></li>
         <li><a href="#calculator" class="nav-link">คำนวณเงินรางวัล</a></li>
         <li><a href="#guide" class="nav-link">วิธีซื้อเป๋าตัง</a></li>
       </ul>
@@ -191,8 +201,14 @@
         <!-- Input Form State -->
         <div id="dream-box-content">
           <form id="dream-form">
-            <div class="dream-input-group">
-              <textarea id="dream-input" class="dream-textarea" placeholder="พิมพ์ความฝันของคุณ เช่น ฝันเห็นงูใหญ่สีทองเลื้อยผ่านหน้าบ้าน, ฝันว่าได้จับปลาตัวใหญ่, ฝันเห็นพระสงฆ์ ฯลฯ"></textarea>
+            <div class="dream-input-container">
+              <textarea id="dream-input" class="dream-textarea" placeholder="พิมพ์หรือกดปุ่มไมโครโฟนเพื่อพูดความฝัน เช่น ฝันเห็นงูใหญ่สีทองเลื้อยผ่านหน้าบ้าน, ฝันว่าได้จับปลาตัวใหญ่ ฯลฯ"></textarea>
+              <button type="button" id="btn-voice-input" class="btn-voice-input" title="กดเพื่อพูดความฝันด้วยเสียง (ภาษาไทย)">
+                <i class="fas fa-microphone"></i>
+              </button>
+            </div>
+            <div id="voice-status-hint" class="voice-status-hint">
+              <i class="fas fa-circle" style="font-size: 0.6rem;"></i> กำลังฟังเสียงพูดความฝันของคุณ... พูดได้เลยครับ
             </div>
 
             <div class="quick-tags-label"><i class="fas fa-fire" style="color: var(--color-gold);"></i> เลือกความฝันยอดนิยมอย่างรวดเร็ว:</div>
@@ -279,20 +295,116 @@
             </div>
 
             <div class="result-actions">
+              <!-- Social Share Card Action Button -->
+              <button id="btn-share-card" class="btn btn-emerald">
+                <i class="fas fa-camera"></i> บันทึกการ์ดคำทำนาย (Share Card)
+              </button>
               <!-- Direct Shop Action Button -->
-              <a href="#" class="btn btn-emerald btn-our-shop">
-                <i class="fas fa-shopping-bag"></i> คัดลอกเลข & ไปร้านค้าของเรา
+              <a href="#" class="btn btn-outline btn-our-shop" style="border-color: var(--color-emerald); color: var(--color-emerald-light);">
+                <i class="fas fa-shopping-bag"></i> ไปร้านค้าของเรา
               </a>
               <button class="btn btn-gold btn-buy-paotang">
                 <i class="fas fa-wallet"></i> เปิดแอปเป๋าตังในมือถือ
               </button>
               <button id="btn-copy-num" class="btn btn-outline">
-                <i class="fas fa-copy"></i> คัดลอกเฉพาะเลขเด็ด
+                <i class="fas fa-copy"></i> คัดลอกเฉพาะเลข
               </button>
               <button id="btn-reset-dream" class="btn btn-outline">
                 <i class="fas fa-redo"></i> ทำนายฝันเรื่องใหม่
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: N3 Results Checker, Statistics & Lucky Roller -->
+  <section id="results-stats" class="results-stats-section">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-gold"><i class="fas fa-check-double"></i> RESULT CHECKER & HOT STATS</span>
+        <h2>ตรวจผลรางวัลสลาก <span class="text-gradient-gold">GLO N3</span> & สถิติเลขเด็ด</h2>
+        <p>ตรวจผลรางวัลสลาก N3 ทุกประเภททันที พร้อมดูสถิติตัวเลขเด่นประจำวัน และระบบสุ่มลูกบอลมงคล 3 หลัก</p>
+      </div>
+
+      <div class="results-grid-wrapper">
+        <!-- Checker Card -->
+        <div class="checker-card">
+          <h3 style="color: var(--color-gold); margin-bottom: 1rem;"><i class="fas fa-search"></i> ตรวจผลสลาก N3</h3>
+          <label for="checker-draw-select" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">เลือกงวดสลากกินแบ่งรัฐบาล N3:</label>
+          <select id="checker-draw-select" class="checker-select"></select>
+
+          <label for="checker-number-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">กรอกหมายเลขสลาก N3 ของคุณ (3 หลัก):</label>
+          <div class="checker-input-wrapper">
+            <input type="text" id="checker-number-input" class="checker-num-input" maxlength="3" placeholder="789" inputmode="numeric">
+            <button id="btn-check-prize" class="btn btn-gold" style="padding: 0 1.75rem; font-size: 1.05rem;">
+              <i class="fas fa-check"></i> ตรวจรางวัล
+            </button>
+          </div>
+
+          <!-- Dynamic Result Display -->
+          <div id="checker-result-display" class="checker-result-box">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span id="checker-res-title" style="font-weight: 700; font-size: 1.15rem; color: var(--color-gold-light);">ผลการตรวจรางวัล</span>
+              <span id="checker-res-badge" class="badge badge-emerald">ถูกรางวัล</span>
+            </div>
+            <p id="checker-res-msg" style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem;">ยินดีด้วยครับ คุณถูกรางวัลสลาก N3</p>
+            <div id="checker-prizes-list"></div>
+          </div>
+        </div>
+
+        <!-- 3D Lucky Roller Card -->
+        <div class="roller-card">
+          <h3 style="color: var(--color-emerald-light); margin-bottom: 0.5rem;"><i class="fas fa-dharmachakra"></i> วงล้อลูกบอลสุ่มเลขมงคล N3</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem;">หมุนสุ่มดวงชะตาพลังจักรวาล ได้ชุดเลข 3 ตัวตรง พร้อมเลขโต๊ด</p>
+
+          <div class="roller-balls-wrapper">
+            <div id="ball-1" class="roller-ball">7</div>
+            <div id="ball-2" class="roller-ball">8</div>
+            <div id="ball-3" class="roller-ball">9</div>
+          </div>
+
+          <div style="text-align: center; margin-bottom: 1.25rem;">
+            <div id="roller-auspice" style="font-size: 0.9rem; color: var(--color-gold-light); font-weight: 600;">
+              ✨ "มหาเศรษฐีเงินล้าน รับโชคก้อนโต"
+            </div>
+            <div id="roller-tod-hint" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+              ชุดเลขโต๊ด: 798, 879
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem;">
+            <button id="btn-roll-lucky" class="btn btn-emerald" style="flex: 1;">
+              <i class="fas fa-sync-alt"></i> หมุนสุ่มเลขมงคล
+            </button>
+            <button id="btn-copy-rolled" class="btn btn-outline" style="padding: 0.6rem 1rem;" title="คัดลอกเลขที่สุ่มได้">
+              <i class="fas fa-copy"></i> คัดลอก
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics & Hot/Cold Numbers -->
+      <div class="stats-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <h3 style="color: var(--color-gold);"><i class="fas fa-chart-line"></i> สถิติตัวเลขเด่น & เลขศาสตร์กำลังวัน</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">รวบรวมความถี่ตัวเลขสลาก N3 และดาวเด่นประจำวัน</p>
+          </div>
+          <div id="stat-today-power" class="badge badge-gold" style="font-size: 0.9rem;">
+            <i class="fas fa-calendar-day"></i> กำลังวัน: ๑, ๘, ๔
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+          <div>
+            <div style="font-size: 0.85rem; color: var(--color-gold-light); font-weight: 600;"><i class="fas fa-fire"></i> ตัวเลขมาแรง (Hot Numbers):</div>
+            <div id="stat-hot-chips" class="stats-chip-group"></div>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--color-cyan); font-weight: 600;"><i class="fas fa-snowflake"></i> ตัวเลขน่าจับตา (Cold Numbers):</div>
+            <div id="stat-cold-chips" class="stats-chip-group"></div>
           </div>
         </div>
       </div>
@@ -452,28 +564,97 @@
     </div>
   </div>
 
-  <!-- Modals: Shop URL Configurator Modal -->
-  <div id="modal-shop-config" class="modal-overlay">
-    <div class="modal-card" style="max-width: 480px;">
-      <button id="modal-shop-close" class="modal-close">&times;</button>
-      <div style="width: 56px; height: 56px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--border-emerald); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-emerald-light); font-size: 1.5rem;">
-        <i class="fas fa-store"></i>
+  <!-- Modals: Social Share Card Preview Modal -->
+  <div id="modal-share-card" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+      <button id="modal-share-close" class="modal-close">&times;</button>
+      <div style="width: 56px; height: 56px; background: rgba(255, 215, 0, 0.1); border: 1px solid var(--border-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-gold); font-size: 1.5rem;">
+        <i class="fas fa-camera"></i>
       </div>
-      <h3>ร้านค้าของเรา (Official Shop)</h3>
-      <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">
-        ระบบได้ทำการคัดลอกเลขเด็ด N3 เรียบร้อยแล้ว! กำลังนำคุณไปยังหน้าร้านค้า...
+      <h3>การ์ดคำทำนายฝัน & เลขเด็ด N3</h3>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">
+        รูปภาพความละเอียดสูง (High-DPI) พร้อมแชร์ลง Facebook, Instagram, LINE, TikTok
       </p>
 
-      <div style="margin-bottom: 1.5rem; text-align: left;">
-        <label for="shop-url-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">ตั้งค่าลิงก์ร้านค้าของคุณ (URL):</label>
-        <input type="url" id="shop-url-input" class="calc-input-field" value="https://line.me" placeholder="เช่น https://shop.yourdomain.com หรือ https://line.me/R/ti/p/@yourshop" style="margin-bottom: 0.5rem;">
-        <div style="font-size: 0.75rem; color: var(--text-muted);">* สามารถเปลี่ยนเป็นลิงก์ร้านค้า LINE Official, Facebook, หรือเว็บไซต์ร้านค้าของคุณได้ตลอดเวลา</div>
+      <div class="share-card-preview-wrapper">
+        <img id="share-card-preview-img" class="share-card-img" alt="GLO N3 AI Dream Share Card">
       </div>
 
-      <div style="display: flex; gap: 1rem;">
-        <button id="btn-save-shop-url" class="btn btn-emerald" style="flex: 1;">
-          <i class="fas fa-external-link-alt"></i> ไปที่ร้านค้าทันที
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button id="btn-download-card-png" class="btn btn-gold" style="flex: 1;">
+          <i class="fas fa-download"></i> ดาวน์โหลดรูป PNG
         </button>
+        <button id="btn-native-share-card" class="btn btn-emerald" style="flex: 1;">
+          <i class="fas fa-share-alt"></i> แชร์ไปยังโซเชียล
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals: Shop URL Configurator & Affiliate Generator Modal -->
+  <div id="modal-shop-config" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+      <button id="modal-shop-close" class="modal-close">&times;</button>
+      
+      <div class="modal-tabs">
+        <button type="button" id="tab-btn-shop" class="modal-tab-btn active"><i class="fas fa-store"></i> ไปที่ร้านค้า</button>
+        <button type="button" id="tab-btn-affiliate" class="modal-tab-btn"><i class="fas fa-link"></i> สร้างลิงก์ตัวแทน</button>
+      </div>
+
+      <!-- Tab 1: Direct Shop -->
+      <div id="tab-content-shop">
+        <div style="width: 56px; height: 56px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--border-emerald); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-emerald-light); font-size: 1.5rem;">
+          <i class="fas fa-store"></i>
+        </div>
+        <h3>ร้านค้าสลาก N3</h3>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">
+          ระบบได้ทำการคัดลอกเลขเด็ด N3 เรียบร้อยแล้ว! กดปุ่มด้านล่างเพื่อเปิดหน้าร้านค้า
+        </p>
+
+        <div style="margin-bottom: 1.5rem; text-align: left;">
+          <label for="shop-url-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">ตั้งค่าลิงก์ร้านค้าของคุณ (URL):</label>
+          <input type="url" id="shop-url-input" class="calc-input-field" value="https://line.me" placeholder="เช่น https://line.me/R/ti/p/@yourshop" style="margin-bottom: 0.5rem;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">* สามารถเปลี่ยนเป็นลิงก์ LINE Official, Facebook, หรือเว็บไซต์ของคุณได้ตลอดเวลา</div>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+          <button id="btn-save-shop-url" class="btn btn-emerald" style="flex: 1;">
+            <i class="fas fa-external-link-alt"></i> ไปที่ร้านค้าทันที
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Affiliate Link Generator -->
+      <div id="tab-content-affiliate" style="display: none;">
+        <h3 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-bullhorn"></i> สร้างลิงก์โปรโมทร้านค้าของคุณ</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          กรอกข้อมูลร้านของคุณเพื่อสร้างลิงก์เฉพาะ เมื่อลูกค้าเปิดผ่านลิงก์นี้ จะแสดงชื่อและช่องทางติดต่อของคุณทันที
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; margin-bottom: 1.25rem;">
+          <div>
+            <label for="agent-input-name" style="font-size: 0.8rem; color: var(--text-secondary);">ชื่อร้านค้าของคุณ:</label>
+            <input type="text" id="agent-input-name" class="calc-input-field" placeholder="เช่น ร้านสลาก N3 เฮงเฮงรวย">
+          </div>
+          <div>
+            <label for="agent-input-line" style="font-size: 0.8rem; color: var(--text-secondary);">LINE ID หรือ ลิงก์ LINE Official:</label>
+            <input type="text" id="agent-input-line" class="calc-input-field" placeholder="เช่น @hengheng">
+          </div>
+          <div>
+            <label for="agent-input-tel" style="font-size: 0.8rem; color: var(--text-secondary);">เบอร์โทรศัพท์ติดต่อ (ไม่บังคับ):</label>
+            <input type="text" id="agent-input-tel" class="calc-input-field" placeholder="เช่น 081-234-5678">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem; text-align: left;">
+          <label style="font-size: 0.8rem; color: var(--color-gold);">ลิงก์โปรโมทสำเร็จรูปของคุณ:</label>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
+            <input type="text" id="agent-generated-url" class="calc-input-field" readonly style="font-size: 0.8rem; color: var(--color-emerald-light);">
+            <button id="btn-copy-affiliate-url" class="btn btn-gold" style="padding: 0 1rem; flex-shrink: 0;">
+              <i class="fas fa-copy"></i> คัดลอก
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -501,6 +682,7 @@
             <li><a href="#hero" style="color: var(--text-secondary); text-decoration: none;">หน้าแรก</a></li>
             <li><a href="#features" style="color: var(--text-secondary); text-decoration: none;">จุดเด่นสลาก N3</a></li>
             <li><a href="#ai-dream" style="color: var(--text-secondary); text-decoration: none;">AI ทำนายฝัน N3</a></li>
+            <li><a href="#results-stats" style="color: var(--text-secondary); text-decoration: none;">ตรวจผล & สถิติ</a></li>
             <li><a href="#calculator" style="color: var(--text-secondary); text-decoration: none;">คำนวณรางวัล N3</a></li>
           </ul>
         </div>
@@ -532,6 +714,10 @@
   <script src="js/particle-canvas.js"></script>
   <script src="js/ai-dream-engine.js"></script>
   <script src="js/n3-calculator.js"></script>
+  <script src="js/n3-checker.js"></script>
+  <script src="js/share-card.js"></script>
+  <script src="js/voice-input.js"></script>
+  <script src="js/agent-system.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

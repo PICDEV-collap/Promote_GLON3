@@ -1,9 +1,17 @@
 /* ==========================================================================
-   GLO N3 - Main Application Logic & User Interaction Controller
-   Smart Paotang Linker, Native Mobile App Deep Link Launcher, Official Shop Router
+   GLO N3 - Main Application Logic & Feature Controller
+   - Smart Paotang Linker & Deep Link Launcher
+   - AI Dream Engine & Voice-to-Text Controller
+   - High-DPI Social Share Card Generator
+   - N3 Prize Checker & Historical Results Engine
+   - Statistics & 3D Lucky Ball Roller
+   - White-label Dynamic Partner/Affiliate System
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function () {
+  // 1. White-label Agent System Initialization
+  AgentSystem.applyAgentBranding();
+
   // Navigation Scroll Effect
   const navbar = document.querySelector('.navbar');
   if (navbar) {
@@ -34,7 +42,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Shop Link Management System
+  // -------------------------------------------------------------------------
+  // 2. Shop & Affiliate System Modal Controllers
+  // -------------------------------------------------------------------------
   const DEFAULT_SHOP_URL = 'https://line.me';
   let currentShopUrl = localStorage.getItem('glo_n3_shop_url') || DEFAULT_SHOP_URL;
 
@@ -44,8 +54,61 @@ document.addEventListener('DOMContentLoaded', function () {
   const shopUrlInput = document.getElementById('shop-url-input');
   const btnSaveShopUrl = document.getElementById('btn-save-shop-url');
 
+  // Affiliate Generator Elements
+  const tabBtnShop = document.getElementById('tab-btn-shop');
+  const tabBtnAffiliate = document.getElementById('tab-btn-affiliate');
+  const tabContentShop = document.getElementById('tab-content-shop');
+  const tabContentAffiliate = document.getElementById('tab-content-affiliate');
+  const agentInputName = document.getElementById('agent-input-name');
+  const agentInputLine = document.getElementById('agent-input-line');
+  const agentInputTel = document.getElementById('agent-input-tel');
+  const agentGeneratedUrl = document.getElementById('agent-generated-url');
+  const btnCopyAffiliateUrl = document.getElementById('btn-copy-affiliate-url');
+
+  // Modal Tabs Switcher
+  if (tabBtnShop && tabBtnAffiliate) {
+    tabBtnShop.addEventListener('click', () => {
+      tabBtnShop.classList.add('active');
+      tabBtnAffiliate.classList.remove('active');
+      if (tabContentShop) tabContentShop.style.display = 'block';
+      if (tabContentAffiliate) tabContentAffiliate.style.display = 'none';
+    });
+
+    tabBtnAffiliate.addEventListener('click', () => {
+      tabBtnAffiliate.classList.add('active');
+      tabBtnShop.classList.remove('active');
+      if (tabContentShop) tabContentShop.style.display = 'none';
+      if (tabContentAffiliate) tabContentAffiliate.style.display = 'block';
+      updateGeneratedAffiliateUrl();
+    });
+  }
+
+  function updateGeneratedAffiliateUrl() {
+    if (!agentGeneratedUrl) return;
+    const name = agentInputName ? agentInputName.value : '';
+    const line = agentInputLine ? agentInputLine.value : '';
+    const tel = agentInputTel ? agentInputTel.value : '';
+    agentGeneratedUrl.value = AgentSystem.generateAffiliateUrl(name, line, tel);
+  }
+
+  [agentInputName, agentInputLine, agentInputTel].forEach(input => {
+    if (input) {
+      input.addEventListener('input', updateGeneratedAffiliateUrl);
+    }
+  });
+
+  if (btnCopyAffiliateUrl) {
+    btnCopyAffiliateUrl.addEventListener('click', () => {
+      if (agentGeneratedUrl && agentGeneratedUrl.value) {
+        copyToClipboard(agentGeneratedUrl.value);
+        showToast('คัดลอกลิงก์ตัวแทนร้านค้าของคุณเรียบร้อยแล้ว!');
+      }
+    });
+  }
+
   if (shopUrlInput) {
-    shopUrlInput.value = currentShopUrl;
+    const currentAgent = AgentSystem.getAgentInfo();
+    shopUrlInput.value = currentAgent.shopUrl || currentShopUrl;
   }
 
   btnOurShopList.forEach(btn => {
@@ -64,7 +127,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (modalShopConfig) {
         modalShopConfig.classList.add('active');
       } else {
-        window.open(currentShopUrl, '_blank');
+        const agent = AgentSystem.getAgentInfo();
+        window.open(agent.shopUrl || currentShopUrl, '_blank');
       }
     });
   });
@@ -87,9 +151,54 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // -------------------------------------------------------------------------
+  // 3. AI Dream Interpreter & Voice Input Engine
+  // -------------------------------------------------------------------------
+  const dreamInput = document.getElementById('dream-input');
+  const btnVoiceInput = document.getElementById('btn-voice-input');
+  const voiceStatusHint = document.getElementById('voice-status-hint');
+
+  // Initialize Voice-to-Text if supported
+  if (VoiceInputEngine.isSupported && btnVoiceInput) {
+    VoiceInputEngine.initRecognition(
+      // onResult
+      (transcript, isFinal) => {
+        if (dreamInput) {
+          dreamInput.value = transcript;
+          if (isFinal) {
+            showToast('บันทึกเสียงความฝันเรียบร้อยแล้ว!');
+          }
+        }
+      },
+      // onStateChange
+      (isListening) => {
+        if (isListening) {
+          btnVoiceInput.classList.add('recording');
+          if (voiceStatusHint) voiceStatusHint.classList.add('active');
+          try { SoundEngine.playClick(); } catch (e) {}
+        } else {
+          btnVoiceInput.classList.remove('recording');
+          if (voiceStatusHint) voiceStatusHint.classList.remove('active');
+        }
+      },
+      // onError
+      (err) => {
+        console.warn('Voice Input error:', err);
+        showToast('เกิดข้อผิดพลาดในการฟังเสียง หรือยังไม่ได้อนุญาตการใช้ไมโครโฟน');
+      }
+    );
+
+    btnVoiceInput.addEventListener('click', () => {
+      VoiceInputEngine.toggleListening();
+    });
+  } else if (btnVoiceInput) {
+    btnVoiceInput.addEventListener('click', () => {
+      showToast('เบราว์เซอร์นี้ยังไม่รองรับระบบตรวจจับเสียง กรุณาพิมพ์ความฝันในช่องข้อความครับ');
+    });
+  }
+
   // Quick Dream Tag Click Handlers
   const tagBtns = document.querySelectorAll('.tag-btn');
-  const dreamInput = document.getElementById('dream-input');
   tagBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       try { SoundEngine.playClick(); } catch (err) {}
@@ -112,7 +221,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const scanStepText = document.getElementById('scan-step-text');
   const progressBarFill = document.getElementById('progress-bar-fill');
 
-  let currentPrediction = null;
+  let currentPrediction = {
+    dreamText: 'ฝันเห็นงูใหญ่สีทอง',
+    element: 'ธาตุน้ำ / ดาวเกตุ (๙)',
+    n3Direct: '789',
+    n3Tod: '798, 879',
+    n2Digit: '89',
+    confidence: '98.5%',
+    meaning: 'ฝันเห็นงูหรือพญานาค ถือเป็นนิมิตหมายมงคลยิ่งใหญ่ สื่อถึงโชคลาภก้อนโต การเจริญด้วยลาภยศและวาสนา',
+    blessing: 'แนะนำทำบุญถวายสังฆทานน้ำดื่ม หรือร่วมสร้างอุโบสถเพื่อเปิดทิศทางโชคลาภ'
+  };
 
   if (dreamForm) {
     dreamForm.addEventListener('submit', function (e) {
@@ -151,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function () {
           clearInterval(interval);
           if (progressBarFill) progressBarFill.style.width = '100%';
 
-          // Generate Result safely
           try {
             currentPrediction = AIDreamEngine.generatePrediction(inputVal);
             displayPredictionResult(currentPrediction);
@@ -209,25 +326,259 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Native Mobile Paotang App Launcher
+  // -------------------------------------------------------------------------
+  // 4. Social Share Card Generator & Modals
+  // -------------------------------------------------------------------------
+  const btnShareCard = document.getElementById('btn-share-card');
+  const modalShareCard = document.getElementById('modal-share-card');
+  const modalShareClose = document.getElementById('modal-share-close');
+  const shareCardPreviewImg = document.getElementById('share-card-preview-img');
+  const btnDownloadCardPng = document.getElementById('btn-download-card-png');
+  const btnNativeShareCard = document.getElementById('btn-native-share-card');
+
+  if (btnShareCard) {
+    btnShareCard.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (err) {}
+      const agentInfo = AgentSystem.getAgentInfo();
+      const pred = currentPrediction || {
+        dreamText: 'ฝันเห็นงูใหญ่สีทอง',
+        element: 'ธาตุน้ำ / ดาวเกตุ (๙)',
+        n3Direct: '789',
+        n3Tod: '798, 879',
+        n2Digit: '89',
+        confidence: '98.5%',
+        meaning: 'ฝันมงคลนำพาโชคลาภก้อนโต',
+        blessing: 'ทำบุญตักบาตรเสริมดวง'
+      };
+
+      try {
+        const cardDataUrl = ShareCardEngine.renderCardCanvas(pred, agentInfo);
+        if (shareCardPreviewImg) shareCardPreviewImg.src = cardDataUrl;
+        if (modalShareCard) modalShareCard.classList.add('active');
+      } catch (err) {
+        console.error('Share card render error:', err);
+        showToast('เกิดข้อผิดพลาดในการสร้างรูปภาพ');
+      }
+    });
+  }
+
+  if (modalShareClose && modalShareCard) {
+    modalShareClose.addEventListener('click', () => {
+      modalShareCard.classList.remove('active');
+    });
+  }
+
+  if (btnDownloadCardPng) {
+    btnDownloadCardPng.addEventListener('click', () => {
+      try { SoundEngine.playCopySuccess(); } catch (err) {}
+      const agentInfo = AgentSystem.getAgentInfo();
+      ShareCardEngine.downloadCard(currentPrediction, agentInfo);
+      showToast('กำลังดาวน์โหลดรูปภาพการ์ดคำทำนาย...');
+    });
+  }
+
+  if (btnNativeShareCard) {
+    btnNativeShareCard.addEventListener('click', async () => {
+      try { SoundEngine.playClick(); } catch (err) {}
+      const agentInfo = AgentSystem.getAgentInfo();
+      showToast('กำลังเตรียมไฟล์เพื่อแชร์...');
+      await ShareCardEngine.shareCardNative(currentPrediction, agentInfo);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 5. N3 Results Checker Controller
+  // -------------------------------------------------------------------------
+  const checkerDrawSelect = document.getElementById('checker-draw-select');
+  const checkerNumberInput = document.getElementById('checker-number-input');
+  const btnCheckPrize = document.getElementById('btn-check-prize');
+  const checkerResultDisplay = document.getElementById('checker-result-display');
+  const checkerResTitle = document.getElementById('checker-res-title');
+  const checkerResBadge = document.getElementById('checker-res-badge');
+  const checkerResMsg = document.getElementById('checker-res-msg');
+  const checkerPrizesList = document.getElementById('checker-prizes-list');
+
+  // Populate Draw Select Dropdown
+  if (checkerDrawSelect && N3Checker.drawHistory) {
+    checkerDrawSelect.innerHTML = N3Checker.drawHistory.map(d =>
+      `<option value="${d.id}">งวด ${d.dateText} (เลข 3 ตรง: ${d.winning3Direct})</option>`
+    ).join('');
+  }
+
+  function handleCheckPrize() {
+    const inputNum = checkerNumberInput ? checkerNumberInput.value.trim() : '';
+    const selectedDraw = checkerDrawSelect ? checkerDrawSelect.value : '';
+
+    if (!inputNum || inputNum.length !== 3) {
+      showToast('กรุณากรอกเลข 3 หลักให้ถูกต้อง (เช่น 789)');
+      if (checkerNumberInput) checkerNumberInput.focus();
+      return;
+    }
+
+    const checkRes = N3Checker.checkN3Prize(inputNum, selectedDraw);
+
+    if (!checkRes.success) {
+      showToast(checkRes.error);
+      return;
+    }
+
+    if (checkerResultDisplay) {
+      checkerResultDisplay.className = checkRes.isWinner ? 'checker-result-box won' : 'checker-result-box lost';
+      checkerResultDisplay.style.display = 'block';
+
+      if (checkerResTitle) checkerResTitle.innerText = `ผลการตรวจเลข "${checkRes.inputNumber}"`;
+      if (checkerResBadge) {
+        checkerResBadge.className = checkRes.isWinner ? 'badge badge-emerald' : 'badge badge-gold';
+        checkerResBadge.innerHTML = checkRes.isWinner
+          ? '<i class="fas fa-trophy"></i> ถูกรางวัล!'
+          : '<i class="fas fa-times-circle"></i> ไม่ถูกรางวัล';
+      }
+      if (checkerResMsg) checkerResMsg.innerText = checkRes.message;
+
+      if (checkerPrizesList) {
+        if (checkRes.isWinner && checkRes.prizesWon.length > 0) {
+          checkerPrizesList.innerHTML = checkRes.prizesWon.map(p => `
+            <div class="prize-badge-won">
+              <div>
+                <strong style="color: var(--color-gold); font-size: 0.95rem;">${p.title}</strong>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">${p.description}</div>
+              </div>
+              <div style="text-align: right;">
+                <strong style="color: var(--color-emerald-light); font-size: 1.1rem;">${N3Calculator.formatBaht(p.amount)}</strong>
+              </div>
+            </div>
+          `).join('');
+
+          if (checkRes.hasJackpotChance) {
+            checkerPrizesList.innerHTML += `
+              <div class="prize-badge-won" style="border-left-color: var(--color-emerald); background: rgba(16, 185, 129, 0.15);">
+                <div>
+                  <strong style="color: var(--color-gold);"><i class="fas fa-crown"></i> สิทธิ์ลุ้นรางวัลพิเศษ Jackpot!</strong>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary);">หมายเลข 3 ตัวตรงมีสิทธิ์สุ่มรับแจ็กพอตก้อนโตในงวดนี้</div>
+                </div>
+              </div>
+            `;
+          }
+        } else {
+          checkerPrizesList.innerHTML = `
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+              * สลาก N3 มี 4 ประเภทรางวัล (3 ตรง, 3 โต๊ด, 2 ตรง และรางวัลพิเศษ) ลองใช้ AI ทำนายฝันเพื่อหาเลขมงคลงวดถัดไป
+            </div>
+          `;
+        }
+      }
+
+      if (checkRes.isWinner) {
+        try { SoundEngine.playRevealFanfare(); } catch (err) {}
+        showToast(`🎉 ยินดีด้วยครับ! ถูกรางวัลรวม ${N3Calculator.formatBaht(checkRes.totalPrize)}`);
+      } else {
+        try { SoundEngine.playClick(); } catch (err) {}
+        showToast(`เลข ${checkRes.inputNumber} ไม่ถูกรางวัลในงวดนี้`);
+      }
+    }
+  }
+
+  if (btnCheckPrize) {
+    btnCheckPrize.addEventListener('click', handleCheckPrize);
+  }
+  if (checkerNumberInput) {
+    checkerNumberInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleCheckPrize();
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 6. Statistics & 3D Lucky Ball Roller
+  // -------------------------------------------------------------------------
+  const statHotChips = document.getElementById('stat-hot-chips');
+  const statColdChips = document.getElementById('stat-cold-chips');
+  const statTodayPower = document.getElementById('stat-today-power');
+  const ball1 = document.getElementById('ball-1');
+  const ball2 = document.getElementById('ball-2');
+  const ball3 = document.getElementById('ball-3');
+  const rollerAuspice = document.getElementById('roller-auspice');
+  const rollerTodHint = document.getElementById('roller-tod-hint');
+  const btnRollLucky = document.getElementById('btn-roll-lucky');
+  const btnCopyRolled = document.getElementById('btn-copy-rolled');
+
+  // Load and display statistics
+  const stats = N3Checker.getNumberStatistics();
+  if (statTodayPower && stats.todayPower) {
+    statTodayPower.innerHTML = `<i class="fas fa-calendar-day"></i> ${stats.todayPower.day} • กำลังวัน: ${stats.todayPower.power}`;
+  }
+
+  if (statHotChips && stats.hotDigits) {
+    statHotChips.innerHTML = stats.hotDigits.map(h =>
+      `<span class="digit-chip hot" title="ออกบ่อย ${h.count} ครั้ง"><i class="fas fa-fire"></i> เลข ${h.digit} (${h.count} ครั้ง)</span>`
+    ).join('');
+  }
+
+  if (statColdChips && stats.coldDigits) {
+    statColdChips.innerHTML = stats.coldDigits.map(c =>
+      `<span class="digit-chip cold" title="ออกน้อย ${c.count} ครั้ง"><i class="fas fa-snowflake"></i> เลข ${c.digit}</span>`
+    ).join('');
+  }
+
+  let currentRolledNumber = '789';
+
+  if (btnRollLucky) {
+    btnRollLucky.addEventListener('click', () => {
+      try { SoundEngine.playScanChime(); } catch (err) {}
+
+      // Animate Balls rolling
+      const balls = [ball1, ball2, ball3];
+      balls.forEach(b => { if (b) b.classList.add('rolling'); });
+
+      let rollCount = 0;
+      const rollInterval = setInterval(() => {
+        balls.forEach(b => {
+          if (b) b.innerText = Math.floor(Math.random() * 10);
+        });
+        rollCount++;
+        if (rollCount > 8) {
+          clearInterval(rollInterval);
+          balls.forEach(b => { if (b) b.classList.remove('rolling'); });
+
+          const rolled = N3Checker.rollLucky3Digits();
+          currentRolledNumber = rolled.fullNumber;
+
+          if (ball1) ball1.innerText = rolled.d1;
+          if (ball2) ball2.innerText = rolled.d2;
+          if (ball3) ball3.innerText = rolled.d3;
+          if (rollerAuspice) rollerAuspice.innerText = `✨ "${rolled.auspice}"`;
+          if (rollerTodHint) rollerTodHint.innerText = `ชุดเลขโต๊ด: ${rolled.todPermutations}`;
+
+          try { SoundEngine.playRevealFanfare(); } catch (err) {}
+          showToast(`สุ่มได้เลขมงคล 3 ตัวตรง: ${rolled.fullNumber}`);
+        }
+      }, 70);
+    });
+  }
+
+  if (btnCopyRolled) {
+    btnCopyRolled.addEventListener('click', () => {
+      copyToClipboard(currentRolledNumber);
+      showToast(`คัดลอกเลขมงคล (${currentRolledNumber}) เรียบร้อยแล้ว!`);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 7. Native Mobile Paotang Launcher & General Utilities
+  // -------------------------------------------------------------------------
   function launchNativePaotangApp() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     const isAndroid = /android/i.test(userAgent);
     const isiOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
 
     if (isAndroid) {
-      // Official Android Intent format for launching installed Paotang app natively
       window.location.href = 'intent://#Intent;scheme=paotang;package=th.or.ktb.paotang;end';
     } else if (isiOS) {
-      // iOS Custom Scheme
       window.location.href = 'paotang://';
     } else {
-      // Desktop / Other: Open Web Portal
       window.open('https://paotang.krungthai.com', '_blank');
     }
   }
 
-  // Smart Paotang Button Click Controller
   const btnBuyPaotang = document.querySelectorAll('.btn-buy-paotang');
   const modalQr = document.getElementById('modal-qr');
   const modalQrClose = document.getElementById('modal-qr-close');
@@ -246,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       if (isMobile) {
-        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กำลังสะกิดเปิดแอปเป๋าตัง...`);
+        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กำลังเปิดแอปเป๋าตัง...`);
         launchNativePaotangApp();
       } else {
         showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! สแกน QR Code หรือเปิดแอปเป๋าตัง`);
@@ -255,13 +606,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  if (modalQrClose) {
+  if (modalQrClose && modalQr) {
     modalQrClose.addEventListener('click', () => {
-      if (modalQr) modalQr.classList.remove('active');
+      modalQr.classList.remove('active');
     });
   }
 
-  // Clipboard Utility
   function copyToClipboard(text) {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -280,7 +630,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Copy Direct Button Listener
   const btnCopyNum = document.getElementById('btn-copy-num');
   if (btnCopyNum) {
     btnCopyNum.addEventListener('click', () => {
@@ -291,7 +640,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Toast Notification System
   function showToast(message) {
     let toastContainer = document.querySelector('.toast-container');
     if (!toastContainer) {
@@ -314,7 +662,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 3500);
   }
 
-  // N3 Simulator Calculator Handler
+  // -------------------------------------------------------------------------
+  // 8. N3 Simulator Calculator Handler
+  // -------------------------------------------------------------------------
   const calcSalesInput = document.getElementById('calc-sales');
   if (calcSalesInput) {
     function updateCalculator() {
