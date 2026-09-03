@@ -4,8 +4,8 @@ import path from 'path';
 dotenv.config();
 
 export const CONFIG = {
-  PORT: process.env.PORT || 3000,
-  BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  PORT: parseInt(process.env.PORT || '3333', 10),
+  BASE_URL: process.env.BASE_URL || 'http://localhost:3333',
   
   // N3 Official Dealer Portal & Paotang OAuth
   N3_LOGIN_URL: process.env.N3_LOGIN_URL || 'https://n3.glolotteryshop.com/login/',
