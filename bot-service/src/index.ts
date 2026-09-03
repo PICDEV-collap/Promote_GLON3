@@ -228,6 +228,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
   } catch (err: any) {
     console.error('[WORKER EXCEPTION]', err);
+    if (err?.message?.includes('closed') || err?.message?.includes('crash') || (page && page.isClosed())) {
+      console.warn('[WORKER RECOVERY] รีเซ็ตเบราว์เซอร์หลังจากพบข้อผิดพลาด...');
+      await PersistentBrowserManager.close().catch(() => {});
+      context = null;
+      page = null;
+    }
     await sendCustomerMessage([
       { type: 'text', text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ' }
     ]);
@@ -235,21 +241,34 @@ orderQueue.setWorker(async (task: OrderTask) => {
 });
 
 /**
- * ฟังก์ชันแกะข้อความสั่งซื้อ (รองรับทั้งเลขเดี่ยว หลายเลข และคำสั่ง "อย่างละ X ใบ")
+ * ฟังก์ชันแกะข้อความสั่งซื้อ (รองรับทั้งเลขเดี่ยว หลายเลข คั่นด้วยลูกน้ำ เว้นวรรค และคำสั่ง "อย่างละ X ใบ")
  */
 export function parseOrderMessage(text: string): OrderItem[] | null {
   if (!text) return null;
-  const clean = text.trim();
 
-  // ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป
-  if (/^(?:q|qr|qrcode|qr\s*code|login|signin|id|myid|help|วิธี|ขอ|ล็อกอิน)/i.test(clean)) return null;
+  // 1. แปลงเลขอารบิกและแปลงเลขไทย (๐-๙) เป็นเลขอารบิก (0-9)
+  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+  let clean = text.trim();
+  for (let i = 0; i < 10; i++) {
+    clean = clean.replace(new RegExp(thaiDigits[i], 'g'), String(i));
+  }
+
+  // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป
+  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน)$/i.test(clean) || /^(?:login|signin|help|myid)\b/i.test(clean)) {
+    return null;
+  }
+
+  // กำหนด Regex ตัดคำนำหน้าการสั่งซื้อภาษาไทยออก (เช่น สั่งซื้อ, ขอซื้อ, สั่ง, ซื้อ, เอาเลข, ขอเลข, สลาก, ฯลฯ)
+  const orderPrefixRegex = /^(?:ขอสั่งซื้อ|ขอซื้อสลาก|ซื้อสลาก|สั่งสลาก|ขอสลาก|สั่งซื้อ|ขอซื้อ|ขอสั่ง|เอาเลข|ซื้อเลข|สั่งเลข|เลือกเลข|ขอเลข|สั่ง|ซื้อ|เอา|ขอ|เลือก|สลาก|เลข|\s)+/i;
+  const normalized = clean.replace(orderPrefixRegex, '').trim();
+  if (!normalized) return null;
 
   // แบบที่ 1: '123 456 789 อย่างละ 2 ใบ' หรือ '123, 456 อย่างละ 1'
-  const eachMatch = clean.match(/^((?:\d{3}[\s,+/]*)+)\s*(?:อย่างละ|อันละ|ตัวละ|เลขละ)\s*([0-9]+)\s*(?:ใบ)?$/i);
+  const eachMatch = normalized.match(/^((?:\d{3}[\s,+/]*)+)\s*(?:อย่างละ|อันละ|ตัวละ|เลขละ)\s*([0-9]+)\s*(?:ใบ)?$/i);
   if (eachMatch) {
     const rawNums = eachMatch[1].match(/\d{3}/g);
     const qty = parseInt(eachMatch[2], 10);
-    if (rawNums && rawNums.length > 0 && qty > 0 && qty <= 50) {
+    if (rawNums && rawNums.length > 0 && qty > 0 && qty <= 100) {
       const itemsMap = new Map<string, number>();
       for (const num of rawNums) {
         itemsMap.set(num, (itemsMap.get(num) || 0) + qty);
@@ -258,24 +277,25 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
     }
   }
 
-  // แบบที่ 2: พิมพ์เฉพาะเลข 3 ตัวเว้นวรรคติดกัน เช่น '123 456 789'
-  const spaceNums = clean.split(/\s+/);
-  if (spaceNums.length > 1 && spaceNums.every(s => /^\d{3}$/.test(s))) {
+  // แบบที่ 2: พิมพ์เฉพาะเลข 3 ตัว คั่นด้วยช่องว่างหรือเครื่องหมายคั่น (เช่น '123 456 789', '123, 456, 789')
+  const pureNums = normalized.split(/[\s,;/|+]+/).map(s => s.trim()).filter(Boolean);
+  if (pureNums.length > 1 && pureNums.every(s => /^\d{3}$/.test(s))) {
     const itemsMap = new Map<string, number>();
-    for (const num of spaceNums) {
+    for (const num of pureNums) {
       itemsMap.set(num, (itemsMap.get(num) || 0) + 1);
     }
     return Array.from(itemsMap.entries()).map(([number, quantity]) => ({ number, quantity }));
   }
 
-  // แบบที่ 3: หลายบรรทัด หรือคั่นด้วยเครื่องหมายจุลภาค/สแลช/ไปป์/บวก
-  const segments = clean.split(/[\r\n,;/|+]+/).map(s => s.trim()).filter(Boolean);
-  if (segments.length > 0) {
+  // แบบที่ 3: หลายบรรทัด หรือคั่นด้วยเครื่องหมายจุลภาค/สแลช/ไปป์/บวก เช่น '334=5,447=6,778=3' หรือ '111 2, 222 2' หรือ '334:5, 447:6'
+  const segments = normalized.split(/[\r\n,;/|+]+/).map(s => s.trim()).filter(Boolean);
+  if (segments.length > 1) {
     const itemsMap = new Map<string, number>();
     let validCount = 0;
 
     for (const seg of segments) {
-      const m = seg.match(/^(?:(?:สั่ง|ซื้อ|เอา)?\s*)(\d{3})(?:[\s=\-xX*]*([0-9]+)\s*(?:ใบ)?)?$/);
+      const cleanSeg = seg.replace(orderPrefixRegex, '').trim();
+      const m = cleanSeg.match(/^(\d{3})(?:[\s=\-xX*:]+([0-9]+))?(?:\s*ใบ)?$/);
       if (m) {
         const num = m[1];
         const qty = m[2] ? parseInt(m[2], 10) : 1;
@@ -283,14 +303,47 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
           itemsMap.set(num, (itemsMap.get(num) || 0) + qty);
           validCount++;
         }
-      } else {
-        return null;
       }
     }
 
     if (validCount === segments.length && itemsMap.size > 0) {
       return Array.from(itemsMap.entries()).map(([number, quantity]) => ({ number, quantity }));
     }
+  }
+
+  // แบบที่ 4: เลขเดี่ยว หรือหลายเลขคั่นด้วยเว้นวรรคพร้อมจำนวน เช่น '111 2 222 2', '111=2 222=3', '111 2 ใบ 222 3 ใบ', '123 2', '123:2', '123'
+  const pairRegex = /(\b\d{3}\b)(?:[\s=\-xX*:]+([0-9]+))?(?:\s*ใบ)?/g;
+  let m2: RegExpExecArray | null;
+  const pairs: { num: string; qty: number }[] = [];
+  let lastIndex = 0;
+  let fullMatch = true;
+
+  while ((m2 = pairRegex.exec(normalized)) !== null) {
+    const intervening = normalized.slice(lastIndex, m2.index).trim();
+    if (intervening.length > 0 && !/^[,;/|+]+$/.test(intervening)) {
+      fullMatch = false;
+      break;
+    }
+    const num = m2[1];
+    const qty = m2[2] ? parseInt(m2[2], 10) : 1;
+    if (qty > 0 && qty <= 100) {
+      pairs.push({ num, qty });
+    } else {
+      fullMatch = false;
+      break;
+    }
+    lastIndex = pairRegex.lastIndex;
+  }
+
+  const trailing = normalized.slice(lastIndex).trim();
+  if (trailing.length > 0) fullMatch = false;
+
+  if (fullMatch && pairs.length > 0) {
+    const itemsMap = new Map<string, number>();
+    for (const p of pairs) {
+      itemsMap.set(p.num, (itemsMap.get(p.num) || 0) + p.qty);
+    }
+    return Array.from(itemsMap.entries()).map(([number, quantity]) => ({ number, quantity }));
   }
 
   return null;
@@ -404,7 +457,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         totalQuantity,
         totalPrice,
         timestamp: Date.now(),
-        hasRepliedQueue: true
+        hasRepliedQueue: false
       };
 
       const queuePos = orderQueue.enqueue(orderTask);
@@ -415,7 +468,8 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
 
       console.log(`[ORDER ACK] ส่งข้อความรับออเดอร์และคำอวยพรให้ลูกค้า ${userId} (คิวที่ ${queuePos})`);
-      await lineHandler.reply(replyToken, [{ type: 'text', text: waitingMessage }]);
+      const replySuccess = await lineHandler.reply(replyToken, [{ type: 'text', text: waitingMessage }]);
+      orderTask.hasRepliedQueue = replySuccess;
     }
   }
 });
@@ -471,4 +525,8 @@ function startServerWithPort(targetPort: number) {
   });
 }
 
-startServerWithPort(CONFIG.PORT);
+if (require.main === module) {
+  startServerWithPort(CONFIG.PORT);
+}
+
+export { app, startServerWithPort };

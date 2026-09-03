@@ -24,11 +24,23 @@ export class PersistentBrowserManager {
         } else {
           // ถ้าไม่มีหน้า active อยู่ ให้ลองสร้าง page ใหม่ใน context เดิม
           this.page = await this.context.newPage();
+          this.attachPageListeners(this.page);
           return { context: this.context, page: this.page };
         }
       } catch (e) {
         console.warn('[BROWSER] Browser context เดิมปิดตัวหรือใช้งานไม่ได้แล้ว กำลังรีเซ็ต...');
         await this.close().catch(() => {});
+      }
+    }
+
+    // ทำความสะอาด orphaned lockfile หากไม่มี browser process ใช้งานอยู่ ป้องกัน Chrome แฮงก์
+    const lockfilePath = path.join(USER_DATA_DIR, 'lockfile');
+    if (fs.existsSync(lockfilePath)) {
+      try {
+        fs.unlinkSync(lockfilePath);
+        console.log('[BROWSER] ทำความสะอาด orphaned lockfile สำเร็จ');
+      } catch {
+        // หากไฟล์กำลังถูกใช้งานโดย Chrome Process อื่น ไม่ต้องทำอะไร
       }
     }
 
@@ -53,7 +65,8 @@ export class PersistentBrowserManager {
         headless,
         viewport: { width: 1440, height: 900 },
         deviceScaleFactor: 2,
-        args: browserArgs
+        args: browserArgs,
+        timeout: 25000
       });
     } catch {
       // Fallback: ใช้ Chromium ของ Playwright
@@ -61,11 +74,12 @@ export class PersistentBrowserManager {
         headless,
         viewport: { width: 1440, height: 900 },
         deviceScaleFactor: 2,
-        args: browserArgs
+        args: browserArgs,
+        timeout: 25000
       });
     }
 
-    // ดักฟัง event เมื่อ context หรือ browser ปิดตัว
+    // ดักฟัง event เมื่อ context ปิดตัว
     this.context.on('close', () => {
       console.log('[BROWSER EVENT] Browser Context ปิดตัวลง');
       PersistentBrowserManager.context = null;
@@ -75,7 +89,24 @@ export class PersistentBrowserManager {
     const pages = this.context.pages();
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
+    // ดักฟัง event แครชและปิดตัวของเพจ
+    this.attachPageListeners(this.page);
+
     return { context: this.context, page: this.page! };
+  }
+
+  private static attachPageListeners(p: Page): void {
+    p.on('crash', () => {
+      console.warn('[BROWSER EVENT] ตรวจพบหน้าต่างเว็บเบราว์เซอร์แครช (Renderer Crash)');
+      if (PersistentBrowserManager.page === p) {
+        PersistentBrowserManager.page = null;
+      }
+    });
+    p.on('close', () => {
+      if (PersistentBrowserManager.page === p) {
+        PersistentBrowserManager.page = null;
+      }
+    });
   }
 
   public static async close(): Promise<void> {

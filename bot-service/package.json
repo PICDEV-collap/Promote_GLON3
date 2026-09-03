@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
+    "test": "ts-node src/test-verify-all.ts",
     "test:login": "ts-node src/automation/test-login.ts",
     "test:quota": "ts-node src/quota/test-quota.ts"
   },
