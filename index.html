@@ -73,10 +73,10 @@
         <li><a href="#features" class="nav-link">จุดเด่น N3</a></li>
         <li><a href="#ai-dream" class="nav-link">AI ทำนายฝัน</a></li>
         <li><a href="#tarot-horoscope" class="nav-link">ไพ่ยิปซี 3D</a></li>
-        <li><a href="#results-stats" class="nav-link">ตรวจผล & สถิติ</a></li>
+        <li><a href="#results-stats" class="nav-link">สถิติ &amp; สุ่มเลข</a></li>
         <li><a href="#poster-studio" class="nav-link">สตูดิโอโปสเตอร์</a></li>
         <li><a href="#calculator" class="nav-link">คำนวณเงินรางวัล</a></li>
-        <li><a href="#guide" class="nav-link">วิธีซื้อเป๋าตัง</a></li>
+        <li><a href="#guide" class="nav-link">วิธีซื้อสลาก</a></li>
       </ul>
 
       <div class="nav-actions">
@@ -518,65 +518,38 @@
   <section id="results-stats" class="results-stats-section">
     <div class="container">
       <div class="section-title">
-        <span class="badge badge-gold"><i class="fas fa-check-double"></i> RESULT CHECKER & HOT STATS</span>
-        <h2>ตรวจผลรางวัลสลาก <span class="text-gradient-gold">GLO N3</span> & สถิติเลขเด็ด</h2>
-        <p>ตรวจผลรางวัลสลาก N3 ทุกประเภททันที พร้อมดูสถิติตัวเลขเด่นประจำวัน และระบบสุ่มลูกบอลมงคล 3 หลัก</p>
+        <span class="badge badge-gold"><i class="fas fa-dharmachakra"></i> LUCKY ROLLER &amp; HOT STATS</span>
+        <h2>วงล้อสุ่มเลขมงคล <span class="text-gradient-gold">GLO N3</span> &amp; สถิติเลขเด่น</h2>
+        <p>สุ่มชุดตัวเลขมงคล 3 หลักประจำวัน พร้อมสถิติเลขเด่นมาแรงและเลขศาสตร์กำลังวัน</p>
       </div>
 
-      <div class="results-grid-wrapper">
-        <!-- Checker Card -->
-        <div class="checker-card">
-          <h3 style="color: var(--color-gold); margin-bottom: 1rem;"><i class="fas fa-search"></i> ตรวจผลสลาก N3</h3>
-          <label for="checker-draw-select" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">เลือกงวดสลากกินแบ่งรัฐบาล N3:</label>
-          <select id="checker-draw-select" class="checker-select"></select>
+      <!-- 3D Lucky Roller Card -->
+      <div class="roller-card" style="max-width: 680px; margin: 0 auto 2.5rem auto;">
+        <h3 style="color: var(--color-emerald-light); margin-bottom: 0.5rem; text-align: center;"><i class="fas fa-dharmachakra"></i> วงล้อลูกบอลสุ่มเลขมงคล N3</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; text-align: center;">หมุนสุ่มดวงชะตาพลังจักรวาล ได้ชุดเลข 3 ตัวตรง พร้อมเลขโต๊ด</p>
 
-          <label for="checker-number-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">กรอกหมายเลขสลาก N3 ของคุณ (3 หลัก):</label>
-          <div class="checker-input-wrapper">
-            <input type="text" id="checker-number-input" class="checker-num-input" maxlength="3" placeholder="789" inputmode="numeric">
-            <button id="btn-check-prize" class="btn btn-gold btn-checker-action">
-              <i class="fas fa-check"></i> ตรวจรางวัล
-            </button>
+        <div class="roller-balls-wrapper">
+          <div id="ball-1" class="roller-ball">7</div>
+          <div id="ball-2" class="roller-ball">8</div>
+          <div id="ball-3" class="roller-ball">9</div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 1.25rem;">
+          <div id="roller-auspice" style="font-size: 0.95rem; color: var(--color-gold-light); font-weight: 600;">
+            ✨ "มหาเศรษฐีเงินล้าน รับโชคก้อนโต"
           </div>
-
-          <!-- Dynamic Result Display -->
-          <div id="checker-result-display" class="checker-result-box">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-              <span id="checker-res-title" style="font-weight: 700; font-size: 1.15rem; color: var(--color-gold-light);">ผลการตรวจรางวัล</span>
-              <span id="checker-res-badge" class="badge badge-emerald">ถูกรางวัล</span>
-            </div>
-            <p id="checker-res-msg" style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem;">ยินดีด้วยครับ คุณถูกรางวัลสลาก N3</p>
-            <div id="checker-prizes-list"></div>
+          <div id="roller-tod-hint" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+            ชุดเลขโต๊ด: 798, 879
           </div>
         </div>
 
-        <!-- 3D Lucky Roller Card -->
-        <div class="roller-card">
-          <h3 style="color: var(--color-emerald-light); margin-bottom: 0.5rem;"><i class="fas fa-dharmachakra"></i> วงล้อลูกบอลสุ่มเลขมงคล N3</h3>
-          <p style="color: var(--text-secondary); font-size: 0.85rem;">หมุนสุ่มดวงชะตาพลังจักรวาล ได้ชุดเลข 3 ตัวตรง พร้อมเลขโต๊ด</p>
-
-          <div class="roller-balls-wrapper">
-            <div id="ball-1" class="roller-ball">7</div>
-            <div id="ball-2" class="roller-ball">8</div>
-            <div id="ball-3" class="roller-ball">9</div>
-          </div>
-
-          <div style="text-align: center; margin-bottom: 1.25rem;">
-            <div id="roller-auspice" style="font-size: 0.9rem; color: var(--color-gold-light); font-weight: 600;">
-              ✨ "มหาเศรษฐีเงินล้าน รับโชคก้อนโต"
-            </div>
-            <div id="roller-tod-hint" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
-              ชุดเลขโต๊ด: 798, 879
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 0.75rem;">
-            <button id="btn-roll-lucky" class="btn btn-emerald" style="flex: 1;">
-              <i class="fas fa-sync-alt"></i> หมุนสุ่มเลขมงคล
-            </button>
-            <button id="btn-copy-rolled" class="btn btn-outline" style="padding: 0.6rem 1rem;" title="คัดลอกเลขที่สุ่มได้">
-              <i class="fas fa-copy"></i> คัดลอก
-            </button>
-          </div>
+        <div style="display: flex; gap: 0.75rem; justify-content: center; max-width: 420px; margin: 0 auto;">
+          <button id="btn-roll-lucky" class="btn btn-emerald" style="flex: 1;">
+            <i class="fas fa-sync-alt"></i> หมุนสุ่มเลขมงคล
+          </button>
+          <button id="btn-copy-rolled" class="btn btn-outline" style="padding: 0.6rem 1rem;" title="คัดลอกเลขที่สุ่มได้">
+            <i class="fas fa-copy"></i> คัดลอก
+          </button>
         </div>
       </div>
 
@@ -756,38 +729,6 @@
               </div>
               <span id="calc-special" style="font-weight: 800; font-size: 1.25rem; color: var(--color-gold);">4,000 ฿</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Agent Commission Estimator Card -->
-      <div class="agent-earnings-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-          <h3 style="color: var(--color-gold); font-size: 1.2rem;"><i class="fas fa-hand-holding-usd"></i> จำลองรายได้ส่วนแบ่งตัวแทนจำหน่าย (Agent Earnings)</h3>
-          <span class="badge badge-emerald"><i class="fas fa-check-circle"></i> ส่วนแบ่ง 2 บาท / ใบ (10%)</span>
-        </div>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.35rem;">
-          ตัวแทนจำหน่ายสลาก N3 ได้รับส่วนแบ่งรายการละ 2 บาท โดยไม่ต้องสต็อกสลากล่วงหน้า
-        </p>
-
-        <label for="agent-ticket-slider" style="font-size: 0.9rem; color: var(--text-primary); display: flex; justify-content: space-between; margin-top: 1rem;">
-          <span>ปรับจำนวนสลากที่จำหน่ายได้:</span>
-          <strong id="agent-slider-label" style="color: var(--color-emerald-light); font-size: 1.1rem;">500 ใบ</strong>
-        </label>
-        <input type="range" id="agent-ticket-slider" class="agent-slider" min="50" max="5000" step="50" value="500">
-
-        <div class="agent-stats-grid">
-          <div class="agent-stat-box">
-            <div style="font-size: 0.8rem; color: var(--text-muted);">ยอดจำหน่ายรวม (ใบละ 20 บาท)</div>
-            <strong id="agent-stat-total-sales" style="color: #ffffff; font-size: 1.15rem;">10,000 ฿</strong>
-          </div>
-          <div class="agent-stat-box" style="border-color: var(--border-emerald);">
-            <div style="font-size: 0.8rem; color: var(--color-emerald-light);">รายได้ส่วนแบ่งต่องวด (2 บ./ใบ)</div>
-            <strong id="agent-stat-draw-earnings" style="color: var(--color-emerald-light); font-size: 1.35rem;">1,000 ฿</strong>
-          </div>
-          <div class="agent-stat-box" style="border-color: var(--border-gold);">
-            <div style="font-size: 0.8rem; color: var(--color-gold);">รายได้คาดการณ์ต่อเดือน (2 งวด)</div>
-            <strong id="agent-stat-month-earnings" style="color: var(--color-gold); font-size: 1.35rem;">2,000 ฿</strong>
           </div>
         </div>
       </div>
@@ -1113,7 +1054,7 @@
             <li><a href="#hero" style="color: var(--text-secondary); text-decoration: none;">หน้าแรก</a></li>
             <li><a href="#features" style="color: var(--text-secondary); text-decoration: none;">จุดเด่นสลาก N3</a></li>
             <li><a href="#ai-dream" style="color: var(--text-secondary); text-decoration: none;">AI ทำนายฝัน N3</a></li>
-            <li><a href="#results-stats" style="color: var(--text-secondary); text-decoration: none;">ตรวจผล & สถิติ</a></li>
+            <li><a href="#results-stats" style="color: var(--text-secondary); text-decoration: none;">สถิติ &amp; เลขมงคล</a></li>
             <li><a href="#calculator" style="color: var(--text-secondary); text-decoration: none;">คำนวณรางวัล N3</a></li>
           </ul>
         </div>

@@ -1003,105 +1003,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial render
   setTimeout(refreshPosterPreview, 200);
 
-  // -------------------------------------------------------------------------
-  // 9. N3 Results Checker Controller
-  // -------------------------------------------------------------------------
-  const checkerDrawSelect = document.getElementById('checker-draw-select');
-  const checkerNumberInput = document.getElementById('checker-number-input');
-  const btnCheckPrize = document.getElementById('btn-check-prize');
-  const checkerResultDisplay = document.getElementById('checker-result-display');
-  const checkerResTitle = document.getElementById('checker-res-title');
-  const checkerResBadge = document.getElementById('checker-res-badge');
-  const checkerResMsg = document.getElementById('checker-res-msg');
-  const checkerPrizesList = document.getElementById('checker-prizes-list');
 
-  if (checkerDrawSelect && N3Checker.drawHistory) {
-    checkerDrawSelect.innerHTML = N3Checker.drawHistory.map(d =>
-      `<option value="${d.id}">งวด ${d.dateText} (เลข 3 ตรง: ${d.winning3Direct})</option>`
-    ).join('');
-  }
-
-  function handleCheckPrize() {
-    const inputNum = checkerNumberInput ? checkerNumberInput.value.trim() : '';
-    const selectedDraw = checkerDrawSelect ? checkerDrawSelect.value : '';
-
-    if (!inputNum || inputNum.length !== 3) {
-      showToast('กรุณากรอกเลข 3 หลักให้ถูกต้อง (เช่น 789)');
-      if (checkerNumberInput) checkerNumberInput.focus();
-      return;
-    }
-
-    const checkRes = N3Checker.checkN3Prize(inputNum, selectedDraw);
-
-    if (!checkRes.success) {
-      showToast(checkRes.error);
-      return;
-    }
-
-    if (checkerResultDisplay) {
-      checkerResultDisplay.className = checkRes.isWinner ? 'checker-result-box won' : 'checker-result-box lost';
-      checkerResultDisplay.style.display = 'block';
-
-      if (checkerResTitle) checkerResTitle.innerText = `ผลการตรวจเลข "${checkRes.inputNumber}"`;
-      if (checkerResBadge) {
-        checkerResBadge.className = checkRes.isWinner ? 'badge badge-emerald' : 'badge badge-gold';
-        checkerResBadge.innerHTML = checkRes.isWinner
-          ? '<i class="fas fa-trophy"></i> ถูกรางวัล!'
-          : '<i class="fas fa-times-circle"></i> ไม่ถูกรางวัล';
-      }
-      if (checkerResMsg) checkerResMsg.innerText = checkRes.message;
-
-      if (checkerPrizesList) {
-        if (checkRes.isWinner && checkRes.prizesWon.length > 0) {
-          checkerPrizesList.innerHTML = checkRes.prizesWon.map(p => `
-            <div class="prize-badge-won">
-              <div>
-                <strong style="color: var(--color-gold); font-size: 0.95rem;">${p.title}</strong>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">${p.description}</div>
-              </div>
-              <div style="text-align: right;">
-                <strong style="color: var(--color-emerald-light); font-size: 1.1rem;">${N3Calculator.formatBaht(p.amount)}</strong>
-              </div>
-            </div>
-          `).join('');
-
-          if (checkRes.hasJackpotChance) {
-            checkerPrizesList.innerHTML += `
-              <div class="prize-badge-won" style="border-left-color: var(--color-emerald); background: rgba(16, 185, 129, 0.15);">
-                <div>
-                  <strong style="color: var(--color-gold);"><i class="fas fa-crown"></i> สิทธิ์ลุ้นรางวัลพิเศษ Jackpot!</strong>
-                  <div style="font-size: 0.8rem; color: var(--text-secondary);">หมายเลข 3 ตัวตรงมีสิทธิ์สุ่มรับแจ็กพอตก้อนโตในงวดนี้</div>
-                </div>
-              </div>
-            `;
-          }
-        } else {
-          checkerPrizesList.innerHTML = `
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
-              * สลาก N3 มี 4 ประเภทรางวัล (3 ตรง, 3 โต๊ด, 2 ตรง และรางวัลพิเศษ) ลองใช้ AI ทำนายฝันเพื่อหาเลขมงคลงวดถัดไป
-            </div>
-          `;
-        }
-      }
-
-      if (checkRes.isWinner) {
-        try { SoundEngine.playRevealFanfare(); } catch (err) {}
-        showToast(`🎉 ยินดีด้วยครับ! ถูกรางวัลรวม ${N3Calculator.formatBaht(checkRes.totalPrize)}`);
-      } else {
-        try { SoundEngine.playClick(); } catch (err) {}
-        showToast(`เลข ${checkRes.inputNumber} ไม่ถูกรางวัลในงวดนี้`);
-      }
-    }
-  }
-
-  if (btnCheckPrize) {
-    btnCheckPrize.addEventListener('click', handleCheckPrize);
-  }
-  if (checkerNumberInput) {
-    checkerNumberInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleCheckPrize();
-    });
-  }
 
   // -------------------------------------------------------------------------
   // 10. Statistics & 3D Lucky Ball Roller
@@ -1259,27 +1161,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
     calcSalesInput.addEventListener('input', updateCalculator);
     updateCalculator();
-  }
-
-  // Agent Earnings Estimator Slider Handler
-  const agentTicketSlider = document.getElementById('agent-ticket-slider');
-  const agentSliderLabel = document.getElementById('agent-slider-label');
-  const agentStatTotalSales = document.getElementById('agent-stat-total-sales');
-  const agentStatDrawEarnings = document.getElementById('agent-stat-draw-earnings');
-  const agentStatMonthEarnings = document.getElementById('agent-stat-month-earnings');
-
-  if (agentTicketSlider) {
-    function updateAgentEstimator() {
-      const ticketCount = parseInt(agentTicketSlider.value, 10) || 500;
-      const comm = N3Calculator.calculateAgentCommission(ticketCount);
-
-      if (agentSliderLabel) agentSliderLabel.innerText = `${ticketCount.toLocaleString()} ใบ`;
-      if (agentStatTotalSales) agentStatTotalSales.innerText = N3Calculator.formatBaht(comm.totalSales);
-      if (agentStatDrawEarnings) agentStatDrawEarnings.innerText = N3Calculator.formatBaht(comm.perDrawEarnings);
-      if (agentStatMonthEarnings) agentStatMonthEarnings.innerText = N3Calculator.formatBaht(comm.monthlyEarnings);
-    }
-
-    agentTicketSlider.addEventListener('input', updateAgentEstimator);
-    updateAgentEstimator();
   }
 });
