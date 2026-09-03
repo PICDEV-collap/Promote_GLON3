@@ -956,11 +956,11 @@ document.addEventListener('DOMContentLoaded', function () {
     return {
       ratio: currentPosterRatio,
       theme: currentPosterTheme,
-      shopName: posterShopNameInput ? posterShopNameInput.value.trim() : 'ร้านสลาก N3 มหามงคล',
+      shopName: (posterShopNameInput && posterShopNameInput.value.trim()) || AgentSystem.getAgentInfo().name || 'ร้านสลาก N3 ธนกิจนำโชค',
       drawDate: posterDrawDateInput ? posterDrawDateInput.value.trim() : '16 กันยายน 2569',
       numbers: parsedNumbers.length >= 3 ? parsedNumbers : ['789', '532', '904'],
-      line: posterLineInput ? posterLineInput.value.trim() : '@glon3',
-      tel: posterTelInput ? posterTelInput.value.trim() : '02-528-9999',
+      line: (posterLineInput && posterLineInput.value.trim()) || AgentSystem.getAgentInfo().line || '@glon3',
+      tel: (posterTelInput && posterTelInput.value.trim()) || AgentSystem.getAgentInfo().tel || '',
       qrImage: AgentSystem.getAgentQR()
     };
   }

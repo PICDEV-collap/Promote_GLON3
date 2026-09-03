@@ -2,7 +2,7 @@
    GLO N3 - Service Worker (Offline Support & Shell Caching)
    ========================================================================== */
 
-const CACHE_NAME = 'glo-n3-portal-v2';
+const CACHE_NAME = 'glo-n3-portal-v3-thanakit';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
