@@ -366,4 +366,124 @@ export class FlexMessageBuilder {
       };
     }
   }
+
+  /**
+   * 5. การ์ดแจ้งเตือนลำดับคิวและเวลารอโดยประมาณ (Queue Notification Card)
+   */
+  public static buildQueueStatusMessage(
+    queuePosition: number,
+    estimatedSeconds: number,
+    number: string,
+    quantity: number
+  ): messagingApi.FlexMessage {
+    const totalPrice = quantity * 20;
+
+    return {
+      type: 'flex',
+      altText: `รับออเดอร์เลข ${number} แล้ว (อยู่ในคิวที่ ${queuePosition})`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: 'สลากกินแบ่งรัฐบาล N3 (ธนกิจนำโชค)',
+              color: '#d4af37',
+              size: 'xs',
+              weight: 'bold'
+            },
+            {
+              type: 'text',
+              text: `🎫 รับออเดอร์แล้ว (คิวที่ ${queuePosition})`,
+              color: '#ffffff',
+              size: 'lg',
+              weight: 'bold',
+              margin: 'xs'
+            }
+          ],
+          backgroundColor: '#0c1b33',
+          paddingAll: '16px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: 'เลขที่สั่ง:', size: 'sm', color: '#666666', flex: 3 },
+                { type: 'text', text: `${number}`, size: 'md', weight: 'bold', color: '#00875a', flex: 4 }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'sm',
+              contents: [
+                { type: 'text', text: 'จำนวน:', size: 'sm', color: '#666666', flex: 3 },
+                { type: 'text', text: `${quantity} ใบ (${totalPrice} บาท)`, size: 'sm', weight: 'bold', color: '#333333', flex: 4 }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#f0fdf4',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              contents: [
+                {
+                  type: 'text',
+                  text: `⏳ กำลังเตรียม QR Code ชำระเงินให้ท่าน`,
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#166534'
+                },
+                {
+                  type: 'text',
+                  text: `⏱️ คาดว่าจะได้รับ QR Code ในอีกประมาณ ~${estimatedSeconds} วินาที`,
+                  size: 'xs',
+                  color: '#15803d',
+                  margin: 'xs'
+                },
+                {
+                  type: 'text',
+                  text: 'ระบบจะส่ง QR Code ให้ท่านทันทีเมื่อถึงคิวครับ ขอบพระคุณที่รอคอยครับ 🙏',
+                  size: 'xxs',
+                  color: '#666666',
+                  margin: 'sm',
+                  wrap: true
+                }
+              ]
+            }
+          ],
+          paddingAll: '16px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#d4af37',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔮 ทำนายฝัน หาเลขเด็ดรอคิว',
+                uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            }
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+  }
 }

@@ -6,6 +6,7 @@ export interface OrderTask {
   quantity: number;
   totalPrice: number;
   timestamp: number;
+  hasRepliedQueue?: boolean;
 }
 
 export type OrderWorkerFunction = (task: OrderTask) => Promise<void>;
@@ -20,12 +21,28 @@ export class OrderQueue {
   }
 
   /**
+   * ตรวจสอบว่าระบบกำลังประมวลผลคิวอยู่หรือไม่
+   */
+  public isBusy(): boolean {
+    return this.isProcessing || this.queue.length > 0;
+  }
+
+  /**
+   * คำนวณเวลารอโดยประมาณ (วินาที)
+   */
+  public getEstimatedWaitTime(position: number): number {
+    // ประมาณการเฉลี่ย 8-10 วินาทีต่อออเดอร์
+    return Math.max(8, position * 9);
+  }
+
+  /**
    * นำคำสั่งซื้อเข้าคิว
    */
   public enqueue(task: OrderTask): number {
     this.queue.push(task);
-    const queuePosition = this.queue.length;
-    console.log(`[QUEUE] รับออเดอร์ ${task.orderId} เข้าคิว (ตำแหน่งที่ ${queuePosition}) | เลข ${task.number} x ${task.quantity} ใบ`);
+    // ตำแหน่งคิว = รายการที่รอในแถว + 1 (หากมีตัวกำลังรันอยู่)
+    const queuePosition = this.queue.length + (this.isProcessing ? 1 : 0);
+    console.log(`[QUEUE] รับออเดอร์ ${task.orderId} เข้าคิว (ลำดับที่ ${queuePosition}) | เลข ${task.number} x ${task.quantity} ใบ`);
 
     // หากไม่ได้กำลังทำงานอยู่ ให้เริ่มประมวลผลทันที
     if (!this.isProcessing) {
