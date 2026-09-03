@@ -6,29 +6,36 @@ dotenv.config();
 export const CONFIG = {
   PORT: parseInt(process.env.PORT || '3333', 10),
   BASE_URL: process.env.BASE_URL || 'http://localhost:3333',
+  LINE_CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
+  LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || '',
+  LINE_ADMIN_USER_ID: process.env.LINE_ADMIN_USER_ID || '',
+  ADMIN_LINE_USER_ID: process.env.LINE_ADMIN_USER_ID || '',
   
-  // N3 Official Dealer Portal & Paotang OAuth
-  N3_LOGIN_URL: process.env.N3_LOGIN_URL || 'https://n3.glolotteryshop.com/login/',
+  // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
+  DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/',
+
+  // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก
   ALLOWED_DOMAINS: [
     'n3.glolotteryshop.com',
     'glolotteryshop.com',
-    '*.glolotteryshop.com',
-    'paotang-pass.devops.krungthai.com',
-    'paotang-auth.krungthai.com',
-    '*.krungthai.com',
-    '*.devops.krungthai.com'
+    'krungthai.com',
+    'paotang-auth.krungthai.com'
   ],
 
-  // Quota Management (2,000 ใบ)
+  // ข้อมูลระบบจำหน่ายสลาก N3
+  N3_LOGIN_URL: 'https://n3.glolotteryshop.com/login/',
+  SESSION_STORAGE_PATH: path.join(__dirname, '../data/storageState.json'),
+  QR_OUTPUT_DIR: path.join(__dirname, '../../public/qrcodes'),
+
+  // การจัดการโควต้า 2,000 ใบ
   DEFAULT_MAX_QUOTA: 2000,
   QUOTA_FILE_PATH: path.join(__dirname, '../data/quota.json'),
 
-  // LINE Messaging API
-  LINE_CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
-  LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || '',
-  ADMIN_LINE_USER_ID: process.env.ADMIN_LINE_USER_ID || '',
-
-  // Storage
-  QR_OUTPUT_DIR: path.join(__dirname, '../../public/qrcodes'),
-  SESSION_STORAGE_PATH: path.join(__dirname, '../data/storageState.json')
+  // ระเบียบเวลาจำหน่ายสลากกินแบ่งรัฐบาลตัวเลขสามหลัก (N3)
+  SALES_HOURS: {
+    NORMAL_OPEN: 6,      // 06:00 น.
+    NORMAL_CLOSE: 23,    // 23:00 น.
+    DRAW_DAY_CLOSE: 14,  // วันออกรางวัล ปิด 14:00 น.
+    DRAW_DATES: [1, 16]  // วันที่ 1 และ 16 ของทุกเดือน
+  }
 };
