@@ -188,86 +188,66 @@ export class N3OrderService {
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
       await page.waitForTimeout(2000); // รอรูป QR โหลดชัดเจน
 
-      // 7. ดึงภาพ QR Code ทางการ หรือแคปเจอร์ทั้งใบอย่างสมบูรณ์
+      // 7. ดึงภาพการ์ดสลาก N3 พร้อม QR Code ชำระเงิน (คมชัดระดับ Retina ไม่คลิกปุ่มบันทึก เพื่อป้องกัน Chrome C++ Crash)
       const fileSummary = fulfilledItems.map(i => i.number).join('-');
       const qrFileName = `payment-${fileSummary}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
+      console.log('[N3 ORDER STEP 7] กำลังดึงภาพการ์ด QR Code ชำระเงิน...');
       let isCaptured = false;
 
-      // ทางเลือกที่ 1 (วิธีทางการของเว็บสลาก): ดาวน์โหลดรูปภาพสลากทางการ 1280x1116 คมชัดระดับ HD
-      const saveBtn = page.locator('button:has-text("บันทึก")').first();
-      if (await saveBtn.isVisible().catch(() => false)) {
-        try {
-          console.log('[N3 ORDER STEP 7] ตรวจพบปุ่ม "บันทึก" ของกองสลากฯ -> กำลังดักรับไฟล์ดาวน์โหลดสลากทางการ...');
-          const [download] = await Promise.all([
-            page.waitForEvent('download', { timeout: 6000 }),
-            saveBtn.click()
-          ]);
-          if (download) {
-            await download.saveAs(qrFilePath);
+      // ทางเลือกที่ 1: แคปเจอร์กล่องการ์ดสลาก N3 ทั้งใบโดยตรง (คมชัด ครบทั้งหัว GLO, QR และยอดเงินรวม)
+      const candidateLocators = [
+        page.locator('div:has-text("กรุณาสแกน QR"):has-text("ยอดชำระทั้งหมด")').last(),
+        page.locator('div:has-text("กรุณาสแกน QR"):has-text("ธนกิจนำโชค")').last(),
+        page.locator('div:has-text("กรุณาสแกน QR")').last(),
+        page.locator('.card, [class*="card"], [class*="modal"]').filter({ hasText: 'กรุณาสแกน QR' }).first()
+      ];
+
+      for (const loc of candidateLocators) {
+        if (await loc.isVisible().catch(() => false)) {
+          const box = await loc.boundingBox().catch(() => null);
+          if (box && box.width >= 280 && box.height >= 320) {
+            console.log(`[QR CAPTURE SUCCESS] ตรวจพบการ์ดสลาก N3 ขนาด ${Math.round(box.width)}x${Math.round(box.height)}px -> บันทึกภาพเรียบร้อย`);
+            await loc.screenshot({ path: qrFilePath });
             isCaptured = true;
-            console.log(`[QR CAPTURE SUCCESS] บันทึกไฟล์รูป QR แท้ทางการจากกองสลากสำเร็จ (1280x1116): ${qrFilePath}`);
+            break;
           }
-        } catch (e) {
-          console.log('[QR DOWNLOAD NOTICE] ปุ่มบันทึกไม่ได้ส่ง download event -> สลับไปแคปเจอร์ภาพการ์ด N3...');
         }
       }
 
-      // ทางเลือกที่ 2: หากดาวน์โหลดไม่ติด ให้แคปเจอร์ตัว QR Code หรือการ์ดชำระเงินเต็มใบ
+      // ทางเลือกที่ 2: หากตรวจจับการ์ดไม่ติด ให้แคปเจอร์รอบตัว QR Code (canvas หรือ img) พร้อม Padding ครบชุด
       if (!isCaptured) {
-        console.log('[N3 ORDER STEP 7-FALLBACK] กำลังค้นหาตำแหน่ง QR Code...');
-
-        // 2.1 หา Element QR Code (canvas หรือ img) โดยตรง
         const qrEl = page.locator('canvas, img[src*="data:image"], img[alt*="QR"]').first();
         if (await qrEl.isVisible().catch(() => false)) {
-          const box = await qrEl.boundingBox();
-          if (box && box.width >= 120 && box.height >= 120) {
-            const pad = 36;
+          const box = await qrEl.boundingBox().catch(() => null);
+          if (box && box.width >= 100 && box.height >= 100) {
+            console.log(`[QR CAPTURE SUCCESS] ตรวจพบ QR Code Element -> บันทึกภาพพร้อมกรอบการ์ด`);
+            const padX = 60;
+            const padTop = 130;
+            const padBottom = 100;
             await page.screenshot({
               path: qrFilePath,
               clip: {
-                x: Math.max(0, Math.round(box.x - pad)),
-                y: Math.max(0, Math.round(box.y - pad)),
-                width: Math.round(box.width + pad * 2),
-                height: Math.round(box.height + pad * 2)
+                x: Math.max(0, Math.round(box.x - padX)),
+                y: Math.max(0, Math.round(box.y - padTop)),
+                width: Math.round(box.width + padX * 2),
+                height: Math.round(box.height + padTop + padBottom)
               }
             });
             isCaptured = true;
-            console.log(`[QR CAPTURE SUCCESS] แคปเจอร์จาก QR Element โดยตรงสำเร็จ: ${qrFilePath}`);
           }
         }
+      }
 
-        // 2.2 หากไม่เจอตัว QR เดี่ยวๆ ให้แคปเจอร์การ์ดใบสลากสีขาวทั้งใบ
-        if (!isCaptured) {
-          const cardEl = page.locator('div:has-text("กรุณาสแกน QR")').last();
-          if (await cardEl.isVisible().catch(() => false)) {
-            const cardBox = await cardEl.boundingBox();
-            if (cardBox && cardBox.width >= 300) {
-              await page.screenshot({
-                path: qrFilePath,
-                clip: {
-                  x: Math.max(0, Math.round(cardBox.x)),
-                  y: Math.max(0, Math.round(cardBox.y)),
-                  width: Math.round(cardBox.width),
-                  height: Math.round(cardBox.height)
-                }
-              });
-              isCaptured = true;
-              console.log(`[QR CAPTURE SUCCESS] แคปเจอร์จากการ์ด N3 ทั้งใบสำเร็จ: ${qrFilePath}`);
-            }
-          }
-        }
-
-        // 2.3 Fallback สุดท้าย: แคปเจอร์พื้นที่กึ่งกลางจอขนาดใหญ่ 720x750px (ครอบคลุมทั้งการ์ดแน่นอน)
-        if (!isCaptured) {
-          console.log('[QR CAPTURE FALLBACK] ใช้พิกัดกึ่งกลางจอมาตรฐาน (720x750px)...');
-          await page.screenshot({
-            path: qrFilePath,
-            clip: { x: 360, y: 100, width: 720, height: 750 }
-          });
-          console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกึ่งกลางจอสำเร็จ: ${qrFilePath}`);
-        }
+      // ทางเลือกที่ 3: Fallback แคปเจอร์พื้นที่กึ่งกลางหน้าจอขนาดใหญ่ 720x800px
+      if (!isCaptured) {
+        console.log('[QR CAPTURE FALLBACK] ใช้พิกัดกึ่งกลางจอมาตรฐาน (720x800px)...');
+        await page.screenshot({
+          path: qrFilePath,
+          clip: { x: 360, y: 80, width: 720, height: 800 }
+        });
+        console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกึ่งกลางจอสำเร็จ: ${qrFilePath}`);
       }
 
       // 8. กดปุ่ม "กลับหน้าหลัก"
