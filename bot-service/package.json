@@ -1,0 +1,25 @@
+{
+  "name": "n3-bot-service",
+  "version": "1.0.0",
+  "description": "N3 Lottery Automated Order & QR Generation Service with Playwright and LINE Messaging API",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test:login": "ts-node src/automation/test-login.ts",
+    "test:quota": "ts-node src/quota/test-quota.ts"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^9.6.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "playwright": "^1.50.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

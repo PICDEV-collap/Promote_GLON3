@@ -90,13 +90,29 @@
           <i class="fas fa-store"></i> ร้านค้าของเรา
         </a>
 
-        <!-- Paotang Native Launcher Button -->
-        <button class="btn btn-gold btn-buy-paotang">
-          <i class="fas fa-wallet"></i> เป๋าตัง
-        </button>
+  </nav>
+
+  <!-- GLO Compliance & Trust Bar -->
+  <div class="compliance-bar">
+    <div class="container compliance-grid">
+      <div class="compliance-chip">
+        <i class="fas fa-shield-alt"></i>
+        <span>จำหน่ายตามราคาควบคุม <strong>ใบละ 20 บาท</strong></span>
+      </div>
+      <div class="compliance-chip">
+        <i class="fas fa-user-shield"></i>
+        <span>ห้ามจำหน่ายแก่บุคคลอายุต่ำกว่า <strong>20 ปีบริบูรณ์</strong></span>
+      </div>
+      <div class="compliance-chip">
+        <i class="fas fa-store-alt"></i>
+        <span>ตัวแทนจำหน่ายได้รับอนุญาตจาก <strong>สำนักงานสลากกินแบ่งรัฐบาล</strong></span>
+      </div>
+      <div class="compliance-chip">
+        <i class="fas fa-heart"></i>
+        <span>สนับสนุนสลากถูกกฎหมาย &amp; เล่นอย่างมีสติ</span>
       </div>
     </div>
-  </nav>
+  </div>
 
   <!-- Hero Section -->
   <section id="hero" class="hero">
@@ -670,9 +686,9 @@
   <section id="calculator">
     <div class="container">
       <div class="section-title">
-        <span class="badge badge-emerald"><i class="fas fa-calculator"></i> SIMULATION & ODDS</span>
-        <h2>จำลองคำนวณเงินรางวัล <span class="text-gradient-emerald">สลาก N3</span></h2>
-        <p>คำนวณส่วนแบ่งเงินรางวัลสลาก N3 ทั้ง 4 ประเภทตามเกณฑ์จริง 60% ของยอดขายสลาก</p>
+        <span class="badge badge-emerald"><i class="fas fa-calculator"></i> OFFICIAL GLO SIMULATION</span>
+        <h2>จำลองคำนวณเงินรางวัล &amp; ส่วนแบ่งรายได้ <span class="text-gradient-emerald">สลาก N3</span></h2>
+        <p>คำนวณส่วนแบ่งเงินรางวัลตามเกณฑ์ทางการ 60% ของยอดขายสลาก และประมาณการรายได้ตัวแทนจำหน่าย</p>
       </div>
 
       <div class="calculator-box">
@@ -687,92 +703,137 @@
               <span style="color: var(--text-secondary);">จำนวนสลากรวม:</span>
               <strong id="calc-tickets" style="color: var(--color-gold);">50,000 ใบ</strong>
             </div>
-            <div style="display: flex; justify-content: space-between;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
               <span style="color: var(--text-secondary);">รวมเงินรางวัลทั้งหมด (60%):</span>
               <strong id="calc-prize-total" style="color: var(--color-emerald-light);">600,000 ฿</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
+              <span>รายได้แผ่นดิน (23%):</span>
+              <span id="calc-gov-revenue">230,000 ฿</span>
+            </div>
+          </div>
+
+          <!-- Rollover Notice Card -->
+          <div class="rollover-card">
+            <i class="fas fa-coins"></i>
+            <div>
+              <strong style="color: var(--color-gold); font-size: 0.9rem;">ระบบสมทบเงินรางวัล 1 งวด (Rollover)</strong>
+              <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem;">หากงวดใดไม่มีผู้ถูกรางวัล เงินรางวัลจะสมทบไปงวดถัดไปได้ 1 งวดตามเกณฑ์ของสำนักงานสลากฯ</p>
             </div>
           </div>
         </div>
 
         <div class="calc-results">
-          <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-chart-pie" style="color: var(--color-emerald);"></i> สัดส่วนเงินรางวัลแต่ละประเภท</h3>
+          <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-chart-pie" style="color: var(--color-emerald);"></i> สัดส่วนเงินรางวัลตามเกณฑ์ทางการ (GLO)</h3>
 
           <div class="prize-breakdown-list">
             <div class="prize-item">
               <div>
-                <strong>3 ตัวตรง (30%)</strong>
+                <strong>3 ตัวตรง (22.5%)</strong>
                 <div style="font-size: 0.8rem; color: var(--text-muted);">ตรงทั้ง 3 หลัก ถูกตรงตำแหน่ง</div>
               </div>
-              <span id="calc-n3-direct" style="font-weight: 700; font-size: 1.15rem; color: var(--color-gold);">180,000 ฿</span>
+              <span id="calc-n3-direct" style="font-weight: 700; font-size: 1.15rem; color: var(--color-gold);">225,000 ฿</span>
             </div>
 
             <div class="prize-item">
               <div>
-                <strong>3 ตัวโต๊ด (30%)</strong>
+                <strong>3 ตัวโต๊ด (14.7%)</strong>
                 <div style="font-size: 0.8rem; color: var(--text-muted);">สลับตำแหน่งได้ทั้ง 3 หลัก</div>
               </div>
-              <span id="calc-n3-tod" style="font-weight: 700; font-size: 1.15rem; color: var(--color-cyan);">180,000 ฿</span>
+              <span id="calc-n3-tod" style="font-weight: 700; font-size: 1.15rem; color: var(--color-cyan);">147,000 ฿</span>
             </div>
 
             <div class="prize-item">
               <div>
-                <strong>2 ตัวตรง (39%)</strong>
+                <strong>2 ตัวตรง (22.4%)</strong>
                 <div style="font-size: 0.8rem; color: var(--text-muted);">ตรงกับ 2 หลักท้าย</div>
               </div>
-              <span id="calc-n2-direct" style="font-weight: 700; font-size: 1.15rem; color: var(--color-emerald-light);">234,000 ฿</span>
+              <span id="calc-n2-direct" style="font-weight: 700; font-size: 1.15rem; color: var(--color-emerald-light);">224,000 ฿</span>
             </div>
 
             <div class="prize-item special">
               <div>
-                <strong style="color: var(--color-gold);"><i class="fas fa-crown"></i> รางวัลพิเศษ Jackpot (1%)</strong>
+                <strong style="color: var(--color-gold);"><i class="fas fa-crown"></i> รางวัลพิเศษ Jackpot (0.4%)</strong>
                 <div style="font-size: 0.8rem; color: var(--text-muted);">สุ่มเลือกจากผู้ถูกรางวัล 3 ตัวตรง</div>
               </div>
-              <span id="calc-special" style="font-weight: 800; font-size: 1.25rem; color: var(--color-gold);">6,000 ฿</span>
+              <span id="calc-special" style="font-weight: 800; font-size: 1.25rem; color: var(--color-gold);">4,000 ฿</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Commission Estimator Card -->
+      <div class="agent-earnings-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="color: var(--color-gold); font-size: 1.2rem;"><i class="fas fa-hand-holding-usd"></i> จำลองรายได้ส่วนแบ่งตัวแทนจำหน่าย (Agent Earnings)</h3>
+          <span class="badge badge-emerald"><i class="fas fa-check-circle"></i> ส่วนแบ่ง 2 บาท / ใบ (10%)</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.35rem;">
+          ตัวแทนจำหน่ายสลาก N3 ได้รับส่วนแบ่งรายการละ 2 บาท โดยไม่ต้องสต็อกสลากล่วงหน้า
+        </p>
+
+        <label for="agent-ticket-slider" style="font-size: 0.9rem; color: var(--text-primary); display: flex; justify-content: space-between; margin-top: 1rem;">
+          <span>ปรับจำนวนสลากที่จำหน่ายได้:</span>
+          <strong id="agent-slider-label" style="color: var(--color-emerald-light); font-size: 1.1rem;">500 ใบ</strong>
+        </label>
+        <input type="range" id="agent-ticket-slider" class="agent-slider" min="50" max="5000" step="50" value="500">
+
+        <div class="agent-stats-grid">
+          <div class="agent-stat-box">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">ยอดจำหน่ายรวม (ใบละ 20 บาท)</div>
+            <strong id="agent-stat-total-sales" style="color: #ffffff; font-size: 1.15rem;">10,000 ฿</strong>
+          </div>
+          <div class="agent-stat-box" style="border-color: var(--border-emerald);">
+            <div style="font-size: 0.8rem; color: var(--color-emerald-light);">รายได้ส่วนแบ่งต่องวด (2 บ./ใบ)</div>
+            <strong id="agent-stat-draw-earnings" style="color: var(--color-emerald-light); font-size: 1.35rem;">1,000 ฿</strong>
+          </div>
+          <div class="agent-stat-box" style="border-color: var(--border-gold);">
+            <div style="font-size: 0.8rem; color: var(--color-gold);">รายได้คาดการณ์ต่อเดือน (2 งวด)</div>
+            <strong id="agent-stat-month-earnings" style="color: var(--color-gold); font-size: 1.35rem;">2,000 ฿</strong>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Section: Paotang Buying Guide -->
+  <!-- Section: Official 4-Step Buying Guide -->
   <section id="guide">
     <div class="container">
       <div class="section-title">
-        <span class="badge badge-gold"><i class="fas fa-book"></i> EASY STEPS GUIDE</span>
-        <h2>วิธีสั่งซื้อสลาก <span class="text-gradient-gold">GLO N3</span></h2>
-        <p>ขั้นตอนง่ายๆ ในการสั่งซื้อสลาก N3 ผ่านร้านค้าของเรา หรือ แอปพลิเคชันเป๋าตัง</p>
+        <span class="badge badge-gold"><i class="fas fa-book"></i> OFFICIAL 4-STEP GUIDE</span>
+        <h2>วิธีสั่งซื้อสลาก <span class="text-gradient-gold">GLO N3</span> ผ่านแอปเป๋าตัง</h2>
+        <p>4 ขั้นตอนง่ายๆ ตามระบบทางการของสำนักงานสลากกินแบ่งรัฐบาล สแกนซื้อสะดวก ปลอดภัย 100%</p>
       </div>
 
       <div class="steps-grid">
         <div class="step-card">
           <div class="step-number">1</div>
-          <h3>ทำนายฝันรับเลข N3</h3>
-          <p>กรอกความฝันในระบบ AI เพื่อสกัดชุดตัวเลขมงคล 3 ตัวตรง, 3 ตัวโต๊ด และ 2 ตัว</p>
+          <h3>เลือกชุดเลข N3</h3>
+          <p>เลือกเลขเด็ด 000–999 หรือใช้ระบบ <strong>AI ทำนายฝัน &amp; ไพ่ยิปซี 3D</strong> เพื่อรับเลขมงคลประจำงวด</p>
         </div>
 
         <div class="step-card">
           <div class="step-number">2</div>
-          <h3>เลือกช่องทางสั่งซื้อ</h3>
-          <p>กดปุ่ม <strong>"ร้านค้าของเรา"</strong> เพื่อซื้อโดยตรง หรือเลือกซื้อผ่านแอปเป๋าตัง</p>
+          <h3>รับ QR Code ร้านค้า</h3>
+          <p>กดปุ่ม <strong>"ร้านค้าของเรา"</strong> เพื่อรับภาพ QR Code หรือลิงก์ร้านค้าตัวแทนที่ได้รับอนุญาต</p>
         </div>
 
         <div class="step-card">
           <div class="step-number">3</div>
-          <h3>คัดลอกตัวเลข</h3>
-          <p>ระบบจะคัดลอกชุดเลขเด็ด N3 ลง Clipboard ให้อัตโนมัติ เพื่อนำไปวางค้นหาได้ทันที</p>
+          <h3>เปิดแอป "เป๋าตัง" สแกน</h3>
+          <p>เข้าแอปเป๋าตัง $\rightarrow$ เมนูสลากฯ $\rightarrow$ เลือก <strong>"สลากตัวเลขสามหลัก (N3)"</strong> $\rightarrow$ กด <strong>"สแกนซื้อสลาก"</strong></p>
         </div>
 
         <div class="step-card">
           <div class="step-number">4</div>
-          <h3>ยืนยันและรับสลาก</h3>
-          <p>ชำระเงินตามจำนวนใบ (ใบละ 20 บาท) และรับสลาก N3 พร้อมลุ้น 4 รางวัลใหญ่</p>
+          <h3>ชำระเงิน 20 บ./ใบ</h3>
+          <p>ชำระผ่าน G-Wallet ภายในเวลาที่กำหนด สลากจะถูกเก็บในเมนู <strong>"สลากของฉัน"</strong> และจำร้านค้าอัตโนมัติ</p>
         </div>
       </div>
 
       <div style="text-align: center; margin-top: 3.5rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
         <a href="#" class="btn btn-emerald btn-our-shop" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
-          <i class="fas fa-shopping-cart"></i> สั่งซื้อทันทีที่ร้านค้าของเรา
+          <i class="fas fa-qrcode"></i> สแกนซื้อกับร้านค้าของเรา
         </a>
         <button class="btn btn-gold btn-buy-paotang" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
           <i class="fas fa-wallet"></i> เปิดแอปเป๋าตังในมือถือ
@@ -826,7 +887,7 @@
       <div style="width: 56px; height: 56px; background: rgba(255, 215, 0, 0.1); border: 1px solid var(--border-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-gold); font-size: 1.5rem;">
         <i class="fas fa-camera"></i>
       </div>
-      <h3>การ์ดคำทำนายฝัน & เลขเด็ด N3</h3>
+      <h3>การ์ดคำทำนายฝัน &amp; เลขเด็ด N3</h3>
       <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">
         รูปภาพความละเอียดสูง (High-DPI) พร้อมแชร์ลง Facebook, Instagram, LINE, TikTok
       </p>
@@ -846,69 +907,130 @@
     </div>
   </div>
 
-  <!-- Modals: Shop URL Configurator & Affiliate Generator Modal -->
+  <!-- Modals: Enhanced Shop & Agent Management Modal -->
   <div id="modal-shop-config" class="modal-overlay">
-    <div class="modal-card" style="max-width: 520px;">
+    <div class="modal-card" style="max-width: 580px;">
       <button id="modal-shop-close" class="modal-close">&times;</button>
       
       <div class="modal-tabs">
-        <button type="button" id="tab-btn-shop" class="modal-tab-btn active"><i class="fas fa-store"></i> ไปที่ร้านค้า</button>
-        <button type="button" id="tab-btn-affiliate" class="modal-tab-btn"><i class="fas fa-link"></i> สร้างลิงก์ตัวแทน</button>
+        <button type="button" id="tab-btn-shop" class="modal-tab-btn active"><i class="fas fa-qrcode"></i> สแกนซื้อร้านนี้</button>
+        <button type="button" id="tab-btn-settings" class="modal-tab-btn"><i class="fas fa-store"></i> ตั้งค่าร้าน &amp; QR</button>
+        <button type="button" id="tab-btn-affiliate" class="modal-tab-btn"><i class="fas fa-link"></i> ลิงก์โปรโมท</button>
+        <button type="button" id="tab-btn-scripts" class="modal-tab-btn"><i class="fas fa-comment-dots"></i> สคริปต์ตอบแชท</button>
       </div>
 
-      <!-- Tab 1: Direct Shop -->
+      <!-- Tab 1: Storefront QR Scanner Modal -->
       <div id="tab-content-shop">
-        <div style="width: 56px; height: 56px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--border-emerald); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-emerald-light); font-size: 1.5rem;">
-          <i class="fas fa-store"></i>
-        </div>
-        <h3>ร้านค้าสลาก N3</h3>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">
-          ระบบได้ทำการคัดลอกเลขเด็ด N3 เรียบร้อยแล้ว! กดปุ่มด้านล่างเพื่อเปิดหน้าร้านค้า
-        </p>
+        <div style="text-align: center;">
+          <h3 id="storefront-shop-title" style="color: var(--color-gold-light); margin-bottom: 0.25rem;">
+            ร้านสลาก N3 ได้รับอนุญาต
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem;">
+            สแกน QR Code ด้วยแอป <strong>"เป๋าตัง"</strong> เพื่อสั่งซื้อสลาก N3 ในราคาใบละ 20 บาท
+          </p>
 
-        <div style="margin-bottom: 1.5rem; text-align: left;">
-          <label for="shop-url-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">ตั้งค่าลิงก์ร้านค้าของคุณ (URL):</label>
-          <input type="url" id="shop-url-input" class="calc-input-field" value="https://line.me" placeholder="เช่น https://line.me/R/ti/p/@yourshop" style="margin-bottom: 0.5rem;">
-          <div style="font-size: 0.75rem; color: var(--text-muted);">* สามารถเปลี่ยนเป็นลิงก์ LINE Official, Facebook, หรือเว็บไซต์ของคุณได้ตลอดเวลา</div>
-        </div>
+          <div class="storefront-qr-card">
+            <img id="storefront-qr-img" class="storefront-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https%3A%2F%2Fn3.glolotteryshop.com" alt="GLO N3 Shop QR Code">
+            <div class="qr-countdown-badge">
+              <i class="fas fa-clock"></i> สแกนชำระผ่านเป๋าตัง
+            </div>
+          </div>
 
-        <div style="display: flex; gap: 1rem;">
-          <button id="btn-save-shop-url" class="btn btn-emerald" style="flex: 1;">
-            <i class="fas fa-external-link-alt"></i> ไปที่ร้านค้าทันที
-          </button>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;">
+            <button id="btn-download-shop-qr" class="btn btn-gold" style="flex: 1; font-size: 0.9rem;">
+              <i class="fas fa-download"></i> บันทึกรูป QR ลงเครื่อง
+            </button>
+            <button class="btn btn-emerald btn-buy-paotang" style="flex: 1; font-size: 0.9rem;">
+              <i class="fas fa-wallet"></i> เปิดแอปเป๋าตังเพื่อสแกน
+            </button>
+          </div>
+
+          <div style="margin-top: 1rem; font-size: 0.78rem; color: var(--text-muted);">
+            💡 หากต้องการเปลี่ยน QR Code หรือแก้ไขข้อมูลร้านค้าของคุณ ให้กดแท็บ <strong>"ตั้งค่าร้าน &amp; QR"</strong> ด้านบน
+          </div>
         </div>
       </div>
 
-      <!-- Tab 2: Affiliate Link Generator -->
-      <div id="tab-content-affiliate" style="display: none;">
-        <h3 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-bullhorn"></i> สร้างลิงก์โปรโมทร้านค้าของคุณ</h3>
+      <!-- Tab 2: Agent Settings & QR Upload -->
+      <div id="tab-content-settings" style="display: none;">
+        <h3 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-cog"></i> ข้อมูลร้านค้า &amp; อัปโหลด QR Code</h3>
         <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
-          กรอกข้อมูลร้านของคุณเพื่อสร้างลิงก์เฉพาะ เมื่อลูกค้าเปิดผ่านลิงก์นี้ จะแสดงชื่อและช่องทางติดต่อของคุณทันที
+          อัปโหลดภาพ QR Code จากระบบ <strong>n3.glolotteryshop.com</strong> หรือแอปถุงเงิน เพื่อให้ลูกค้าสแกนซื้อได้ทันที
         </p>
 
         <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; margin-bottom: 1.25rem;">
           <div>
             <label for="agent-input-name" style="font-size: 0.8rem; color: var(--text-secondary);">ชื่อร้านค้าของคุณ:</label>
-            <input type="text" id="agent-input-name" class="calc-input-field" placeholder="เช่น ร้านสลาก N3 เฮงเฮงรวย">
+            <input type="text" id="agent-input-name" class="calc-input-field" placeholder="เช่น ร้านสลาก N3 เฮงเฮงรวย (โครงการสลาก 80)">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label for="agent-input-line" style="font-size: 0.8rem; color: var(--text-secondary);">LINE ID:</label>
+              <input type="text" id="agent-input-line" class="calc-input-field" placeholder="เช่น @hengheng">
+            </div>
+            <div>
+              <label for="agent-input-tel" style="font-size: 0.8rem; color: var(--text-secondary);">เบอร์โทรติดต่อ:</label>
+              <input type="text" id="agent-input-tel" class="calc-input-field" placeholder="เช่น 081-234-5678">
+            </div>
           </div>
           <div>
-            <label for="agent-input-line" style="font-size: 0.8rem; color: var(--text-secondary);">LINE ID หรือ ลิงก์ LINE Official:</label>
-            <input type="text" id="agent-input-line" class="calc-input-field" placeholder="เช่น @hengheng">
+            <label for="shop-url-input" style="font-size: 0.8rem; color: var(--text-secondary);">ลิงก์ร้านค้าทางการ (n3.glolotteryshop.com หรือ LINE):</label>
+            <input type="url" id="shop-url-input" class="calc-input-field" placeholder="https://n3.glolotteryshop.com/..." value="https://n3.glolotteryshop.com">
           </div>
+
+          <!-- QR Upload Dropzone -->
           <div>
-            <label for="agent-input-tel" style="font-size: 0.8rem; color: var(--text-secondary);">เบอร์โทรศัพท์ติดต่อ (ไม่บังคับ):</label>
-            <input type="text" id="agent-input-tel" class="calc-input-field" placeholder="เช่น 081-234-5678">
+            <label style="font-size: 0.8rem; color: var(--color-gold); display: block; margin-bottom: 0.35rem;">ภาพ QR Code ร้านค้าของคุณ (จากระบบสลาก N3 / ถุงเงิน):</label>
+            <div id="qr-dropzone" class="qr-dropzone">
+              <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--color-emerald-light); margin-bottom: 0.5rem;"></i>
+              <div style="font-size: 0.85rem; color: #fff; font-weight: 600;">คลิกเพื่ออัปโหลดภาพ QR Code หรือ ลากไฟล์มาวางที่นี่</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">รองรับไฟล์ PNG, JPG (ระบบจะฝังลงในโปสเตอร์และการ์ดทำนายฝันให้อัตโนมัติ)</div>
+              <input type="file" id="qr-file-input" accept="image/*" style="display: none;">
+            </div>
+
+            <div id="qr-preview-box" class="qr-preview-box" style="display: none;">
+              <img id="qr-preview-thumb" class="qr-preview-thumbnail" alt="QR Preview">
+              <div style="flex: 1; text-align: left;">
+                <strong style="color: var(--color-emerald-light); font-size: 0.85rem;">บันทึกรูป QR Code สำเร็จแล้ว</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">จะแสดงในหน้าสแกนซื้อและสตูดิโอโปสเตอร์ทันที</div>
+              </div>
+              <button id="btn-remove-qr" type="button" style="background: none; border: none; color: var(--color-rose); cursor: pointer; font-size: 1rem;" title="ลบภาพ QR">&times;</button>
+            </div>
           </div>
         </div>
 
+        <button id="btn-save-agent-settings" class="btn btn-emerald" style="width: 100%; padding: 0.85rem;">
+          <i class="fas fa-save"></i> บันทึกข้อมูลร้านค้า &amp; QR Code
+        </button>
+      </div>
+
+      <!-- Tab 3: Affiliate Link Generator -->
+      <div id="tab-content-affiliate" style="display: none;">
+        <h3 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-bullhorn"></i> สร้างลิงก์โปรโมทร้านค้าของคุณ</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          เมื่อลูกค้าเปิดเว็บไซต์ผ่านลิงก์นี้ ระบบจะแสดงชื่อร้านและช่องทางติดต่อของคุณทั่วทั้งเว็บทันที
+        </p>
+
         <div style="margin-bottom: 1.25rem; text-align: left;">
-          <label style="font-size: 0.8rem; color: var(--color-gold);">ลิงก์โปรโมทสำเร็จรูปของคุณ:</label>
+          <label style="font-size: 0.8rem; color: var(--color-gold);">ลิงก์โปรโมทเฉพาะร้านของคุณ:</label>
           <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
             <input type="text" id="agent-generated-url" class="calc-input-field" readonly style="font-size: 0.8rem; color: var(--color-emerald-light);">
             <button id="btn-copy-affiliate-url" class="btn btn-gold" style="padding: 0 1rem; flex-shrink: 0;">
               <i class="fas fa-copy"></i> คัดลอก
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Agent Quick-Reply Scripts -->
+      <div id="tab-content-scripts" style="display: none;">
+        <h3 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-comment-dots"></i> สคริปต์ข้อความตอบแชท (Quick-Reply)</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          กดคัดลอกสคริปต์สำเร็จรูปนำไปส่งใน LINE OA, Facebook Messenger, หรือกลุ่มโซเชียลเพื่อปิดการขายได้ทันที
+        </p>
+
+        <div id="quick-replies-container" class="quick-replies-list">
+          <!-- Dynamic Quick Replies Rendered by JS -->
         </div>
       </div>
     </div>

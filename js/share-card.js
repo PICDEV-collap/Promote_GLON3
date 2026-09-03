@@ -252,9 +252,13 @@ const ShareCardEngine = (function () {
     contactLine += ' • สั่งซื้อสะดวกผ่านแอปเป๋าตัง';
     ctx.fillText(contactLine, 540, 1180);
 
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '500 17px "Kanit", sans-serif';
+    ctx.fillText('สลากกินแบ่งรัฐบาล N3 ใบละ 20 บาท • ห้ามจำหน่ายแก่บุคคลอายุต่ำกว่า 20 ปีบริบูรณ์', 540, 1235);
+
     ctx.fillStyle = '#64748b';
-    ctx.font = '400 18px "Kanit", sans-serif';
-    ctx.fillText('สำนักงานสลากกินแบ่งรัฐบาล (GLO) • สลาก N3 ดิจิทัลถูกต้องตามกฎหมาย 100%', 540, 1240);
+    ctx.font = '400 16px "Kanit", sans-serif';
+    ctx.fillText('สลากดิจิทัลถูกต้องตามกฎหมาย 100% สแกนซื้อผ่านแอปเป๋าตัง', 540, 1265);
 
     return canvas.toDataURL('image/png');
   }

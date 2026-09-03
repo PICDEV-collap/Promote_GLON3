@@ -102,54 +102,219 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 4. Shop & Affiliate System Modal Controllers
+  // 4. Shop & Agent System Modal Controllers (4 Tabs + QR Support)
   // -------------------------------------------------------------------------
-  const DEFAULT_SHOP_URL = 'https://line.me';
+  const DEFAULT_SHOP_URL = 'https://n3.glolotteryshop.com';
   let currentShopUrl = localStorage.getItem('glo_n3_shop_url') || DEFAULT_SHOP_URL;
 
   const btnOurShopList = document.querySelectorAll('.btn-our-shop');
   const modalShopConfig = document.getElementById('modal-shop-config');
   const modalShopClose = document.getElementById('modal-shop-close');
-  const shopUrlInput = document.getElementById('shop-url-input');
-  const btnSaveShopUrl = document.getElementById('btn-save-shop-url');
 
-  // Affiliate Generator Elements
+  // Modal Tabs
   const tabBtnShop = document.getElementById('tab-btn-shop');
+  const tabBtnSettings = document.getElementById('tab-btn-settings');
   const tabBtnAffiliate = document.getElementById('tab-btn-affiliate');
+  const tabBtnScripts = document.getElementById('tab-btn-scripts');
+
   const tabContentShop = document.getElementById('tab-content-shop');
+  const tabContentSettings = document.getElementById('tab-content-settings');
   const tabContentAffiliate = document.getElementById('tab-content-affiliate');
+  const tabContentScripts = document.getElementById('tab-content-scripts');
+
+  // Storefront Tab Elements
+  const storefrontShopTitle = document.getElementById('storefront-shop-title');
+  const storefrontQrImg = document.getElementById('storefront-qr-img');
+  const btnDownloadShopQr = document.getElementById('btn-download-shop-qr');
+
+  // Settings & QR Upload Elements
   const agentInputName = document.getElementById('agent-input-name');
   const agentInputLine = document.getElementById('agent-input-line');
   const agentInputTel = document.getElementById('agent-input-tel');
+  const shopUrlInput = document.getElementById('shop-url-input');
+  const btnSaveAgentSettings = document.getElementById('btn-save-agent-settings');
+
+  const qrDropzone = document.getElementById('qr-dropzone');
+  const qrFileInput = document.getElementById('qr-file-input');
+  const qrPreviewBox = document.getElementById('qr-preview-box');
+  const qrPreviewThumb = document.getElementById('qr-preview-thumb');
+  const btnRemoveQr = document.getElementById('btn-remove-qr');
+
+  // Affiliate & Quick Replies Elements
   const agentGeneratedUrl = document.getElementById('agent-generated-url');
   const btnCopyAffiliateUrl = document.getElementById('btn-copy-affiliate-url');
+  const quickRepliesContainer = document.getElementById('quick-replies-container');
 
-  if (tabBtnShop && tabBtnAffiliate) {
-    tabBtnShop.addEventListener('click', () => {
-      tabBtnShop.classList.add('active');
-      tabBtnAffiliate.classList.remove('active');
-      if (tabContentShop) tabContentShop.style.display = 'block';
-      if (tabContentAffiliate) tabContentAffiliate.style.display = 'none';
+  function switchTab(activeTab) {
+    const tabs = [
+      { btn: tabBtnShop, content: tabContentShop },
+      { btn: tabBtnSettings, content: tabContentSettings },
+      { btn: tabBtnAffiliate, content: tabContentAffiliate },
+      { btn: tabBtnScripts, content: tabContentScripts }
+    ];
+
+    tabs.forEach(t => {
+      if (t.btn) t.btn.classList.remove('active');
+      if (t.content) t.content.style.display = 'none';
     });
 
-    tabBtnAffiliate.addEventListener('click', () => {
+    if (activeTab === 'shop' && tabBtnShop && tabContentShop) {
+      tabBtnShop.classList.add('active');
+      tabContentShop.style.display = 'block';
+      refreshStorefrontQR();
+    } else if (activeTab === 'settings' && tabBtnSettings && tabContentSettings) {
+      tabBtnSettings.classList.add('active');
+      tabContentSettings.style.display = 'block';
+    } else if (activeTab === 'affiliate' && tabBtnAffiliate && tabContentAffiliate) {
       tabBtnAffiliate.classList.add('active');
-      tabBtnShop.classList.remove('active');
-      if (tabContentShop) tabContentShop.style.display = 'none';
-      if (tabContentAffiliate) tabContentAffiliate.style.display = 'block';
+      tabContentAffiliate.style.display = 'block';
       updateGeneratedAffiliateUrl();
+    } else if (activeTab === 'scripts' && tabBtnScripts && tabContentScripts) {
+      tabBtnScripts.classList.add('active');
+      tabContentScripts.style.display = 'block';
+      renderQuickReplies();
+    }
+  }
+
+  if (tabBtnShop) tabBtnShop.addEventListener('click', () => switchTab('shop'));
+  if (tabBtnSettings) tabBtnSettings.addEventListener('click', () => switchTab('settings'));
+  if (tabBtnAffiliate) tabBtnAffiliate.addEventListener('click', () => switchTab('affiliate'));
+  if (tabBtnScripts) tabBtnScripts.addEventListener('click', () => switchTab('scripts'));
+
+  function refreshStorefrontQR() {
+    const agent = AgentSystem.getAgentInfo();
+    if (storefrontShopTitle) {
+      storefrontShopTitle.innerText = agent.isCustomAgent ? agent.name : 'ร้านสลาก N3 ได้รับอนุญาต';
+    }
+
+    const savedQr = AgentSystem.getAgentQR();
+    if (storefrontQrImg) {
+      if (savedQr) {
+        storefrontQrImg.src = savedQr;
+      } else {
+        const link = agent.shopUrl || 'https://n3.glolotteryshop.com';
+        storefrontQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+      }
+    }
+  }
+
+  // QR Download Handler
+  if (btnDownloadShopQr) {
+    btnDownloadShopQr.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      if (storefrontQrImg && storefrontQrImg.src) {
+        const link = document.createElement('a');
+        link.download = `GLO-N3-Shop-QR-${Date.now()}.png`;
+        link.href = storefrontQrImg.src;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('กำลังดาวน์โหลดภาพ QR Code ร้านค้า...');
+      }
     });
   }
 
+  // QR Upload via Dropzone or File Input
+  if (qrDropzone && qrFileInput) {
+    qrDropzone.addEventListener('click', () => qrFileInput.click());
+
+    qrDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      qrDropzone.classList.add('dragover');
+    });
+
+    qrDropzone.addEventListener('dragleave', () => {
+      qrDropzone.classList.remove('dragover');
+    });
+
+    qrDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      qrDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        processUploadedQrFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    qrFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        processUploadedQrFile(e.target.files[0]);
+      }
+    });
+  }
+
+  function processUploadedQrFile(file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('กรุณาอัปโหลดไฟล์รูปภาพ (PNG, JPG)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      AgentSystem.saveAgentQR(dataUrl);
+      updateQrPreviewUI(dataUrl);
+      refreshStorefrontQR();
+      refreshPosterPreview();
+      showToast('🎉 บันทึกภาพ QR Code ร้านค้าสำเร็จแล้ว!');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateQrPreviewUI(dataUrl) {
+    if (dataUrl) {
+      if (qrPreviewBox) qrPreviewBox.style.display = 'flex';
+      if (qrPreviewThumb) qrPreviewThumb.src = dataUrl;
+    } else {
+      if (qrPreviewBox) qrPreviewBox.style.display = 'none';
+      if (qrPreviewThumb) qrPreviewThumb.src = '';
+    }
+  }
+
+  // Initial QR Preview state
+  const existingQr = AgentSystem.getAgentQR();
+  if (existingQr) updateQrPreviewUI(existingQr);
+
+  if (btnRemoveQr) {
+    btnRemoveQr.addEventListener('click', (e) => {
+      e.stopPropagation();
+      AgentSystem.clearAgentQR();
+      updateQrPreviewUI(null);
+      refreshStorefrontQR();
+      refreshPosterPreview();
+      showToast('ลบภาพ QR Code ร้านค้าแล้ว');
+    });
+  }
+
+  // Save Agent Settings Handler
+  if (btnSaveAgentSettings) {
+    btnSaveAgentSettings.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      const name = agentInputName ? agentInputName.value.trim() : '';
+      const line = agentInputLine ? agentInputLine.value.trim() : '';
+      const tel = agentInputTel ? agentInputTel.value.trim() : '';
+      const shopUrl = shopUrlInput ? shopUrlInput.value.trim() : '';
+
+      AgentSystem.saveAgentInfo({ name, line, tel, shopUrl });
+      AgentSystem.applyAgentBranding();
+      refreshStorefrontQR();
+      refreshPosterPreview();
+
+      showToast('บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว!');
+      switchTab('shop');
+    });
+  }
+
+  // Affiliate URL Generator
   function updateGeneratedAffiliateUrl() {
     if (!agentGeneratedUrl) return;
     const name = agentInputName ? agentInputName.value : '';
     const line = agentInputLine ? agentInputLine.value : '';
     const tel = agentInputTel ? agentInputTel.value : '';
-    agentGeneratedUrl.value = AgentSystem.generateAffiliateUrl(name, line, tel);
+    const shopUrl = shopUrlInput ? shopUrlInput.value : '';
+    agentGeneratedUrl.value = AgentSystem.generateAffiliateUrl(name, line, tel, shopUrl);
   }
 
-  [agentInputName, agentInputLine, agentInputTel].forEach(input => {
+  [agentInputName, agentInputLine, agentInputTel, shopUrlInput].forEach(input => {
     if (input) {
       input.addEventListener('input', updateGeneratedAffiliateUrl);
     }
@@ -164,11 +329,51 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  if (shopUrlInput) {
-    const currentAgent = AgentSystem.getAgentInfo();
-    shopUrlInput.value = currentAgent.shopUrl || currentShopUrl;
+  // Quick Replies Renderer
+  function renderQuickReplies() {
+    if (!quickRepliesContainer) return;
+    let numberToUse = '789';
+    if (currentPrediction && currentPrediction.n3Direct) {
+      numberToUse = currentPrediction.n3Direct;
+    }
+
+    const templates = AgentSystem.getQuickReplyTemplates(numberToUse);
+    quickRepliesContainer.innerHTML = templates.map(tpl => `
+      <div class="quick-reply-card">
+        <div class="quick-reply-header">
+          <div>
+            <h4>${tpl.title}</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${tpl.desc}</div>
+          </div>
+          <button class="btn btn-gold btn-copy-script" data-text="${encodeURIComponent(tpl.content)}" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+            <i class="fas fa-copy"></i> คัดลอก
+          </button>
+        </div>
+        <div class="quick-reply-text">${escapeHtml(tpl.content)}</div>
+      </div>
+    `).join('');
+
+    // Wire copy buttons
+    const copyBtns = quickRepliesContainer.querySelectorAll('.btn-copy-script');
+    copyBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = decodeURIComponent(btn.dataset.text);
+        copyToClipboard(text);
+        showToast('คัดลอกสคริปต์ข้อความตอบแชทแล้ว!');
+      });
+    });
   }
 
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Shop button click -> open modal
   btnOurShopList.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -180,13 +385,12 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       copyToClipboard(numberToCopy);
 
-      showToast(`คัดลอกเลขเด็ด N3 (${numberToCopy}) แล้ว! กำลังนำคุณไปยังร้านค้า...`);
+      showToast(`คัดลอกเลขเด็ด N3 (${numberToCopy}) แล้ว! กำลังเปิดหน้าร้านค้า...`);
 
       if (modalShopConfig) {
+        refreshStorefrontQR();
+        switchTab('shop');
         modalShopConfig.classList.add('active');
-      } else {
-        const agent = AgentSystem.getAgentInfo();
-        window.open(agent.shopUrl || currentShopUrl, '_blank');
       }
     });
   });
@@ -194,18 +398,6 @@ document.addEventListener('DOMContentLoaded', function () {
   if (modalShopClose) {
     modalShopClose.addEventListener('click', () => {
       modalShopConfig.classList.remove('active');
-    });
-  }
-
-  if (btnSaveShopUrl) {
-    btnSaveShopUrl.addEventListener('click', () => {
-      try { SoundEngine.playClick(); } catch (err) {}
-      const newUrl = (shopUrlInput ? shopUrlInput.value.trim() : '') || DEFAULT_SHOP_URL;
-      currentShopUrl = newUrl;
-      localStorage.setItem('glo_n3_shop_url', currentShopUrl);
-      if (modalShopConfig) modalShopConfig.classList.remove('active');
-      showToast('เปิดหน้าร้านค้าของคุณแล้ว!');
-      window.open(currentShopUrl, '_blank');
     });
   }
 
@@ -617,15 +809,16 @@ document.addEventListener('DOMContentLoaded', function () {
       drawDate: posterDrawDateInput ? posterDrawDateInput.value.trim() : '16 กันยายน 2569',
       numbers: parsedNumbers.length >= 3 ? parsedNumbers : ['789', '532', '904'],
       line: posterLineInput ? posterLineInput.value.trim() : '@glon3',
-      tel: posterTelInput ? posterTelInput.value.trim() : '02-528-9999'
+      tel: posterTelInput ? posterTelInput.value.trim() : '02-528-9999',
+      qrImage: AgentSystem.getAgentQR()
     };
   }
 
-  function refreshPosterPreview() {
+  async function refreshPosterPreview() {
     if (!posterPreviewImg) return;
     try {
       const config = getPosterConfig();
-      const posterDataUrl = PosterStudio.renderPoster(config);
+      const posterDataUrl = await PosterStudio.renderPosterAsync(config);
       posterPreviewImg.src = posterDataUrl;
     } catch (e) {
       console.warn('Poster render error:', e);
@@ -633,18 +826,18 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (btnUpdatePoster) {
-    btnUpdatePoster.addEventListener('click', () => {
+    btnUpdatePoster.addEventListener('click', async () => {
       try { SoundEngine.playClick(); } catch (e) {}
-      refreshPosterPreview();
+      await refreshPosterPreview();
       showToast('อัปเดตพรีวิวโปสเตอร์แล้ว!');
     });
   }
 
   if (btnDownloadPoster) {
-    btnDownloadPoster.addEventListener('click', () => {
+    btnDownloadPoster.addEventListener('click', async () => {
       try { SoundEngine.playCopySuccess(); } catch (e) {}
       const config = getPosterConfig();
-      PosterStudio.downloadPoster(config);
+      await PosterStudio.downloadPoster(config);
       showToast('กำลังดาวน์โหลดรูปภาพโปสเตอร์ High-DPI...');
     });
   }
@@ -926,7 +1119,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 12. N3 Simulator Calculator Handler
+  // 12. Official GLO Calculator & Agent Commission Estimator Handler
   // -------------------------------------------------------------------------
   const calcSalesInput = document.getElementById('calc-sales');
   if (calcSalesInput) {
@@ -936,6 +1129,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const elTickets = document.getElementById('calc-tickets');
       const elPrizeTotal = document.getElementById('calc-prize-total');
+      const elGovRevenue = document.getElementById('calc-gov-revenue');
       const elN3Direct = document.getElementById('calc-n3-direct');
       const elN3Tod = document.getElementById('calc-n3-tod');
       const elN2Direct = document.getElementById('calc-n2-direct');
@@ -943,6 +1137,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (elTickets) elTickets.innerText = `${res.ticketCount.toLocaleString()} ใบ`;
       if (elPrizeTotal) elPrizeTotal.innerText = N3Calculator.formatBaht(res.prizePoolTotal);
+      if (elGovRevenue) elGovRevenue.innerText = N3Calculator.formatBaht(res.governmentRevenue);
       if (elN3Direct) elN3Direct.innerText = N3Calculator.formatBaht(res.n3DirectPool);
       if (elN3Tod) elN3Tod.innerText = N3Calculator.formatBaht(res.n3TodPool);
       if (elN2Direct) elN2Direct.innerText = N3Calculator.formatBaht(res.n2DirectPool);
@@ -951,5 +1146,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     calcSalesInput.addEventListener('input', updateCalculator);
     updateCalculator();
+  }
+
+  // Agent Earnings Estimator Slider Handler
+  const agentTicketSlider = document.getElementById('agent-ticket-slider');
+  const agentSliderLabel = document.getElementById('agent-slider-label');
+  const agentStatTotalSales = document.getElementById('agent-stat-total-sales');
+  const agentStatDrawEarnings = document.getElementById('agent-stat-draw-earnings');
+  const agentStatMonthEarnings = document.getElementById('agent-stat-month-earnings');
+
+  if (agentTicketSlider) {
+    function updateAgentEstimator() {
+      const ticketCount = parseInt(agentTicketSlider.value, 10) || 500;
+      const comm = N3Calculator.calculateAgentCommission(ticketCount);
+
+      if (agentSliderLabel) agentSliderLabel.innerText = `${ticketCount.toLocaleString()} ใบ`;
+      if (agentStatTotalSales) agentStatTotalSales.innerText = N3Calculator.formatBaht(comm.totalSales);
+      if (agentStatDrawEarnings) agentStatDrawEarnings.innerText = N3Calculator.formatBaht(comm.perDrawEarnings);
+      if (agentStatMonthEarnings) agentStatMonthEarnings.innerText = N3Calculator.formatBaht(comm.monthlyEarnings);
+    }
+
+    agentTicketSlider.addEventListener('input', updateAgentEstimator);
+    updateAgentEstimator();
   }
 });
