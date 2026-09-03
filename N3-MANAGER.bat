@@ -1,6 +1,6 @@
 @echo off
-title N3 Bot Master Manager
-color 0A
+title N3 Bot - Single Dashboard
+color 0B
 cd /d "%~dp0"
-node bot-manager.js
+node single-dashboard.js
 pause
