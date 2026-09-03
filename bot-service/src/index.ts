@@ -194,14 +194,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const qrFileName = result.qrImageUrl.split(/[\/\\]/).pop() || '';
       const downloadUrl = `${currentPublicBaseUrl}/download-qr/${qrFileName}`;
 
-      // 1. ส่งรูปภาพ QR Code แบบ Native LINE Image Bubble (ขนาดใหญ่เต็มจอ สแกนง่าย เซฟลงเครื่องใน 1 แตะ)
-      const imageMsg: messagingApi.ImageMessage = {
-        type: 'image',
-        originalContentUrl: qrPublicUrl,
-        previewImageUrl: qrPublicUrl
-      };
-
-      // 2. ส่ง Flex Message สรุปคำสั่งซื้อ พร้อมปุ่มดาวน์โหลด/บันทึกรูป
+      // ส่ง Flex Message สรุปคำสั่งซื้อพร้อมรูป QR Code คมชัดสูงในตัว (ส่งข้อความเดียว จบครบ ไม่ขึ้นซ้ำ 2 ภาพ)
       const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(
         qrPublicUrl,
         result.fulfilledItems || orderItems,
@@ -212,8 +205,8 @@ orderQueue.setWorker(async (task: OrderTask) => {
         result.outOfStockItems
       );
 
-      await sendCustomerMessage([imageMsg, flexMsg]);
-      console.log(`[SUCCESS] ส่งภาพ QR Code คมชัดสูง (Native Image + Flex Card) ให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
+      await sendCustomerMessage([flexMsg]);
+      console.log(`[SUCCESS] ส่งการ์ด QR Code ชำระเงินให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
     } else {
       const itemsDesc = task.items && task.items.length > 0
         ? task.items.map(i => i.number).join(', ')
