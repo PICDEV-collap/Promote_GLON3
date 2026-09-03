@@ -114,7 +114,6 @@ orderQueue.setWorker(async (task: OrderTask) => {
     if (!isLoggedIn) {
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
-      // แจ้งลูกค้าทั่วไปอย่างสุภาพ
       await lineHandler.reply(task.replyToken, [
         {
           type: 'text',
@@ -122,7 +121,6 @@ orderQueue.setWorker(async (task: OrderTask) => {
         }
       ]);
 
-      // ส่ง QR Login ให้แอดมินคนเดียวเท่านั้น!
       triggerAdminLoginQR(`มีลูกค้าสั่งซื้อเลข ${task.number} จำนวน ${task.quantity} ใบ แต่ระบบยังไม่ได้ล็อกอิน`);
       return;
     }
@@ -162,20 +160,15 @@ orderQueue.setWorker(async (task: OrderTask) => {
 });
 
 /**
- * ฟังก์ชันแกะข้อความสั่งซื้อ รองรับหลายรูปแบบ:
- * - 123 (ได้ 1 ใบ)
- * - 123 2, 123 2ใบ, 123=2, 123*2
- * - สั่ง 456 5 ใบ
+ * ฟังก์ชันแกะข้อความสั่งซื้อ
  */
 export function parseOrderMessage(text: string): { number: string; quantity: number } | null {
   if (!text) return null;
   const clean = text.trim();
 
-  // Pattern: สั่ง 123 2 ใบ หรือ 123 2 หรือ 123
   const match = clean.match(/(?:สั่ง\s*)?(\b\d{3}\b)(?:[\s=\-xX*\/,]*([0-9]+)\s*(?:ใบ)?)?/);
   if (match) {
     const number = match[1];
-    // ถ้าไม่ระบุจำนวนใบ ให้เป็น 1 ใบโดยอัตโนมัติ
     const quantity = match[2] ? parseInt(match[2], 10) : 1;
     if (quantity > 0 && quantity <= 100) {
       return { number, quantity };
@@ -202,12 +195,21 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       const userText: string = event.message.text.trim();
       const replyToken: string = event.replyToken;
       const userId: string = event.source?.userId || 'anonymous';
-      const isAdmin: boolean = !!(CONFIG.LINE_ADMIN_USER_ID && userId === CONFIG.LINE_ADMIN_USER_ID);
+      const adminId = CONFIG.LINE_ADMIN_USER_ID || CONFIG.ADMIN_LINE_USER_ID;
+      const isAdmin: boolean = !!(adminId && userId === adminId);
 
-      console.log(`[USER MESSAGE] "${userText}" จาก ${userId} (isAdmin: ${isAdmin})`);
+      console.log(`[USER MESSAGE] "${userText}" จาก ${userId} | AdminID=${adminId} | (isAdmin: ${isAdmin})`);
 
-      // 1. ตรวจสอบคำสั่งล็อกอิน Admin (จำกัดสิทธิ์เฉพาะแอดมินเท่านั้น!)
+      // คำสั่งพิเศษ: ดู User ID ตัวเอง
       const lower = userText.toLowerCase();
+      if (lower === 'myid' || lower === 'id') {
+        await lineHandler.reply(replyToken, [
+          { type: 'text', text: `👤 LINE User ID ของคุณคือ:\n${userId}\n\nสถานะ: ${isAdmin ? '✅ แอดมิน (Admin)' : 'ลูกค้าทั่วไป'}` }
+        ]);
+        continue;
+      }
+
+      // 1. ตรวจสอบคำสั่งล็อกอิน Admin
       if (lower === 'login' || lower === 'ล็อกอิน' || lower === 'qr') {
         if (isAdmin) {
           triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง');
@@ -225,7 +227,6 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       // 2. แกะคำสั่งซื้อสลาก
       const parsed = parseOrderMessage(userText);
       if (!parsed) {
-        // หากลูกค้าพิมพ์ข้อความอื่น เช่น สวัสดี, ถามเลข, ทักทาย -> ส่งการ์ดวิธีพิมพ์สั่งซื้อสลาก
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
         continue;
       }
@@ -294,6 +295,7 @@ function startServerWithPort(targetPort: number) {
     console.log(`🎫 โควต้าคงเหลือ: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
     const status = OperatingHoursGuard.checkSalesStatus();
     console.log(`⏰ สถานะเวลาจำหน่าย: ${status.isOpen ? 'เปิดจำหน่าย' : 'ปิดจำหน่าย'} (${status.currentHoursText})`);
+    console.log(`👤 Admin LINE User ID: ${CONFIG.ADMIN_LINE_USER_ID || '(ว่าง)'}`);
     console.log(`🔮 ลิงก์ทำนายฝัน: ${CONFIG.DREAM_PREDICTION_URL}`);
     console.log(`====================================================`);
 
