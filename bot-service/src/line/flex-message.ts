@@ -21,12 +21,16 @@ export class FlexMessageBuilder {
     const isMulti = Array.isArray(lotteryNumberOrItems);
     const items: OrderItem[] = isMulti
       ? (lotteryNumberOrItems as OrderItem[])
-      : [{ number: lotteryNumberOrItems as string, quantity }];
+      : [{ number: lotteryNumberOrItems as string, quantity: quantity > 0 ? quantity : 1 }];
 
     const calcTotalQty = items.reduce((sum, item) => sum + item.quantity, 0);
     const calcTotalPrice = items.reduce((sum, item) => sum + item.quantity * 20, 0);
-    const finalTotalQty = quantity > 0 ? quantity : calcTotalQty;
-    const finalTotalPrice = totalPrice > 0 ? totalPrice : calcTotalPrice;
+    const finalTotalQty = isMulti
+      ? (quantity > 1 ? quantity : calcTotalQty)
+      : (quantity > 0 ? quantity : 1);
+    const finalTotalPrice = isMulti
+      ? (totalPrice > 20 ? totalPrice : calcTotalPrice)
+      : (totalPrice > 0 ? totalPrice : finalTotalQty * 20);
 
     const altText = items.length === 1
       ? `สลาก N3 เลข ${items[0].number} (${items[0].quantity} ใบ) - สแกนจ่ายด้วยแอปเป๋าตัง`
@@ -172,7 +176,7 @@ export class FlexMessageBuilder {
           url: qrImageUrl,
           size: 'full',
           aspectRatio: '1:1',
-          aspectMode: 'fit',
+          aspectMode: 'cover',
           backgroundColor: '#ffffff',
           action: {
             type: 'uri',

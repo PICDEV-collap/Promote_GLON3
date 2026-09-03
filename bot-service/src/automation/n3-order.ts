@@ -1,16 +1,18 @@
 import { Page } from 'playwright';
 import { CONFIG } from '../config';
 import path from 'path';
+import fs from 'fs';
 import { OrderItem } from '../queue/order-queue';
 
 export class N3OrderService {
   /**
    * สั่งซื้อสลาก N3 ตาม Flow จริง (รองรับทั้งเลขเดียวและหลายเลขในบิลเดียว):
-   * 1. วนลูปกรอกเลขแต่ละรายการและปรับจำนวนใบใส่ตะกร้า
-   * 2. กดปุ่ม "ตรวจสอบสลากฯ" รวมทุกรายการ
-   * 3. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
-   * 4. กดยืนยันในป๊อปอัป
-   * 5. แคปเจอร์ภาพ QR Code รวมยอดชำระเงินคมชัดเต็มใบ 100%
+   * 1. วนลูปค้นหาและเลือกแต่ละสลากเข้าตะกร้าเดียวกัน พร้อมปรับจำนวนใบตามจริง (รองรับ Stepper img[src*="plus-icon"])
+   * 2. ตรวจสอบจำนวนสลากในตะกร้าทั้งหมด (Cart Quantity Audit) ก่อนกดยืนยัน
+   * 3. กดปุ่ม "ตรวจสอบสลากฯ" รวมทุกรายการ เข้าสู่หน้า lotto-confirm
+   * 4. ตรวจสอบและยืนยันความถูกต้องของจำนวนสลากในหน้า lotto-confirm (Confirm Audit)
+   * 5. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ" และกดยืนยันในป๊อปอัป
+   * 6. แคปเจอร์ภาพ QR Code ชำระเงินคมชัดเฉพาะกรอบจัตุรัส 1:1 พร้อม Quiet Zone (~28px) สแกนติดง่าย 100%
    */
   public static async executeOrder(
     page: Page,
@@ -48,93 +50,63 @@ export class N3OrderService {
         const item = items[idx];
         console.log(`[N3 ORDER ITEM ${idx + 1}/${items.length}] กำลังค้นหาและเพิ่มเลข ${item.number} (จำนวน ${item.quantity} ใบ)...`);
 
-        // หากเป็นรายการที่ 2 เป็นต้นไป ให้กดปุ่มเพิ่มสลาก/เลือกเลขอื่น หรือสลับแท็บตำแหน่งใน SPA โดยไม่รีโหลดหน้าเว็บเด็ดขาด
+        // หากเป็นรายการที่ 2 เป็นต้นไป ให้ล้างช่องค้นหาเลขหรือสลับตำแหน่งใน SPA โดยไม่รีโหลดหน้าเว็บ
         if (idx > 0) {
-          let tabOrBtnFound = false;
-
-          // ลองคลิกปุ่มเพิ่มรายการหรือแท็บตำแหน่งถัดไปบนหน้าจอ
-          const addMoreSelectors = [
-            'button:has-text("เลือกเลขอื่น")',
-            'button:has-text("เพิ่มสลาก")',
-            'button:has-text("เลือกสลากเพิ่ม")',
-            'button:has-text("ค้นหาเพิ่ม")',
-            'button:has-text("เพิ่มรายการ")',
-            `button:has-text("สลากใบที่ ${idx + 1}")`,
-            `button:has-text("ใบที่ ${idx + 1}")`,
-            `button:has-text("ตำแหน่งที่ ${idx + 1}")`,
-            `button:has-text("ตำแหน่ง ${idx + 1}")`,
-            `button:has-text("สลาก ${idx + 1}")`,
-            `a[href*="position=${idx + 1}"]`,
-            `[role="tab"]:has-text("${idx + 1}")`,
-            `div[class*="tab"]:has-text("${idx + 1}")`,
-            `div[class*="step"]:has-text("${idx + 1}")`
-          ];
-
-          for (const sel of addMoreSelectors) {
-            const el = page.locator(sel).first();
-            if (await el.isVisible().catch(() => false)) {
-              console.log(`[N3 ORDER] กดปุ่มหรือแท็บเพิ่มรายการ: ${sel}`);
-              await el.click().catch(() => {});
-              await page.waitForTimeout(600);
-              tabOrBtnFound = true;
-              break;
-            }
-          }
-
-          // หากยังไม่เจอ ลองสลับแท็บตำแหน่งผ่าน DOM Evaluate (Client-side Router / Tab Click) โดยไม่ใช้ page.goto
-          if (!tabOrBtnFound) {
-            await page.evaluate((pos) => {
-              const elements = Array.from(document.querySelectorAll('a, button, [role="tab"], div[class*="tab"], div[class*="step"], li'));
-              const target = elements.find(el => {
-                const href = el.getAttribute('href') || '';
-                const text = el.textContent?.trim() || '';
-                return href.includes(`position=${pos}`) ||
-                       text === `${pos}` ||
-                       text.includes(`ตำแหน่ง ${pos}`) ||
-                       text.includes(`ตำแหน่งที่ ${pos}`) ||
-                       text.includes(`ใบที่ ${pos}`) ||
-                       text.includes(`สลาก ${pos}`);
-              }) as HTMLElement | undefined;
-              if (target) {
-                target.click();
+          // กดปุ่ม "ล้างค่า" (QRSELLING_SEARCH_SCREEN_CLEAR_BUTTON ของระบบ GLO)
+          const clearBtn = page.locator('p:has-text("ล้างค่า"), button:has-text("ล้างค่า"), [role="button"]:has-text("ล้างค่า")').first();
+          if (await clearBtn.isVisible().catch(() => false)) {
+            console.log('[N3 ORDER] กดปุ่ม "ล้างค่า" เพื่อเคลียร์ช่องค้นหาเลขเดิม...');
+            await clearBtn.click().catch(() => {});
+            await page.waitForTimeout(300);
+          } else {
+            // สำรอง: ลองปุ่มเพิ่มรายการหรือแท็บตำแหน่งถัดไป
+            const addMoreSelectors = [
+              'button:has-text("เลือกเลขอื่น")',
+              'button:has-text("เพิ่มสลาก")',
+              'button:has-text("เลือกสลากเพิ่ม")',
+              'button:has-text("ค้นหาเพิ่ม")',
+              'button:has-text("เพิ่มรายการ")',
+              `button:has-text("สลากใบที่ ${idx + 1}")`,
+              `a[href*="position=${idx + 1}"]`
+            ];
+            for (const sel of addMoreSelectors) {
+              const el = page.locator(sel).first();
+              if (await el.isVisible().catch(() => false)) {
+                await el.click().catch(() => {});
+                await page.waitForTimeout(400);
+                break;
               }
-            }, idx + 1).catch(() => {});
-            await page.waitForTimeout(500);
+            }
           }
         }
 
-        // กรอกตัวเลข 3 ตัว
+        // ล้างและกรอกตัวเลข 3 ตัว
         const digits = item.number.split('');
-        const visibleBoxes = page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible');
-        const visibleCount = await visibleBoxes.count().catch(() => 0);
+        const digitInputs = page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible');
+        const visibleCount = await digitInputs.count().catch(() => 0);
 
         if (visibleCount >= 3) {
-          // หากมีกล่องกรอกตัวเลขที่มองเห็นได้อย่างน้อย 3 กล่อง ให้กรอก 3 กล่องแรกที่มองเห็น
-          await visibleBoxes.nth(0).fill('');
-          await visibleBoxes.nth(0).fill(digits[0]);
-          await visibleBoxes.nth(1).fill('');
-          await visibleBoxes.nth(1).fill(digits[1]);
-          await visibleBoxes.nth(2).fill('');
-          await visibleBoxes.nth(2).fill(digits[2]);
+          for (let d = 0; d < 3; d++) {
+            await digitInputs.nth(d).fill('');
+            await digitInputs.nth(d).fill(digits[d]);
+          }
         } else if (visibleCount === 1) {
-          await visibleBoxes.first().fill('');
-          await visibleBoxes.first().fill(item.number);
+          await digitInputs.first().fill('');
+          await digitInputs.first().fill(item.number);
         } else {
-          // Fallback หากระบบตรวจไม่พบกล่องแบบ visible ให้ค้นหากล่องทั้งหมดใน DOM
+          // Fallback หากช่องไม่เป็น visible
           const allInputs = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
           const allCount = await allInputs.count().catch(() => 0);
           if (allCount >= 3) {
-            const startIdx = allCount >= (idx + 1) * 3 ? idx * 3 : 0;
-            await allInputs.nth(startIdx).fill(digits[0]);
-            await allInputs.nth(startIdx + 1).fill(digits[1]);
-            await allInputs.nth(startIdx + 2).fill(digits[2]);
+            await allInputs.nth(0).fill(digits[0]);
+            await allInputs.nth(1).fill(digits[1]);
+            await allInputs.nth(2).fill(digits[2]);
           } else if (allCount > 0) {
-            const targetInput = allCount > idx ? allInputs.nth(idx) : allInputs.first();
-            await targetInput.fill(item.number);
+            await allInputs.first().fill(item.number);
           }
         }
 
-        // กดปุ่ม "เลือกเลข" เพื่อค้นหาสลาก (เลือกปุ่มที่มองเห็นได้และตรงกับคำว่า เลือกเลข ชัดเจน)
+        // กดปุ่ม "เลือกเลข" เพื่อค้นหาสลาก
         const selectBtn = page.locator('button:visible').filter({ hasText: /^เลือกเลข$/ }).first();
         if (await selectBtn.isVisible().catch(() => false)) {
           await selectBtn.click();
@@ -150,35 +122,39 @@ export class N3OrderService {
             }).catch(() => {});
           }
         }
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1200);
 
         if (page.isClosed()) {
           return { success: false, error: 'หน้าต่างเบราว์เซอร์ถูกปิด กรุณาสั่งซื้อใหม่อีกครั้ง' };
         }
 
         // ตรวจสอบว่ามีสลากให้เลือกหรือไม่
-        const notFound = await page.locator('text=ไม่พบสลาก').or(page.locator('text=ไม่พบข้อมูล')).first().isVisible().catch(() => false);
+        const notFound = await page.locator('text=ไม่พบสลาก')
+          .or(page.locator('text=ไม่พบข้อมูล'))
+          .or(page.locator('text=ปิดการขาย'))
+          .first()
+          .isVisible()
+          .catch(() => false);
+
         if (notFound) {
           console.warn(`[N3 ORDER] สลากเลข ${item.number} ไม่มีจำหน่ายหรือหมดในระบบ`);
           outOfStockItems.push(item.number);
           continue;
         }
 
-        // คลิกปุ่ม "เลือก" สลากในแถวรายการที่เพิ่งค้นหา (เจาะจงการ์ด/กล่องที่มีเลขสลากนี้)
+        // คลิกปุ่ม "เลือก" สลากในแถวรายการที่เพิ่งค้นหา (cw.COMMON_LOTTO_CARD_SELECT_BUTTON)
         let selectedSuccess = await page.evaluate((targetNum) => {
-          const allButtons = Array.from(document.querySelectorAll('button'));
-
           const isPickButton = (b: HTMLButtonElement) => {
             const t = b.innerText.replace(/\s+/g, ' ').trim();
             return (t === 'เลือก' || t === 'เลือกสลาก' || t === 'เลือกสลากฯ' || t === 'เลือกซื้อ' ||
                    (t.startsWith('เลือก') && !t.includes('เลือกเลข') && !t.includes('เลือกเลขอื่น'))) && !b.disabled;
           };
 
-          // 1. หาปุ่ม "เลือก" ที่อยู่ในการ์ดหรือกล่องที่มีเลขสลากนี้โดยตรง
-          const containers = Array.from(document.querySelectorAll('div, tr, li, [class*="card"], [class*="item"], [class*="result"], [class*="row"]'));
+          const containers = Array.from(document.querySelectorAll('div, tr, li, [class*="card"], [class*="item"], [class*="result"]'));
+          const cleanTarget = targetNum.replace(/\s+/g, '');
           const matchedContainers = containers.filter(c => {
-            const text = (c as HTMLElement).innerText || '';
-            return text.includes(targetNum);
+            const text = (c.textContent || '').replace(/\s+/g, '');
+            return text.includes(cleanTarget);
           });
           matchedContainers.sort((a, b) => a.innerHTML.length - b.innerHTML.length);
 
@@ -188,32 +164,18 @@ export class N3OrderService {
               pickBtn.click();
               return true;
             }
-            const cb = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-            if (cb && !cb.checked) {
-              cb.click();
-              return true;
-            }
           }
 
-          // 2. หากไม่พบคอนเทนเนอร์เฉพาะเจาะจง ให้หาปุ่ม "เลือก" ล่าสุดที่ไม่ disabled
+          // ค้นหาปุ่มเลือกทั่วไป
+          const allButtons = Array.from(document.querySelectorAll('button'));
           const pickButtons = allButtons.filter(isPickButton);
           if (pickButtons.length > 0) {
             pickButtons[pickButtons.length - 1].click();
             return true;
           }
-
-          // 3. Fallback checkbox ที่ยังไม่ติ๊ก
-          const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
-          const uncheck = checkboxes.find(c => !c.checked);
-          if (uncheck) {
-            uncheck.click();
-            return true;
-          }
-
           return false;
         }, item.number).catch(() => false);
 
-        // Fallback ผ่าน Playwright Locator หาก evaluate ไม่สำเร็จ
         if (!selectedSuccess) {
           const pickLoc = page.locator('button:visible')
             .filter({ hasText: /^เลือก$|^เลือกสลาก$|^เลือกสลากฯ$|^เลือกซื้อ$/ })
@@ -229,71 +191,99 @@ export class N3OrderService {
           outOfStockItems.push(item.number);
           continue;
         }
-        await page.waitForTimeout(1000);
 
-        // ปรับจำนวนใบสำหรับรายการสลากเลขนี้โดยเฉพาะ (เจาะจงกดปุ่ม + ของเลขนี้ ไม่ให้กระทบเลขอื่น)
+        // รอปุ่ม Stepper ปรากฏบนการ์ดหลังจากกดเลือกสลากสำเร็จ (GLO N3 แสดง img[src*="plus-icon"])
+        const plusStepperLoc = page.locator('img[src*="plus-icon"]').last();
+        await plusStepperLoc.waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(400);
+
+        // ปรับจำนวนใบสำหรับรายการสลากเลขนี้ให้ตรงตาม item.quantity
         if (item.quantity > 1) {
-          for (let q = 1; q < item.quantity; q++) {
-            if (page.isClosed()) break;
+          console.log(`[N3 ORDER QTY] กำลังปรับจำนวนใบเลข ${item.number} เป็น ${item.quantity} ใบ...`);
 
-            let clicked = false;
+          const numPattern = item.number.split('').join('\\s*');
+          const targetCard = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
+            .filter({ hasText: new RegExp(numPattern) })
+            .filter({ has: page.locator('img[src*="plus-icon"]') })
+            .last();
 
-            // วิธีที่ 1: ค้นหาปุ่ม + ใน Container ที่แสดงตัวเลขของสลากรายการนี้โดยตรงผ่าน DOM Evaluate
-            clicked = await page.evaluate((num) => {
-              const isPlusBtn = (b: HTMLButtonElement) => {
-                const t = b.innerText.trim();
-                const aria = b.getAttribute('aria-label') || '';
-                const title = b.getAttribute('title') || '';
-                const cls = b.className || '';
-                return t === '+' || t === '+1' ||
-                       aria.includes('เพิ่ม') || aria.includes('plus') ||
-                       title.includes('เพิ่ม') ||
-                       cls.includes('plus') || cls.includes('increment') ||
-                       !!b.querySelector('svg[data-icon="plus"], i[class*="plus"]');
-              };
+          let currentCardQty = 1;
 
-              const containers = Array.from(document.querySelectorAll('div, tr, li, section, [class*="card"], [class*="item"], [class*="row"]'));
-              const matched = containers.filter(c => {
-                const text = (c as HTMLElement).innerText || '';
-                return text.includes(num) && Array.from(c.querySelectorAll('button')).some(isPlusBtn);
-              });
-              if (matched.length > 0) {
-                // เลือกคอนเทนเนอร์ที่เล็กที่สุด (เฉพาะเจาะจงที่สุดของรายการนี้)
-                matched.sort((a, b) => a.innerHTML.length - b.innerHTML.length);
-                const plusBtn = Array.from(matched[0].querySelectorAll('button')).find(isPlusBtn);
-                if (plusBtn) {
-                  plusBtn.click();
-                  return true;
+          // 1. ตรวจสอบกล่อง input ตัวเลขจำนวนใบในแถวนี้
+          const qtyInput = targetCard.locator('input[type="number"], input[inputmode="numeric"]').first();
+          if (await qtyInput.isVisible().catch(() => false)) {
+            const rawVal = await qtyInput.inputValue().catch(() => '1');
+            currentCardQty = parseInt(rawVal, 10) || 1;
+
+            if (currentCardQty < item.quantity) {
+              // ลองใช้ Playwright fill เพื่อกระตุ้น Synthetic Event ของ React
+              await qtyInput.fill(String(item.quantity)).catch(() => {});
+              await qtyInput.dispatchEvent('change').catch(() => {});
+              await qtyInput.dispatchEvent('blur').catch(() => {});
+              await page.waitForTimeout(200);
+
+              const checkVal = await qtyInput.inputValue().catch(() => '1');
+              currentCardQty = parseInt(checkVal, 10) || 1;
+            }
+          }
+
+          // 2. หากจำนวนยังไม่ถึงเป้าหมาย ให้คลิกปุ่มบวก (img[src*="plus-icon"]) ตามจำนวนครั้งที่ขาดอยู่
+          if (currentCardQty < item.quantity) {
+            const plusEl = targetCard.locator('img[src*="plus-icon"]').first();
+            const neededClicks = item.quantity - currentCardQty;
+            console.log(`[N3 ORDER QTY] คลิกปุ่มบวก (+) สำหรับเลข ${item.number} อีก ${neededClicks} ครั้ง...`);
+
+            for (let c = 0; c < neededClicks; c++) {
+              if (page.isClosed()) break;
+              await plusEl.click({ force: true }).catch(() => {});
+              await page.waitForTimeout(160);
+            }
+          }
+
+          // 3. Fallback เสริมผ่าน DOM Evaluate และ React Native Descriptor Setter
+          await page.evaluate(({ num, targetQty }) => {
+            const cleanTarget = num.replace(/\s+/g, '');
+            const containers = Array.from(document.querySelectorAll('div, section, tr, li, [class*="card"], [class*="item"]'));
+            const matched = containers.filter(c => {
+              const text = (c.textContent || '').replace(/\s+/g, '');
+              return text.includes(cleanTarget) && (c.querySelector('img[src*="plus-icon"]') || c.querySelector('input[type="number"]'));
+            });
+            matched.sort((a, b) => a.innerHTML.length - b.innerHTML.length);
+
+            for (const container of matched) {
+              const qtyInput = container.querySelector('input[type="number"], input[inputmode="numeric"]') as HTMLInputElement | null;
+              const plusImg = container.querySelector('img[src*="plus-icon"]') as HTMLElement | null;
+              const plusClickable = (plusImg?.closest('div') || plusImg) as HTMLElement | null;
+
+              let cur = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+              if (cur >= targetQty) return;
+
+              // เรียกใช้ native prototype setter เพื่อให้ React Controlled Input อัปเดต state
+              if (qtyInput) {
+                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                if (nativeSetter) {
+                  nativeSetter.call(qtyInput, String(targetQty));
+                } else {
+                  qtyInput.value = String(targetQty);
+                }
+                qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+                qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
+                qtyInput.dispatchEvent(new Event('blur', { bubbles: true }));
+              }
+
+              // หากมีปุ่มบวกให้กดซ้ำตามจำนวนที่ยังขาด
+              if (plusClickable) {
+                const diff = targetQty - cur;
+                for (let i = 0; i < diff; i++) {
+                  plusClickable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                  plusClickable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                  plusClickable.click();
                 }
               }
-              return false;
-            }, item.number).catch(() => false);
-
-            // วิธีที่ 2: ใช้ Playwright Locator กรองตามเลขสลากและปุ่ม +
-            if (!clicked) {
-              const specificPlus = page.locator('div, tr, li, section, [class*="card"], [class*="item"], [class*="row"]')
-                .filter({ hasText: item.number })
-                .filter({ has: page.locator('button:has-text("+"), button[aria-label*="เพิ่ม"], button[class*="plus"]') })
-                .locator('button:has-text("+"), button[aria-label*="เพิ่ม"], button[class*="plus"]')
-                .last();
-
-              if (await specificPlus.isVisible().catch(() => false)) {
-                await specificPlus.click().catch(() => {});
-                clicked = true;
-              }
             }
+          }, { num: item.number, targetQty: item.quantity }).catch(() => {});
 
-            // วิธีที่ 3: Fallback หากไม่พบคอนเทนเนอร์เฉพาะ ให้กดปุ่ม + ล่าสุดในตะกร้า
-            if (!clicked) {
-              const plusButtons = page.locator('button:has-text("+"), button[aria-label*="เพิ่ม"], button[class*="plus"]');
-              const plusCount = await plusButtons.count().catch(() => 0);
-              if (plusCount > 0) {
-                await plusButtons.last().click().catch(() => {});
-              }
-            }
-
-            await page.waitForTimeout(200);
-          }
+          await page.waitForTimeout(300);
         }
 
         fulfilledItems.push(item);
@@ -309,7 +299,33 @@ export class N3OrderService {
         };
       }
 
-      // 2. กดปุ่ม "ตรวจสอบสลากฯ" (รวมทุกรายการในตะกร้า)
+      // ตรวจสอบและปรับปรุงจำนวนสลากในตะกร้าทั้งหมด (Pre-Checkout Cart Audit) ให้ครบถ้วนก่อนกดตรวจสอบสลากฯ
+      console.log('[N3 ORDER STEP 1.5] กำลังตรวจสอบความถูกต้องของจำนวนใบในตะกร้าทั้งหมดก่อนยืนยัน...');
+      for (const it of fulfilledItems) {
+        if (it.quantity <= 1) continue;
+        const numPattern = it.number.split('').join('\\s*');
+        const row = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
+          .filter({ hasText: new RegExp(numPattern) })
+          .filter({ has: page.locator('img[src*="plus-icon"]') })
+          .last();
+
+        if (await row.isVisible().catch(() => false)) {
+          const inp = row.locator('input[type="number"], input[inputmode="numeric"]').first();
+          const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
+          if (curVal < it.quantity) {
+            const plus = row.locator('img[src*="plus-icon"]').first();
+            const diff = it.quantity - curVal;
+            console.log(`[N3 ORDER AUDIT 1.5] เลข ${it.number} ยังคงมี ${curVal} ใบ -> กดเพิ่มอีก ${diff} ครั้ง`);
+            for (let c = 0; c < diff; c++) {
+              await plus.click({ force: true }).catch(() => {});
+              await page.waitForTimeout(150);
+            }
+          }
+        }
+      }
+      await page.waitForTimeout(400);
+
+      // 2. กดปุ่ม "ตรวจสอบสลากฯ" (cw.COMMON_CEHCK_LOTTO_BUTTON) รวมทุกรายการในตะกร้า
       console.log('[N3 ORDER STEP 2] กำลังกดปุ่ม ตรวจสอบสลากฯ รวมทุกรายการในตะกร้า...');
       const inspectBtn = page.locator('button:has-text("ตรวจสอบสลากฯ"), button:has-text("ตรวจสอบสลาก")').first();
       await inspectBtn.waitFor({ state: 'visible', timeout: 15000 });
@@ -318,6 +334,33 @@ export class N3OrderService {
       // 3. รอหน้ายืนยันรายการ (/lotto-confirm/)
       console.log('[N3 ORDER STEP 3] รอนำทางสู่หน้า lotto-confirm...');
       await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 });
+      await page.waitForTimeout(1000);
+
+      // 3.5 ตรวจสอบความถูกต้องของจำนวนใบในหน้า lotto-confirm อีกครั้ง (Confirm Page Audit)
+      console.log('[N3 ORDER STEP 3.5] ตรวจสอบรายการในหน้า lotto-confirm...');
+      for (const it of fulfilledItems) {
+        if (it.quantity <= 1) continue;
+        const numPattern = it.number.split('').join('\\s*');
+        const confirmRow = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
+          .filter({ hasText: new RegExp(numPattern) })
+          .filter({ has: page.locator('img[src*="plus-icon"]') })
+          .last();
+
+        if (await confirmRow.isVisible().catch(() => false)) {
+          const inp = confirmRow.locator('input[type="number"], input[inputmode="numeric"]').first();
+          const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
+          if (curVal < it.quantity) {
+            const plus = confirmRow.locator('img[src*="plus-icon"]').first();
+            const diff = it.quantity - curVal;
+            console.log(`[N3 ORDER AUDIT 3.5] ในหน้า lotto-confirm เลข ${it.number} ยังคงมี ${curVal} ใบ -> ปรับเพิ่มอีก ${diff} ครั้ง`);
+            for (let c = 0; c < diff; c++) {
+              await plus.click({ force: true }).catch(() => {});
+              await page.waitForTimeout(150);
+            }
+          }
+        }
+      }
+      await page.waitForTimeout(500);
 
       // 4. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
       console.log('[N3 ORDER STEP 4] กำลังกดปุ่ม สร้าง QR ซื้อ-ขายสลากฯ...');
@@ -334,74 +377,112 @@ export class N3OrderService {
       // 6. รอหน้าแสดง QR Code (/qr/)
       console.log('[N3 ORDER STEP 6] รอหน้าแสดงผล QR Code ชำระเงิน (/qr/)...');
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
-      await page.waitForTimeout(2000); // รอรูป QR โหลดชัดเจน
+      await page.waitForTimeout(2000); // รอรูป QR Canvas โหลดชัดเจน
 
-      // 7. ดึงภาพการ์ดสลาก N3 พร้อม QR Code ชำระเงิน (คมชัดระดับ Retina ไม่คลิกปุ่มบันทึก เพื่อป้องกัน Chrome C++ Crash)
+      // 7. ดึงภาพ QR Code ชำระเงิน คมชัดระดับ Retina ตัดเฉพาะกรอบ QR Code จัตุรัส 1:1 พร้อม Quiet Zone (~28px)
       const fileSummary = fulfilledItems.map(i => i.number).join('-');
       const qrFileName = `payment-${fileSummary}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
-      console.log('[N3 ORDER STEP 7] กำลังดึงภาพการ์ด QR Code ชำระเงิน...');
+      console.log('[N3 ORDER STEP 7] กำลังดึงภาพ QR Code ชำระเงิน (ตัดเฉพาะกรอบจัตุรัส 1:1 พร้อม Quiet Zone)...');
       let isCaptured = false;
 
-      // ทางเลือกที่ 1: แคปเจอร์กล่องการ์ดสลาก N3 ทั้งใบโดยตรง (คมชัด ครบทั้งหัว GLO, QR และยอดเงินรวม)
-      const qrCardLocators = [
-        page.locator('div').filter({ hasText: 'กรุณาสแกน QR' }).filter({ hasText: 'ยอดชำระทั้งหมด' }),
-        page.locator('div').filter({ hasText: 'กรุณาสแกน QR' }).filter({ hasText: 'ยอดชำระ' }),
-        page.locator('div').filter({ hasText: 'กรุณาสแกน QR' }).filter({ hasText: 'ธนกิจนำโชค' }),
-        page.locator('[class*="card"], [class*="modal"], [class*="container"]').filter({ hasText: 'กรุณาสแกน QR' }),
-        page.locator('div').filter({ hasText: 'กรุณาสแกน QR' })
-      ];
+      // ทางเลือกที่ 1: ค้นหา Element QR Code ผ่าน id="qr-code-image" หรือ canvas โดยตรง
+      const qrElement = page.locator('#qr-code-image, canvas#qr-code-image, canvas:visible, img[src^="data:image"]:visible').first();
+      if (await qrElement.isVisible({ timeout: 6000 }).catch(() => false)) {
+        await qrElement.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForTimeout(300);
 
-      for (const locGroup of qrCardLocators) {
-        const count = await locGroup.count().catch(() => 0);
-        for (let i = count - 1; i >= 0; i--) {
-          const el = locGroup.nth(i);
-          if (await el.isVisible().catch(() => false)) {
-            const box = await el.boundingBox().catch(() => null);
-            if (box && box.width >= 260 && box.width <= 900 && box.height >= 300 && box.height <= 1200) {
-              console.log(`[QR CAPTURE SUCCESS] ตรวจพบการ์ดสลาก N3 ขนาด ${Math.round(box.width)}x${Math.round(box.height)}px -> บันทึกภาพเรียบร้อย`);
-              await el.screenshot({ path: qrFilePath });
-              isCaptured = true;
-              break;
+        const box = await qrElement.boundingBox().catch(() => null);
+        if (box && box.width >= 80 && box.height >= 80) {
+          const pad = 28; // Quiet Zone Margin 24-32px ตามมาตรฐานสแกน QR Code
+          const qrSize = Math.max(box.width, box.height);
+          const totalSize = qrSize + pad * 2;
+          const centerX = box.x + box.width / 2;
+          const centerY = box.y + box.height / 2;
+
+          const clipX = Math.max(0, Math.round(centerX - totalSize / 2));
+          const clipY = Math.max(0, Math.round(centerY - totalSize / 2));
+          const clipSize = Math.round(totalSize);
+
+          console.log(`[QR CAPTURE SUCCESS] ตรวจพบ QR Code ที่พิกัด (${Math.round(box.x)}, ${Math.round(box.y)}) ขนาด ${Math.round(box.width)}x${Math.round(box.height)}px -> บันทึกจัตุรัส 1:1 ขนาด ${clipSize}x${clipSize}px (Quiet zone ${pad}px)`);
+
+          await page.screenshot({
+            path: qrFilePath,
+            clip: { x: clipX, y: clipY, width: clipSize, height: clipSize }
+          });
+          isCaptured = true;
+        }
+      }
+
+      // ทางเลือกที่ 2: ดึงภาพตรงจาก canvas.toDataURL (หาก canvas สมบูรณ์และไม่ tainted)
+      if (!isCaptured) {
+        const canvasDataUrl = await page.evaluate(() => {
+          const canvas = (document.querySelector('canvas#qr-code-image') || document.querySelector('canvas')) as HTMLCanvasElement | null;
+          if (canvas) {
+            try {
+              return canvas.toDataURL('image/png');
+            } catch {}
+          }
+          return null;
+        }).catch(() => null);
+
+        if (canvasDataUrl && canvasDataUrl.startsWith('data:image/')) {
+          const base64Data = canvasDataUrl.split(',')[1];
+          fs.writeFileSync(qrFilePath, Buffer.from(base64Data, 'base64'));
+          console.log(`[QR CAPTURE SUCCESS] ดึงภาพ QR Code ตรงจาก Canvas สำเร็จ: ${qrFilePath}`);
+          isCaptured = true;
+        }
+      }
+
+      // ทางเลือกที่ 3: DOM evaluate getBoundingClientRect (พิกัด Viewport ตรง ไม่บวก scrollY)
+      if (!isCaptured) {
+        const qrBox = await page.evaluate(() => {
+          const el = document.querySelector('#qr-code-image, canvas, img[src^="data:image"]');
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width >= 80 && rect.height >= 80) {
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
             }
           }
-        }
-        if (isCaptured) break;
-      }
+          return null;
+        }).catch(() => null);
 
-      // ทางเลือกที่ 2: หากตรวจจับการ์ดไม่ติด ให้แคปเจอร์รอบตัว QR Code (canvas หรือ img) พร้อม Padding ครบชุด
-      if (!isCaptured) {
-        const qrEl = page.locator('canvas, img[src*="data:image"], img[alt*="QR"]').first();
-        if (await qrEl.isVisible().catch(() => false)) {
-          const box = await qrEl.boundingBox().catch(() => null);
-          if (box && box.width >= 100 && box.height >= 100) {
-            console.log(`[QR CAPTURE SUCCESS] ตรวจพบ QR Code Element -> บันทึกภาพพร้อมกรอบการ์ด`);
-            const padX = 80;
-            const padTop = 150;
-            const padBottom = 130;
-            const vp = page.viewportSize() || { width: 1440, height: 900 };
-            const clipX = Math.max(0, Math.round(box.x - padX));
-            const clipY = Math.max(0, Math.round(box.y - padTop));
-            const clipW = Math.min(vp.width - clipX, Math.round(box.width + padX * 2));
-            const clipH = Math.min(vp.height - clipY, Math.round(box.height + padTop + padBottom));
-            await page.screenshot({
-              path: qrFilePath,
-              clip: { x: clipX, y: clipY, width: clipW, height: clipH }
-            });
-            isCaptured = true;
-          }
+        if (qrBox && qrBox.width >= 80 && qrBox.height >= 80) {
+          const pad = 28;
+          const qrSize = Math.max(qrBox.width, qrBox.height);
+          const totalSize = qrSize + pad * 2;
+          const centerX = qrBox.x + qrBox.width / 2;
+          const centerY = qrBox.y + qrBox.height / 2;
+
+          const clipX = Math.max(0, Math.round(centerX - totalSize / 2));
+          const clipY = Math.max(0, Math.round(centerY - totalSize / 2));
+          const clipSize = Math.round(totalSize);
+
+          console.log(`[QR CAPTURE SUCCESS] แคปเจอร์จาก DOM Rect จัตุรัส 1:1: ${clipSize}x${clipSize}px`);
+          await page.screenshot({
+            path: qrFilePath,
+            clip: { x: clipX, y: clipY, width: clipSize, height: clipSize }
+          });
+          isCaptured = true;
         }
       }
 
-      // ทางเลือกที่ 3: Fallback แคปเจอร์พื้นที่กึ่งกลางหน้าจอขนาดใหญ่ 720x800px
+      // ทางเลือกที่ 4: Fallback พิกัดกึ่งกลางจอมาตรฐานจัตุรัส 1:1 ขนาด 300x300px (พิกัด Y=360 ตามเลย์เอาต์จริงของ GLO)
       if (!isCaptured) {
-        console.log('[QR CAPTURE FALLBACK] ใช้พิกัดกึ่งกลางจอมาตรฐาน (720x800px)...');
+        console.log('[QR CAPTURE FALLBACK] ใช้พิกัดกล่อง QR จัตุรัส 1:1 กลางจอมาตรฐาน (300x300px)...');
+        const vp = page.viewportSize() || { width: 1440, height: 900 };
+        const centerX = vp.width / 2;
+        const centerY = 360; // กึ่งกลาง QR จากการวิเคราะห์ DOM โครงสร้างจริงของ GLO N3
+        const squareSize = 300;
+        const clipX = Math.max(0, Math.round(centerX - squareSize / 2));
+        const clipY = Math.max(0, Math.round(centerY - squareSize / 2));
+
         await page.screenshot({
           path: qrFilePath,
-          clip: { x: 360, y: 50, width: 720, height: 800 }
+          clip: { x: clipX, y: clipY, width: squareSize, height: squareSize }
         });
-        console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกึ่งกลางจอสำเร็จ: ${qrFilePath}`);
+        console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกล่อง QR จัตุรัส 1:1 สำเร็จ: ${qrFilePath}`);
       }
 
       // 8. กดปุ่ม "กลับหน้าหลัก" เพื่อเตรียมความพร้อมสำหรับออเดอร์ถัดไป
