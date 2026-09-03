@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import fs from 'fs';
+import http from 'http';
 import { CONFIG } from './config';
 import { SecurityGuard } from './automation/security-guard';
 import { N3Auth } from './automation/n3-auth';
@@ -133,7 +134,6 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       // 1. ถอดรหัสข้อความสั่งซื้อ
       const parsed = parseOrderMessage(userText);
       if (!parsed) {
-        // หากไม่ใช่รูปแบบการสั่งซื้อ ให้ส่งคำแนะนำ
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
@@ -181,7 +181,6 @@ app.post('/admin/login-qr', async (_req: Request, res: Response) => {
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
     const qrPublicUrl = `${CONFIG.BASE_URL}/qrcodes/${qrFileName}`;
 
-    // ส่งเข้า LINE แอดมิน
     await lineHandler.pushToAdmin([
       {
         type: 'text',
@@ -194,7 +193,6 @@ app.post('/admin/login-qr', async (_req: Request, res: Response) => {
       }
     ]);
 
-    // รอดักจับสถานะแอดมินสแกนเป๋าตังสำเร็จในพื้นหลัง
     N3Auth.waitForAdminScan(page!, context!).then(success => {
       if (success) {
         lineHandler.pushToAdmin([
@@ -235,15 +233,33 @@ app.get('/status', (_req: Request, res: Response) => {
   });
 });
 
-// รัน Express Server
-const PORT = CONFIG.PORT;
-app.listen(PORT, async () => {
-  console.log(`====================================================`);
-  console.log(`🚀 N3 Order Bot Service รันอยู่ที่พอร์ต ${PORT}`);
-  console.log(`🔒 Security Domain Whitelist: ${CONFIG.ALLOWED_DOMAINS.join(', ')}`);
-  console.log(`🎫 โควต้าเริ่มต้น: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
-  console.log(`====================================================`);
+/**
+ * ฟังก์ชันเริ่มรันเซิร์ฟเวอร์ พร้อมระบบ Auto Port Conflict Fallback
+ */
+function startServerWithPort(targetPort: number) {
+  const server = http.createServer(app);
 
-  // เริ่มต้นเบราว์เซอร์
-  await initBrowser();
-});
+  server.listen(targetPort, async () => {
+    console.log(`====================================================`);
+    console.log(`🚀 N3 Order Bot Service รันอยู่ที่พอร์ต: http://localhost:${targetPort}`);
+    console.log(`🔒 Security Domain Whitelist: ${CONFIG.ALLOWED_DOMAINS.join(', ')}`);
+    console.log(`🎫 โควต้าเริ่มต้น: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
+    console.log(`====================================================`);
+
+    // เริ่มต้นเบราว์เซอร์
+    await initBrowser();
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`[PORT WARNING] พอร์ต ${targetPort} กำลังถูกใช้งานโดยโปรเจกต์อื่น`);
+      const nextPort = targetPort + 1;
+      console.log(`[PORT FALLBACK] กำลังสลับไปใช้พอร์ต ${nextPort} อัตโนมัติ...`);
+      startServerWithPort(nextPort);
+    } else {
+      console.error('[SERVER ERROR]', err);
+    }
+  });
+}
+
+startServerWithPort(CONFIG.PORT);
