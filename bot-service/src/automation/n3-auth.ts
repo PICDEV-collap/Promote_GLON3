@@ -9,10 +9,18 @@ export class N3Auth {
    */
   public static async isSessionValid(page: Page): Promise<boolean> {
     try {
-      await page.goto(CONFIG.N3_LOGIN_URL, { waitUntil: 'networkidle', timeout: 15000 });
       const currentUrl = page.url();
-      // หากยังอยู่ในหน้า /login แปลว่ายังไม่ได้ล็อกอิน หรือ session หลุด
-      return !currentUrl.includes('/login');
+      // หากอยู่ในหน้าค้นหาสลากหรือหน้าหลักอยู่แล้ว แสดงว่า Session ยังสมบูรณ์ 100%
+      if (currentUrl.includes('/lotto-search/') || currentUrl.includes('/home/') || currentUrl.includes('/lotto-confirm/')) {
+        return true;
+      }
+
+      console.log('[N3 AUTH] กำลังตรวจสอบ Session ผ่านหน้าค้นหาสลาก...');
+      await page.goto('https://n3.glolotteryshop.com/lotto-search/?position=1', { waitUntil: 'networkidle', timeout: 15000 });
+      const newUrl = page.url();
+
+      // หากถูกดีดกลับมาที่หน้า /login แสดงว่ายังไม่ได้ล็อกอินหรือ Session หมดอายุ
+      return !newUrl.includes('/login');
     } catch {
       return false;
     }
