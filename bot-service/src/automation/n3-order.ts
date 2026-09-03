@@ -95,60 +95,79 @@ export class N3OrderService {
 
       // 10. รอหน้าแสดง QR Code (/qr/)
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
-      await page.waitForTimeout(2500); // รอรูป QR โหลดชัดเจน
+      await page.waitForTimeout(2000); // รอรูป QR โหลดชัดเจน
 
-      // 11. คำนวณหาตำแหน่ง QR Code ที่แท้จริงเหนือปุ่ม "บันทึก"
+      // 11. ดึงภาพ QR Code ที่แท้จริง
       const qrFileName = `payment-${lotteryNumber}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
-      const clipArea = await page.evaluate(() => {
-        // หาปุ่ม "บันทึก" ด้านล่างของ QR Code
-        const buttons = Array.from(document.querySelectorAll('button'));
-        const saveBtn = buttons.find(b => b.innerText.includes('บันทึก'));
+      let isCaptured = false;
 
-        // ค้นหา canvas หรือ img หรือ svg ขนาดใหญ่ตรงกลาง
-        const candidates = Array.from(document.querySelectorAll('canvas, img, svg'));
-        for (const el of candidates) {
-          const r = el.getBoundingClientRect();
-          // ตัว QR Code จะมีขนาดระหว่าง 140px ถึง 450px และอยู่กึ่งกลางจอ
-          if (r.width >= 140 && r.height >= 140 && r.x > 200 && r.y > 100) {
-            if (!saveBtn || r.bottom <= saveBtn.getBoundingClientRect().top + 50) {
-              // เพิ่ม padding รอบรูป 10px เพื่อให้สแกนติดง่ายขึ้น
-              return {
-                x: Math.max(0, Math.round(r.x - 10)),
-                y: Math.max(0, Math.round(r.y - 10)),
-                width: Math.round(r.width + 20),
-                height: Math.round(r.height + 20)
-              };
+      // ทางเลือกที่ 1: ดักจับการดาวน์โหลดจากปุ่ม "บันทึก" (เป็นวิธีทางการของเว็บสลาก)
+      const saveBtn = page.locator('button:has-text("บันทึก")').first();
+      if (await saveBtn.isVisible()) {
+        try {
+          const [download] = await Promise.all([
+            page.waitForEvent('download', { timeout: 4000 }),
+            saveBtn.click()
+          ]);
+          if (download) {
+            await download.saveAs(qrFilePath);
+            isCaptured = true;
+            console.log(`[QR CAPTURE SUCCESS] บันทึกไฟล์รูป QR แท้จากปุ่มบันทึกสำเร็จ: ${qrFilePath}`);
+          }
+        } catch (e) {
+          console.log('[QR DOWNLOAD] ปุ่มบันทึกไม่ได้ดาวน์โหลดเป็นไฟล์ -> กำลังใช้ระบบตรวจจับ Element อัจฉริยะ...');
+        }
+      }
+
+      // ทางเลือกที่ 2 (Fallback): ตรวจจับตำแหน่ง QR Code จากกล่องข้อความ "กรุณาสแกน QR" และ Element จัตุรัส
+      if (!isCaptured) {
+        const cropBox = await page.evaluate(() => {
+          // ค้นหา Element รูปภาพหรือ Canvas ที่เป็นรูปสี่เหลี่ยมจัตุรัส (QR Code)
+          const allMedia = Array.from(document.querySelectorAll('img, canvas, svg'));
+          for (const el of allMedia) {
+            const r = el.getBoundingClientRect();
+            // ขนาด QR ต้องกว้าง 150-400px และเป็นสี่เหลี่ยมจัตุรัส (ratio ~1:1)
+            if (r.width >= 140 && r.height >= 140 && r.width <= 420 && r.height <= 420) {
+              const ratio = r.width / r.height;
+              if (Math.abs(1 - ratio) < 0.15 && r.top > 120 && r.left > 200) {
+                return {
+                  x: Math.max(0, Math.round(r.left - 10)),
+                  y: Math.max(0, Math.round(r.top - 10)),
+                  width: Math.round(r.width + 20),
+                  height: Math.round(r.height + 20)
+                };
+              }
             }
           }
-        }
 
-        // Fallback: ถ้าหาไม่เจอ ให้คำนวณจากปุ่ม "บันทึก"
-        if (saveBtn) {
-          const bRect = saveBtn.getBoundingClientRect();
-          const qrSize = 300;
-          return {
-            x: Math.round(bRect.x + (bRect.width / 2) - (qrSize / 2)),
-            y: Math.max(0, Math.round(bRect.top - qrSize - 25)),
-            width: qrSize,
-            height: qrSize
-          };
-        }
+          // Anchor Fallback: ค้นหากล่องข้อความ "กรุณาสแกน QR" แล้วหาตำแหน่ง QR ที่อยู่ใต้ข้อความพอดี
+          const allEls = Array.from(document.querySelectorAll('*'));
+          const textEl = allEls.find(el => el.textContent && el.textContent.includes('กรุณาสแกน QR ผ่านแอปฯ'));
+          if (textEl) {
+            const tr = textEl.getBoundingClientRect();
+            const qrWidth = 260;
+            const centerX = tr.left + (tr.width / 2);
+            return {
+              x: Math.max(0, Math.round(centerX - (qrWidth / 2))),
+              y: Math.round(tr.bottom + 15),
+              width: qrWidth,
+              height: qrWidth
+            };
+          }
 
-        // Default Fallback
-        return { x: 520, y: 260, width: 320, height: 320 };
-      });
+          // ค่าเริ่มต้นกึ่งกลางหน้าจอ
+          return { x: 500, y: 380, width: 280, height: 280 };
+        });
 
-      console.log('[QR CROP] พิกัดที่จะทำการแคปเจอร์:', JSON.stringify(clipArea));
-
-      // แคปเจอร์เฉพาะตัว QR Code
-      await page.screenshot({
-        path: qrFilePath,
-        clip: clipArea
-      });
-
-      console.log(`[SUCCESS] บันทึกภาพ QR Code คมชัดตรงเป๊ะสำเร็จ: ${qrFilePath}`);
+        console.log('[QR CROP] พิกัดที่จะทำการแคปเจอร์:', JSON.stringify(cropBox));
+        await page.screenshot({
+          path: qrFilePath,
+          clip: cropBox
+        });
+        console.log(`[QR CAPTURE SUCCESS] แคปเจอร์ภาพ QR Code สำเร็จ: ${qrFilePath}`);
+      }
 
       // 12. กดปุ่ม "กลับหน้าหลัก"
       const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
