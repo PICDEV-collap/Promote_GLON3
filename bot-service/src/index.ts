@@ -10,6 +10,7 @@ import { QuotaManager } from './quota/quota-manager';
 import { OrderQueue, OrderTask } from './queue/order-queue';
 import { LineReplyHandler } from './line/reply-handler';
 import { FlexMessageBuilder } from './line/flex-message';
+import { OperatingHoursGuard } from './guard/operating-hours';
 
 const app = express();
 app.use(express.json());
@@ -33,7 +34,7 @@ let currentPublicBaseUrl: string = CONFIG.BASE_URL;
  */
 async function initBrowser() {
   console.log('[BOT ENGINE] กำลังเปิด Persistent Browser...');
-  const res = await PersistentBrowserManager.getPage(true);
+  const res = await PersistentBrowserManager.getPage(false);
   context = res.context;
   page = res.page;
   securityGuard.attachToPage(page);
@@ -41,20 +42,19 @@ async function initBrowser() {
 }
 
 /**
- * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้แอดมินทันที
+ * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้ "ผู้ดูแลระบบ (ADMIN)" เท่านั้น!
  */
 async function triggerAdminLoginQR(reason: string): Promise<void> {
   if (isLoggingIn || !page || !context) return;
   isLoggingIn = true;
 
   try {
-    console.log('[AUTO LOGIN] กำลังดึง QR Code หน้า Login เป๋าตังเพื่อส่งเข้า LINE แอดมิน...');
+    console.log(`[ADMIN AUTH] ${reason} -> กำลังสร้าง QR Login ส่งให้แอดมิน...`);
     const { qrImagePath } = await N3Auth.generatePaotangLoginQR(page);
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
     const qrPublicUrl = `${currentPublicBaseUrl}/qrcodes/${qrFileName}`;
 
-    console.log(`[AUTO LOGIN] รูปภาพ QR ส่งไปยัง LINE: ${qrPublicUrl}`);
-
+    // ส่งเข้าแชทส่วนตัวของ Admin เท่านั้น
     await lineHandler.pushToAdmin([
       {
         type: 'text',
@@ -67,7 +67,7 @@ async function triggerAdminLoginQR(reason: string): Promise<void> {
       }
     ]);
 
-    console.log('[AUTO LOGIN] ส่งภาพ QR Login เป๋าตังเข้า LINE แอดมินเรียบร้อยแล้ว กำลังรอสแกน...');
+    console.log('[ADMIN AUTH] ส่งภาพ QR เข้า LINE แอดมินเรียบร้อยแล้ว กำลังรอสแกน...');
 
     const success = await N3Auth.waitForAdminScan(page, context);
     if (success) {
@@ -76,7 +76,7 @@ async function triggerAdminLoginQR(reason: string): Promise<void> {
       ]);
     }
   } catch (err) {
-    console.error('[AUTO LOGIN ERROR]', err);
+    console.error('[ADMIN AUTH ERROR]', err);
   } finally {
     isLoggingIn = false;
   }
@@ -91,7 +91,16 @@ orderQueue.setWorker(async (task: OrderTask) => {
   }
 
   try {
-    // 1. ตรวจสอบโควต้า
+    // 1. ตรวจสอบเวลาจำหน่ายอีกครั้งก่อนประมวลผล
+    const timeStatus = OperatingHoursGuard.checkSalesStatus();
+    if (!timeStatus.isOpen) {
+      await lineHandler.reply(task.replyToken, [
+        FlexMessageBuilder.buildOutsideOperatingHoursMessage(timeStatus)
+      ]);
+      return;
+    }
+
+    // 2. ตรวจสอบโควต้า
     const quotaCheck = quotaManager.canFulfill(task.quantity);
     if (!quotaCheck.allowed) {
       await lineHandler.reply(task.replyToken, [
@@ -100,11 +109,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
       return;
     }
 
-    // 2. ตรวจสอบสถานะล็อกอิน N3
+    // 3. ตรวจสอบสถานะล็อกอิน N3
     const isLoggedIn = await N3Auth.isSessionValid(page!);
     if (!isLoggedIn) {
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
+      // แจ้งลูกค้าทั่วไปอย่างสุภาพ
       await lineHandler.reply(task.replyToken, [
         {
           type: 'text',
@@ -112,11 +122,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
         }
       ]);
 
+      // ส่ง QR Login ให้แอดมินคนเดียวเท่านั้น!
       triggerAdminLoginQR(`มีลูกค้าสั่งซื้อเลข ${task.number} จำนวน ${task.quantity} ใบ แต่ระบบยังไม่ได้ล็อกอิน`);
       return;
     }
 
-    // 3. สั่งซื้อบนเว็บ N3
+    // 4. สั่งซื้อบนเว็บ N3
     const result = await N3OrderService.executeOrder(page!, task.number, task.quantity);
 
     if (result.success && result.qrImageUrl) {
@@ -151,15 +162,20 @@ orderQueue.setWorker(async (task: OrderTask) => {
 });
 
 /**
- * ฟังก์ชันแกะข้อความสั่งซื้อ
+ * ฟังก์ชันแกะข้อความสั่งซื้อ รองรับหลายรูปแบบ:
+ * - 123 (ได้ 1 ใบ)
+ * - 123 2, 123 2ใบ, 123=2, 123*2
+ * - สั่ง 456 5 ใบ
  */
 export function parseOrderMessage(text: string): { number: string; quantity: number } | null {
   if (!text) return null;
   const clean = text.trim();
 
+  // Pattern: สั่ง 123 2 ใบ หรือ 123 2 หรือ 123
   const match = clean.match(/(?:สั่ง\s*)?(\b\d{3}\b)(?:[\s=\-xX*\/,]*([0-9]+)\s*(?:ใบ)?)?/);
   if (match) {
     const number = match[1];
+    // ถ้าไม่ระบุจำนวนใบ ให้เป็น 1 ใบโดยอัตโนมัติ
     const quantity = match[2] ? parseInt(match[2], 10) : 1;
     if (quantity > 0 && quantity <= 100) {
       return { number, quantity };
@@ -183,34 +199,50 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   const events = req.body?.events || [];
   for (const event of events) {
     if (event.type === 'message' && event.message.type === 'text') {
-      const userText: string = event.message.text;
+      const userText: string = event.message.text.trim();
       const replyToken: string = event.replyToken;
       const userId: string = event.source?.userId || 'anonymous';
+      const isAdmin: boolean = !!(CONFIG.LINE_ADMIN_USER_ID && userId === CONFIG.LINE_ADMIN_USER_ID);
 
-      console.log(`[USER MESSAGE] "${userText}" จาก ${userId}`);
+      console.log(`[USER MESSAGE] "${userText}" จาก ${userId} (isAdmin: ${isAdmin})`);
 
-      const parsed = parseOrderMessage(userText);
-      if (!parsed) {
-        const lower = userText.trim().toLowerCase();
-        if (lower === 'login' || lower === 'ล็อกอิน' || lower === 'qr') {
+      // 1. ตรวจสอบคำสั่งล็อกอิน Admin (จำกัดสิทธิ์เฉพาะแอดมินเท่านั้น!)
+      const lower = userText.toLowerCase();
+      if (lower === 'login' || lower === 'ล็อกอิน' || lower === 'qr') {
+        if (isAdmin) {
           triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง');
           await lineHandler.reply(replyToken, [
             { type: 'text', text: 'กำลังสร้างและส่ง QR Code สำหรับล็อกอินเป๋าตังให้แอดมิน รอสักครู่ครับ...' }
           ]);
-          continue;
+        } else {
+          // ถ้าไม่ใช่ Admin: ห้ามส่ง QR เด็ดขาด! ส่งการ์ดแนะนำวิธีสั่งซื้อแทน
+          console.warn(`[SECURITY] ผู้ใช้ทั่วไป ${userId} พยายามสั่ง ${userText} -> ปฏิเสธและส่งวิธีสั่งซื้อ`);
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
         }
+        continue;
+      }
 
-        await lineHandler.reply(replyToken, [
-          {
-            type: 'text',
-            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 พิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 144 2\n- 342 2ใบ\n- สั่ง 789 5'
-          }
-        ]);
+      // 2. แกะคำสั่งซื้อสลาก
+      const parsed = parseOrderMessage(userText);
+      if (!parsed) {
+        // หากลูกค้าพิมพ์ข้อความอื่น เช่น สวัสดี, ถามเลข, ทักทาย -> ส่งการ์ดวิธีพิมพ์สั่งซื้อสลาก
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
         continue;
       }
 
       console.log(`[ORDER DETECTED] เลข: ${parsed.number} | จำนวน: ${parsed.quantity} ใบ`);
 
+      // 3. ตรวจสอบระเบียบเวลาจำหน่ายสลาก N3
+      const salesStatus = OperatingHoursGuard.checkSalesStatus();
+      if (!salesStatus.isOpen) {
+        console.warn(`[TIME BLOCKED] ไม่อยู่ในเวลาจำหน่ายสลาก: ${salesStatus.reason}`);
+        await lineHandler.reply(replyToken, [
+          FlexMessageBuilder.buildOutsideOperatingHoursMessage(salesStatus)
+        ]);
+        continue;
+      }
+
+      // 4. ตรวจสอบโควต้า
       const quotaCheck = quotaManager.canFulfill(parsed.quantity);
       if (!quotaCheck.allowed) {
         await lineHandler.reply(replyToken, [
@@ -219,6 +251,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
+      // 5. นำเข้าคิวสั่งซื้อ
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
@@ -247,7 +280,8 @@ app.get('/status', (_req: Request, res: Response) => {
   res.json({
     status: 'online',
     queueLength: orderQueue.getQueueLength(),
-    quota: quotaManager.getStatus()
+    quota: quotaManager.getStatus(),
+    salesHours: OperatingHoursGuard.checkSalesStatus()
   });
 });
 
@@ -258,6 +292,9 @@ function startServerWithPort(targetPort: number) {
     console.log(`====================================================`);
     console.log(`🚀 N3 Order Bot Service รันอยู่ที่: http://localhost:${targetPort}`);
     console.log(`🎫 โควต้าคงเหลือ: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
+    const status = OperatingHoursGuard.checkSalesStatus();
+    console.log(`⏰ สถานะเวลาจำหน่าย: ${status.isOpen ? 'เปิดจำหน่าย' : 'ปิดจำหน่าย'} (${status.currentHoursText})`);
+    console.log(`🔮 ลิงก์ทำนายฝัน: ${CONFIG.DREAM_PREDICTION_URL}`);
     console.log(`====================================================`);
 
     await initBrowser();
