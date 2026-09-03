@@ -164,18 +164,16 @@
             </div>
           </div>
 
-          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.85rem; flex-wrap: wrap;">
+            <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+              <i class="fab fa-line" style="font-size: 1.2rem;"></i> สั่งซื้อสลากผ่าน LINE
+            </a>
             <a href="#ai-dream" class="btn btn-gold">
-              <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝันหาเลข N3 ด้วย AI
+              <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝันหาเลข N3
             </a>
-            
-            <a href="#" class="btn btn-emerald btn-our-shop">
-              <i class="fas fa-shopping-bag"></i> สั่งซื้อสลากที่ร้านค้าของเรา
+            <a href="#" class="btn btn-outline btn-our-shop">
+              <i class="fas fa-qrcode"></i> QR หน้าร้าน
             </a>
-
-            <button class="btn btn-outline btn-buy-paotang">
-              <i class="fas fa-mobile-alt"></i> เปิดแอปเป๋าตังในมือถือ
-            </button>
           </div>
 
           <div class="hero-stats">
@@ -383,9 +381,9 @@
               <a href="#" class="btn btn-outline btn-our-shop" style="border-color: var(--color-emerald); color: var(--color-emerald-light);">
                 <i class="fas fa-shopping-bag"></i> ไปร้านค้าของเรา
               </a>
-              <button class="btn btn-gold btn-buy-paotang">
-                <i class="fas fa-wallet"></i> เปิดแอปเป๋าตังในมือถือ
-              </button>
+              <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-gold" id="btn-order-dream-line">
+                <i class="fab fa-line"></i> แชทสั่งซื้อเลขนี้ใน LINE
+              </a>
               <button id="btn-copy-num" class="btn btn-outline">
                 <i class="fas fa-copy"></i> คัดลอกเฉพาะเลข
               </button>
@@ -831,54 +829,16 @@
         </div>
       </div>
 
-      <div style="text-align: center; margin-top: 3.5rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
-        <a href="#" class="btn btn-emerald btn-our-shop" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
-          <i class="fas fa-qrcode"></i> สแกนซื้อกับร้านค้าของเรา
+      <div style="text-align: center; margin-top: 3.5rem; display: flex; justify-content: center; gap: 1.25rem; flex-wrap: wrap;">
+        <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="padding: 1rem 2.5rem; font-size: 1.1rem; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
+          <i class="fab fa-line" style="font-size: 1.3rem;"></i> แชทสั่งซื้อสลากผ่าน LINE
         </a>
-        <button class="btn btn-gold btn-buy-paotang" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
-          <i class="fas fa-wallet"></i> เปิดแอปเป๋าตังในมือถือ
-        </button>
+        <a href="#" class="btn btn-gold btn-our-shop" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
+          <i class="fas fa-qrcode"></i> ดู QR Code หน้าร้าน
+        </a>
       </div>
     </div>
   </section>
-
-  <!-- Modals: Smart Paotang Link & Mobile Deep Links -->
-  <div id="modal-qr" class="modal-overlay">
-    <div class="modal-card">
-      <button id="modal-qr-close" class="modal-close">&times;</button>
-      <div style="width: 56px; height: 56px; background: rgba(255, 215, 0, 0.1); border: 1px solid var(--border-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--color-gold); font-size: 1.5rem;">
-        <i class="fas fa-mobile-alt"></i>
-      </div>
-      <h3>เปิดใช้งานแอป "เป๋าตัง" ในมือถือ</h3>
-      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
-        คัดลอกเลข N3 แล้ว! กดเลือกเปิดแอปในเครื่องของคุณด้านล่างได้ทันที
-      </p>
-
-      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.25rem;">
-        <!-- Android Native Intent -->
-        <a href="intent://#Intent;scheme=paotang;package=th.or.ktb.paotang;end" class="btn btn-gold" style="width: 100%; font-size: 0.95rem;">
-          <i class="fab fa-android"></i> เปิดแอปเป๋าตัง (Android Intent)
-        </a>
-        <!-- iOS App Scheme -->
-        <a href="paotang://" class="btn btn-emerald" style="width: 100%; font-size: 0.95rem;">
-          <i class="fab fa-apple"></i> เปิดแอปเป๋าตัง (iPhone / iOS Scheme)
-        </a>
-        <!-- Direct Web Link -->
-        <a href="https://paotang.krungthai.com" target="_blank" class="btn btn-outline" style="width: 100%; font-size: 0.85rem;">
-          <i class="fas fa-globe"></i> เปิดเว็บไซต์ paotang.krungthai.com
-        </a>
-      </div>
-
-      <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-        <a href="https://apps.apple.com/th/app/paotang/id1324901416" target="_blank" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem;">
-          App Store (ดาวน์โหลด)
-        </a>
-        <a href="https://play.google.com/store/apps/details?id=th.or.ktb.paotang" target="_blank" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem;">
-          Play Store (ดาวน์โหลด)
-        </a>
-      </div>
-    </div>
-  </div>
 
   <!-- Modals: Social Share Card Preview Modal -->
   <div id="modal-share-card" class="modal-overlay">
@@ -954,14 +914,23 @@
             </a>
           </div>
 
-          <!-- ปุ่มเป๋าตังและบันทึกภาพ -->
-          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-            <button class="btn btn-primary btn-buy-paotang" style="flex: 1; font-size: 0.85rem; padding: 0.65rem;">
-              <i class="fas fa-mobile-alt"></i> เปิดแอปเป๋าตัง
+          <!-- ปุ่มบันทึกภาพ QR -->
+          <div style="margin-top: 0.65rem;">
+            <button id="btn-download-shop-qr" class="btn btn-gold" style="width: 100%; font-size: 0.9rem; padding: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <i class="fas fa-download"></i> บันทึกภาพ QR Code ลงในเครื่อง
             </button>
-            <button id="btn-download-shop-qr" class="btn btn-gold" style="flex: 1; font-size: 0.85rem; padding: 0.65rem;">
-              <i class="fas fa-download"></i> บันทึกรูป QR
-            </button>
+          </div>
+
+          <!-- ขั้นตอนการสั่งซื้อสลาก N3 -->
+          <div style="margin-top: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 0.75rem 1rem; text-align: left; font-size: 0.82rem; color: var(--text-secondary);">
+            <div style="font-weight: 600; color: var(--color-gold); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
+              <i class="fas fa-info-circle"></i> 3 ขั้นตอนสั่งซื้อง่ายๆ:
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.35rem; line-height: 1.4;">
+              <div>1️⃣ กดปุ่มแชท LINE หรือสแกน QR เพิ่มเพื่อน</div>
+              <div>2️⃣ พิมพ์เลข 3 ตัวและจำนวนใบ (เช่น <code>123 2, 456 1</code>)</div>
+              <div>3️⃣ สแกนจ่ายเงิน สลากเข้ากระเป๋าในแอปเป๋าตังทันที 100%</div>
+            </div>
           </div>
 
           <!-- ท้ายการ์ด: ป้ายความปลอดภัย และปุ่มแอดมิน -->
@@ -1152,15 +1121,15 @@
         <div>
           <h4 style="color: #fff; margin-bottom: 1rem;">ช่องทางซื้อสลาก N3</h4>
           <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
-            สั่งซื้อสลาก N3 ได้สะดวกและปลอดภัยที่ร้านค้าของเรา หรือผ่านแอปพลิเคชันเป๋าตัง
+            สั่งซื้อสลาก N3 ได้สะดวกและปลอดภัยกับร้านสลาก N3 ธนกิจนำโชค ผ่านระบบ LINE อัตโนมัติ 24 ชม.
           </p>
           <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-            <a href="#" class="btn btn-emerald btn-our-shop" style="font-size: 0.9rem; padding: 0.6rem 1rem;">
-              <i class="fas fa-shopping-bag"></i> สั่งซื้อที่ร้านค้าของเรา
+            <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="font-size: 0.9rem; padding: 0.65rem 1rem;">
+              <i class="fab fa-line" style="font-size: 1.1rem;"></i> แชทสั่งซื้อผ่าน LINE (@586xxhlx)
             </a>
-            <button class="btn btn-outline btn-buy-paotang" style="font-size: 0.9rem; padding: 0.6rem 1rem;">
-              <i class="fas fa-wallet"></i> เปิดแอปเป๋าตังในมือถือ
-            </button>
+            <a href="#" class="btn btn-outline btn-our-shop" style="font-size: 0.9rem; padding: 0.65rem 1rem;">
+              <i class="fas fa-qrcode"></i> ดู QR Code หน้าร้าน
+            </a>
           </div>
         </div>
       </div>
@@ -1170,6 +1139,16 @@
       </div>
     </div>
   </footer>
+
+  <!-- Floating Mobile Quick Action Bar (Mobile-First 1-Tap Ordering) -->
+  <div class="mobile-bottom-bar" id="mobile-bottom-bar">
+    <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="mobile-bar-btn mobile-bar-btn-line">
+      <i class="fab fa-line" style="font-size: 1.15rem;"></i> แชทสั่งซื้อ LINE (@586xxhlx)
+    </a>
+    <a href="#ai-dream" class="mobile-bar-btn mobile-bar-btn-dream">
+      <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝัน
+    </a>
+  </div>
 
   <!-- Application Scripts -->
   <script src="js/sound-effects.js"></script>

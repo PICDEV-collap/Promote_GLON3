@@ -1177,54 +1177,9 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 11. Native Mobile Paotang Launcher & General Utilities
   // -------------------------------------------------------------------------
-  function launchNativePaotangApp() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    const isAndroid = /android/i.test(userAgent);
-    const isiOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-
-    if (isAndroid) {
-      window.location.href = 'intent://#Intent;scheme=paotang;package=th.or.ktb.paotang;end';
-    } else if (isiOS) {
-      window.location.href = 'paotang://';
-    } else {
-      window.open('https://paotang.krungthai.com', '_blank');
-    }
-  }
-
-  const btnBuyPaotang = document.querySelectorAll('.btn-buy-paotang');
-  const modalQr = document.getElementById('modal-qr');
-  const modalQrClose = document.getElementById('modal-qr-close');
-
-  btnBuyPaotang.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      try { SoundEngine.playClick(); } catch (err) {}
-
-      let numberToCopy = '000';
-      if (currentPrediction && currentPrediction.n3Direct) {
-        numberToCopy = currentPrediction.n3Direct;
-      }
-      copyToClipboard(numberToCopy);
-
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile) {
-        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! กำลังเปิดแอปเป๋าตัง...`);
-        launchNativePaotangApp();
-      } else {
-        showToast(`คัดลอกเลข N3 (${numberToCopy}) แล้ว! สแกน QR Code หรือเปิดแอปเป๋าตัง`);
-        if (modalQr) modalQr.classList.add('active');
-      }
-    });
-  });
-
-  if (modalQrClose && modalQr) {
-    modalQrClose.addEventListener('click', () => {
-      modalQr.classList.remove('active');
-    });
-  }
+  // 11. General Clipboard Utilities
+  // -------------------------------------------------------------------------
 
   function copyToClipboard(text) {
     try {
