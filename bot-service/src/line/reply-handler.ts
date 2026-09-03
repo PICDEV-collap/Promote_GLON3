@@ -79,4 +79,28 @@ export class LineReplyHandler {
       return false;
     }
   }
+
+  /**
+   * แสดงอนิเมชันจุด 3 จุดกำลังพิมพ์ในห้องแชท LINE (Native Loading Animation)
+   * ฟังก์ชันทางการของ LINE: ไม่เปลือง ReplyToken และไม่คิดโควต้าข้อความ Push
+   */
+  public async showLoading(userId: string, seconds: number = 20): Promise<boolean> {
+    if (!this.client || !userId || userId === 'anonymous') {
+      return false;
+    }
+
+    try {
+      const validSeconds = Math.min(Math.max(Math.round(seconds / 5) * 5, 5), 60);
+      await this.client.showLoadingAnimation({
+        chatId: userId,
+        loadingSeconds: validSeconds
+      });
+      console.log(`[LINE LOADING ANIMATION] แสดงสถานะกำลังพิมพ์ให้ลูกค้า ${userId} (${validSeconds} วินาที)`);
+      return true;
+    } catch (error) {
+      // ป้องกัน error ในกรณีที่บัญชีไลน์ผู้ใช้เวอร์ชันเก่าหรือเป็น Group Chat
+      console.warn('[LINE LOADING NOTICE] ไม่สามารถแสดงสถานะกำลังพิมพ์ได้:', error);
+      return false;
+    }
+  }
 }

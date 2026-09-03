@@ -366,6 +366,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       const totalQuantity = parsedItems.reduce((sum, it) => sum + it.quantity, 0);
       const totalPrice = totalQuantity * 20;
       const summaryNumbers = parsedItems.map(i => `${i.number}x${i.quantity}`).join(', ');
+      const formattedSummary = parsedItems.map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
 
       console.log(`[ORDER DETECTED] ${parsedItems.length} รายการ: ${summaryNumbers} (รวม ${totalQuantity} ใบ / ${totalPrice} บาท)`);
 
@@ -388,9 +389,10 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // 5. นำเข้าคิวสั่งซื้อ & แจ้งเตือนลูกค้าหากมีคิวรอ
-      const isQueueBusy = orderQueue.isBusy();
+      // 5. เปิดอนิเมชันจุดกำลังพิมพ์ (LINE Native Loading Indicator)
+      await lineHandler.showLoading(userId, 30);
 
+      // 6. นำเข้าคิวสั่งซื้อ & ส่งข้อความต้อนรับอวยพรรอคิวทันที (สไตล์ที่ 3)
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
@@ -401,23 +403,18 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         totalQuantity,
         totalPrice,
         timestamp: Date.now(),
-        hasRepliedQueue: false
+        hasRepliedQueue: true
       };
 
-      if (isQueueBusy) {
-        // หากมีคิวรออยู่: ส่งการ์ดแจ้งลำดับคิวและเวลารอโดยประมาณทันที เพื่อให้ลูกค้าสบายใจ
-        const queuePos = orderQueue.enqueue(orderTask);
-        const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
-        orderTask.hasRepliedQueue = true;
+      const queuePos = orderQueue.enqueue(orderTask);
+      const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
 
-        console.log(`[QUEUE NOTIFY] คิวกำลังทำงาน! ส่งการ์ดแจ้งคิวที่ ${queuePos} (รอ ~${estSeconds} วิ) ให้ลูกค้า ${userId}`);
-        await lineHandler.reply(replyToken, [
-          FlexMessageBuilder.buildQueueStatusMessage(queuePos, estSeconds, summaryNumbers, totalQuantity)
-        ]);
-      } else {
-        // ไม่มีคิว: นำเข้าคิวและบอทจะส่ง QR ทันที
-        orderQueue.enqueue(orderTask);
-      }
+      const waitingMessage = queuePos > 1
+        ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ มีออเดอร์ก่อนหน้า กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
+        : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
+
+      console.log(`[ORDER ACK] ส่งข้อความรับออเดอร์และคำอวยพรให้ลูกค้า ${userId} (คิวที่ ${queuePos})`);
+      await lineHandler.reply(replyToken, [{ type: 'text', text: waitingMessage }]);
     }
   }
 });
