@@ -47,7 +47,7 @@ const PosterStudio = (function () {
     const ctx = canvas.getContext('2d');
 
     const theme = config.theme || 'gold';
-    const shopName = config.shopName || 'ร้านสลาก N3 มหามงคล';
+    const shopName = config.shopName || 'ร้านสลาก N3 ธนกิจนำโชค';
     const drawDate = config.drawDate || 'งวดประจำวันที่ 1 และ 16';
     const featuredNumbers = config.numbers || ['789', '532', '904'];
     const contactLine = config.line || '@glon3';
