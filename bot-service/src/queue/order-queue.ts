@@ -1,12 +1,20 @@
+export interface OrderItem {
+  number: string;
+  quantity: number;
+}
+
 export interface OrderTask {
   orderId: string;
   replyToken: string;
   userId: string;
-  number: string;
-  quantity: number;
+  items: OrderItem[];
+  totalQuantity: number;
   totalPrice: number;
   timestamp: number;
   hasRepliedQueue?: boolean;
+  // Backward compatibility
+  number?: string;
+  quantity?: number;
 }
 
 export type OrderWorkerFunction = (task: OrderTask) => Promise<void>;
@@ -42,7 +50,10 @@ export class OrderQueue {
     this.queue.push(task);
     // ตำแหน่งคิว = รายการที่รอในแถว + 1 (หากมีตัวกำลังรันอยู่)
     const queuePosition = this.queue.length + (this.isProcessing ? 1 : 0);
-    console.log(`[QUEUE] รับออเดอร์ ${task.orderId} เข้าคิว (ลำดับที่ ${queuePosition}) | เลข ${task.number} x ${task.quantity} ใบ`);
+    const summaryText = task.items && task.items.length > 0
+      ? task.items.map(i => `${i.number}x${i.quantity}`).join(', ')
+      : `${task.number} x ${task.quantity} ใบ`;
+    console.log(`[QUEUE] รับออเดอร์ ${task.orderId} เข้าคิว (ลำดับที่ ${queuePosition}) | ${summaryText} (รวม ${task.totalQuantity || task.quantity} ใบ)`);
 
     // หากไม่ได้กำลังทำงานอยู่ ให้เริ่มประมวลผลทันที
     if (!this.isProcessing) {
@@ -67,7 +78,10 @@ export class OrderQueue {
     if (currentTask && this.worker) {
       const startTime = Date.now();
       try {
-        console.log(`[QUEUE START] กำลังประมวลผลออเดอร์: ${currentTask.orderId} (เลข ${currentTask.number} x ${currentTask.quantity} ใบ)`);
+        const summaryText = currentTask.items && currentTask.items.length > 0
+          ? currentTask.items.map(i => `${i.number}x${i.quantity}`).join(', ')
+          : `${currentTask.number} x ${currentTask.quantity} ใบ`;
+        console.log(`[QUEUE START] กำลังประมวลผลออเดอร์: ${currentTask.orderId} (${summaryText})`);
         await this.worker(currentTask);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`[QUEUE FINISHED] ออเดอร์ ${currentTask.orderId} เสร็จสิ้นใน ${elapsed} วินาที!`);

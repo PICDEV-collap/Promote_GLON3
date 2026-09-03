@@ -196,10 +196,16 @@ const AIDreamEngine = (function () {
 
     const n3Direct = `${d1}${d2}${d3}`;
 
-    // Create 3 Tod permutations
-    const tod1 = `${d1}${d3}${d2}`;
-    const tod2 = `${d2}${d1}${d3}`;
-    const n3Tod = [n3Direct, tod1, tod2].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join(', ');
+    // Create 3 Tod permutations (เฉพาะเลขสลับหลักที่ไม่ซ้ำกับ 3 ตัวตรง)
+    const permutations = [
+      `${d1}${d3}${d2}`,
+      `${d2}${d1}${d3}`,
+      `${d2}${d3}${d1}`,
+      `${d3}${d1}${d2}`,
+      `${d3}${d2}${d1}`
+    ].filter((v, i, a) => a.indexOf(v) === i && v !== n3Direct);
+
+    const n3Tod = permutations.length > 0 ? permutations.slice(0, 3).join(', ') : 'ไม่มี (เลขตอง)';
 
     // Pick 2 digits for N3 2-Digit
     const n2Digit = `${d2}${d3}`;

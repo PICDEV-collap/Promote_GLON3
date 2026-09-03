@@ -1,21 +1,148 @@
 import { messagingApi } from '@line/bot-sdk';
 import { CONFIG } from '../config';
 import { OperatingHoursStatus } from '../guard/operating-hours';
+import { OrderItem } from '../queue/order-queue';
 
 export class FlexMessageBuilder {
   /**
-   * 1. การ์ด QR Code ชำระเงิน N3 ส่งให้ลูกค้า
+   * 1. การ์ด QR Code ชำระเงิน N3 ส่งให้ลูกค้า (รองรับทั้งเลขเดียวและหลายเลข)
    */
   public static buildPaymentQRMessage(
     qrImageUrl: string,
-    lotteryNumber: string,
-    quantity: number,
-    totalPrice: number,
-    expireMinutes: number = 10
+    lotteryNumberOrItems: string | OrderItem[],
+    quantity: number = 1,
+    totalPrice: number = 20,
+    expireMinutes: number = 10,
+    downloadUrl?: string,
+    outOfStockItems?: string[]
   ): messagingApi.FlexMessage {
+    const targetActionUrl = downloadUrl || qrImageUrl;
+
+    const isMulti = Array.isArray(lotteryNumberOrItems);
+    const items: OrderItem[] = isMulti
+      ? (lotteryNumberOrItems as OrderItem[])
+      : [{ number: lotteryNumberOrItems as string, quantity }];
+
+    const calcTotalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+    const calcTotalPrice = items.reduce((sum, item) => sum + item.quantity * 20, 0);
+    const finalTotalQty = quantity > 0 ? quantity : calcTotalQty;
+    const finalTotalPrice = totalPrice > 0 ? totalPrice : calcTotalPrice;
+
+    const altText = items.length === 1
+      ? `สลาก N3 เลข ${items[0].number} (${items[0].quantity} ใบ) - สแกนจ่ายด้วยแอปเป๋าตัง`
+      : `สลาก N3 (${finalTotalQty} ใบ) ${items.map(i => i.number).join(', ')} - สแกนจ่ายด้วยแอปเป๋าตัง`;
+
+    // สร้างกล่องรายการสลาก
+    const itemContents: messagingApi.FlexComponent[] = [];
+
+    if (items.length === 1) {
+      itemContents.push(
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: 'เลขที่สั่งซื้อ:', color: '#666666', size: 'md' },
+            { type: 'text', text: items[0].number, weight: 'bold', color: '#0056b3', align: 'end', size: 'xl' }
+          ]
+        },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'sm',
+          contents: [
+            { type: 'text', text: 'จำนวนสลาก:', color: '#666666', size: 'sm' },
+            { type: 'text', text: `${items[0].quantity} ใบ`, weight: 'bold', color: '#111111', align: 'end', size: 'md' }
+          ]
+        }
+      );
+    } else {
+      itemContents.push({
+        type: 'text',
+        text: '📋 รายการสลากที่สั่งซื้อ:',
+        weight: 'bold',
+        size: 'sm',
+        color: '#333333'
+      });
+
+      for (const it of items) {
+        itemContents.push({
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'xs',
+          contents: [
+            { type: 'text', text: `• เลข ${it.number}`, weight: 'bold', color: '#0056b3', size: 'sm', flex: 4 },
+            { type: 'text', text: `${it.quantity} ใบ (${it.quantity * 20} บ.)`, weight: 'bold', color: '#333333', align: 'end', size: 'sm', flex: 6 }
+          ]
+        });
+      }
+
+      itemContents.push({
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'sm',
+        contents: [
+          { type: 'text', text: 'จำนวนสลากรวม:', color: '#666666', size: 'sm' },
+          { type: 'text', text: `${finalTotalQty} ใบ`, weight: 'bold', color: '#111111', align: 'end', size: 'md' }
+        ]
+      });
+    }
+
+    // ยอดชำระสุทธิ
+    itemContents.push({
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'sm',
+      contents: [
+        { type: 'text', text: 'ยอดชำระสุทธิ:', color: '#666666', size: 'sm' },
+        { type: 'text', text: `${finalTotalPrice} บาท`, weight: 'bold', color: '#28a745', align: 'end', size: 'xl' }
+      ]
+    });
+
+    // หากมีเลขที่หมดในระบบ แจ้งเตือนลูกค้า
+    if (outOfStockItems && outOfStockItems.length > 0) {
+      itemContents.push(
+        { type: 'separator', margin: 'md' },
+        {
+          type: 'text',
+          text: `⚠️ หมายเหตุ: สลากเลข ${outOfStockItems.join(', ')} หมดในระบบ ทางร้านจึงออก QR ยอดเฉพาะเลขที่มีให้ครับ`,
+          size: 'xs',
+          color: '#d9534f',
+          wrap: true,
+          margin: 'sm'
+        }
+      );
+    }
+
+    itemContents.push(
+      { type: 'separator', margin: 'lg' },
+      {
+        type: 'box',
+        layout: 'vertical',
+        margin: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: `⏳ สแกนจ่ายผ่านแอป "เป๋าตัง" ภายใน ${expireMinutes} นาที`,
+            size: 'sm',
+            color: '#e74c3c',
+            wrap: true,
+            weight: 'bold'
+          },
+          {
+            type: 'text',
+            text: '💡 แตะรูป QR ด้านบน หรือกดปุ่ม "ดาวน์โหลด" ด้านล่าง เพื่อบันทึกรูปลงเครื่อง แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายได้ทันที',
+            size: 'xs',
+            color: '#0056b3',
+            wrap: true,
+            margin: 'xs'
+          }
+        ]
+      }
+    );
+
     return {
       type: 'flex',
-      altText: `สลาก N3 เลข ${lotteryNumber} (${quantity} ใบ) - สแกนจ่ายด้วยแอปเป๋าตัง`,
+      altText,
       contents: {
         type: 'bubble',
         header: {
@@ -46,63 +173,17 @@ export class FlexMessageBuilder {
           size: 'full',
           aspectRatio: '1:1',
           aspectMode: 'fit',
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          action: {
+            type: 'uri',
+            label: 'เปิดรูป QR Code',
+            uri: targetActionUrl
+          }
         },
         body: {
           type: 'box',
           layout: 'vertical',
-          contents: [
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                { type: 'text', text: 'เลขที่สั่งซื้อ:', color: '#666666', size: 'md' },
-                { type: 'text', text: lotteryNumber, weight: 'bold', color: '#0056b3', align: 'end', size: 'xl' }
-              ]
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              margin: 'sm',
-              contents: [
-                { type: 'text', text: 'จำนวนสลาก:', color: '#666666', size: 'sm' },
-                { type: 'text', text: `${quantity} ใบ`, weight: 'bold', color: '#111111', align: 'end', size: 'md' }
-              ]
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              margin: 'sm',
-              contents: [
-                { type: 'text', text: 'ยอดชำระสุทธิ:', color: '#666666', size: 'sm' },
-                { type: 'text', text: `${totalPrice} บาท`, weight: 'bold', color: '#28a745', align: 'end', size: 'xl' }
-              ]
-            },
-            { type: 'separator', margin: 'lg' },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'md',
-              contents: [
-                {
-                  type: 'text',
-                  text: `⏳ สแกนจ่ายผ่านแอป "เป๋าตัง" ภายใน ${expireMinutes} นาที`,
-                  size: 'sm',
-                  color: '#e74c3c',
-                  wrap: true,
-                  weight: 'bold'
-                },
-                {
-                  type: 'text',
-                  text: '*บันทึกภาพนี้ แล้วเปิดสแกนจากแกลเลอรีในแอปเป๋าตังเพื่อรับสลากทันที',
-                  size: 'xs',
-                  color: '#888888',
-                  wrap: true,
-                  margin: 'xs'
-                }
-              ]
-            }
-          ],
+          contents: itemContents,
           paddingAll: '16px'
         },
         footer: {
@@ -113,6 +194,17 @@ export class FlexMessageBuilder {
             {
               type: 'button',
               style: 'primary',
+              color: '#00c300',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '📥 ดาวน์โหลด / บันทึก QR Code',
+                uri: targetActionUrl
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
               color: '#d4af37',
               height: 'sm',
               action: {
@@ -180,24 +272,24 @@ export class FlexMessageBuilder {
                   type: 'box',
                   layout: 'horizontal',
                   contents: [
-                    { type: 'text', text: '• พิมพ์เลข 3 ตัวตรง:', size: 'xs', color: '#666666', flex: 4 },
-                    { type: 'text', text: '123 (ได้ 1 ใบ)', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
+                    { type: 'text', text: '• สั่งเลขเดี่ยว:', size: 'xs', color: '#666666', flex: 4 },
+                    { type: 'text', text: '123 2 (ได้ 2 ใบ)', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
                   ]
                 },
                 {
                   type: 'box',
                   layout: 'horizontal',
                   contents: [
-                    { type: 'text', text: '• ระบุจำนวนใบ:', size: 'xs', color: '#666666', flex: 4 },
-                    { type: 'text', text: '456 2 หรือ 456 2ใบ', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
+                    { type: 'text', text: '• สั่งหลายเลข (บิลเดียว):', size: 'xs', color: '#666666', flex: 4 },
+                    { type: 'text', text: '123 2, 456 1, 789 3', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
                   ]
                 },
                 {
                   type: 'box',
                   layout: 'horizontal',
                   contents: [
-                    { type: 'text', text: '• พิมพ์คำสั่งเต็ม:', size: 'xs', color: '#666666', flex: 4 },
-                    { type: 'text', text: 'สั่ง 789 5 ใบ', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
+                    { type: 'text', text: '• สั่งเท่ากันทุกเลข:', size: 'xs', color: '#666666', flex: 4 },
+                    { type: 'text', text: '123 456 อย่างละ 2 ใบ', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
                   ]
                 }
               ]

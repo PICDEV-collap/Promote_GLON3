@@ -1,6 +1,5 @@
 @echo off
-title N3 Bot - Single Dashboard
-color 0B
+title N3-MANAGER : N3 Lottery Bot and Agent Control Center
 cd /d "%~dp0"
-node single-dashboard.js
-pause
+node scripts\n3-engine.js menu
+if %errorlevel% neq 0 pause

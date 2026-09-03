@@ -21,6 +21,39 @@ export class QuotaManager {
       fs.mkdirSync(dir, { recursive: true });
     }
     this.data = this.loadQuota();
+    this.checkAndAutoResetRound();
+  }
+
+  /**
+   * คำนวณชื่องวดปัจจุบันตามปฏิทินสลากกินแบ่งรัฐบาล (วันที่ 1 และ 16 ของแต่ละเดือน)
+   */
+  public static getCurrentRoundIdentifier(dateObj?: Date): string {
+    const now = dateObj || new Date();
+    const bkkTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+    const year = bkkTime.getFullYear();
+    const month = bkkTime.getMonth() + 1;
+    const day = bkkTime.getDate();
+
+    if (day <= 1) {
+      return `${year}-${String(month).padStart(2, '0')}-01`;
+    } else if (day <= 16) {
+      return `${year}-${String(month).padStart(2, '0')}-16`;
+    } else {
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      return `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+    }
+  }
+
+  /**
+   * ตรวจสอบว่างวดเปลี่ยนหรือยัง หากเปลี่ยนให้รีเซ็ตอัตโนมัติ
+   */
+  public checkAndAutoResetRound(): void {
+    const currentRound = QuotaManager.getCurrentRoundIdentifier();
+    if (this.data.round !== currentRound) {
+      console.log(`[QUOTA AUTO-RESET] ตรวจพบการเปลี่ยนงวดสลากจาก ${this.data.round} เป็น ${currentRound} -> รีเซ็ตโควต้า ${CONFIG.DEFAULT_MAX_QUOTA} ใบ`);
+      this.resetRound(currentRound, CONFIG.DEFAULT_MAX_QUOTA);
+    }
   }
 
   private loadQuota(): QuotaData {
@@ -34,7 +67,7 @@ export class QuotaManager {
     }
 
     const defaultData: QuotaData = {
-      round: new Date().toISOString().split('T')[0],
+      round: QuotaManager.getCurrentRoundIdentifier(),
       maxQuota: CONFIG.DEFAULT_MAX_QUOTA,
       usedQuota: 0,
       remainingQuota: CONFIG.DEFAULT_MAX_QUOTA,
@@ -61,6 +94,7 @@ export class QuotaManager {
    * ตรวจสอบว่าโควต้าคงเหลือเพียงพอกับจำนวนที่ลูกค้าต้องการหรือไม่
    */
   public canFulfill(quantity: number): { allowed: boolean; remaining: number; reason?: string } {
+    this.checkAndAutoResetRound();
     if (this.data.remainingQuota <= 0) {
       return { allowed: false, remaining: 0, reason: 'สลากงวดนี้หมดแล้ว (Sold Out)' };
     }
@@ -115,6 +149,7 @@ export class QuotaManager {
   }
 
   public getStatus(): QuotaData {
+    this.checkAndAutoResetRound();
     return { ...this.data };
   }
 }

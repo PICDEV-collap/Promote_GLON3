@@ -163,6 +163,13 @@ const AgentSystem = (function () {
     if (!verifyAdminPin(oldPin)) {
       return { success: false, message: 'รหัสผ่านเดิมไม่ถูกต้อง' };
     }
+    return updateAdminPin(newPin);
+  }
+
+  function updateAdminPin(newPin) {
+    if (!isAdminAuthenticated()) {
+      return { success: false, message: 'กรุณาเข้าสู่ระบบผู้ดูแลก่อน' };
+    }
     if (!newPin || newPin.toString().trim().length < 4) {
       return { success: false, message: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 หลัก' };
     }
@@ -209,16 +216,22 @@ const AgentSystem = (function () {
       {
         id: 'reply-order',
         title: '🛒 สนใจสั่งซื้อสลาก N3',
+        desc: 'ส่งข้อมูลปิดการขายและวิธีสั่งซื้อสลาก',
+        content: `สวัสดีครับ สนใจสั่งซื้อสลาก N3 กับร้าน "${shopName}" ใบละ 20 บาท ไม่มีเลขอั้น\n👉 สามารถพิมพ์บอกเลข 3 ตัวและจำนวนใบในแชทนี้ได้เลยครับ เช่น "123 2ใบ" หรือเปิดแอปเป๋าตังเพื่อสแกนซื้อได้ทันทีครับ`,
         text: `สวัสดีครับ สนใจสั่งซื้อสลาก N3 กับร้าน "${shopName}" ใบละ 20 บาท ไม่มีเลขอั้น\n👉 สามารถพิมพ์บอกเลข 3 ตัวและจำนวนใบในแชทนี้ได้เลยครับ เช่น "123 2ใบ" หรือเปิดแอปเป๋าตังเพื่อสแกนซื้อได้ทันทีครับ`
       },
       {
         id: 'reply-dream',
         title: '🔮 ชวนลูกค้าทำนายฝัน',
+        desc: 'ชวนลูกค้ามาแปลความฝันหาเลขเด็ด N3',
+        content: `ฝันเห็นอะไรเมื่อคืน? ลองมาแปลความฝันเป็นเลขเด็ด 3 ตัวแม่นๆ ฟรี กับ AI ทำนายฝันร้าน "${shopName}" ได้ที่นี่เลยครับ:\n👉 ${currentUrl}`,
         text: `ฝันเห็นอะไรเมื่อคืน? ลองมาแปลความฝันเป็นเลขเด็ด 3 ตัวแม่นๆ ฟรี กับ AI ทำนายฝันร้าน "${shopName}" ได้ที่นี่เลยครับ:\n👉 ${currentUrl}`
       },
       {
         id: 'reply-how-to-buy',
         title: '📖 วิธีซื้อและจ่ายเงินผ่านเป๋าตัง',
+        desc: 'แนะนำ 3 ขั้นตอนง่ายๆ ในการซื้อสลาก N3',
+        content: `วิธีซื้อสลาก N3 ง่ายๆ ใน 3 ขั้นตอน:\n1. บอกเลขที่ต้องการให้ทางร้าน\n2. นำรูป QR Code ชำระเงินไปเปิดสแกนในแอป "เป๋าตัง"\n3. สลากจะเข้ากระเป๋าในแอปเป๋าตังของคุณทันที ปลอดภัย 100% ครับ!`,
         text: `วิธีซื้อสลาก N3 ง่ายๆ ใน 3 ขั้นตอน:\n1. บอกเลขที่ต้องการให้ทางร้าน\n2. นำรูป QR Code ชำระเงินไปเปิดสแกนในแอป "เป๋าตัง"\n3. สลากจะเข้ากระเป๋าในแอปเป๋าตังของคุณทันที ปลอดภัย 100% ครับ!`
       }
     ];
@@ -230,18 +243,20 @@ const AgentSystem = (function () {
   function applyAgentBranding() {
     const current = getAgentInfo();
 
-    // 1. Update Affiliate Banner
-    const banner = document.getElementById('affiliate-banner');
-    const bannerShopName = document.getElementById('affiliate-shop-name');
-    const bannerLine = document.getElementById('affiliate-line');
-    const bannerTel = document.getElementById('affiliate-tel');
+    // 1. Update Affiliate Banner (รองรับทั้ง agent-banner และ affiliate-banner)
+    const banner = document.getElementById('agent-banner') || document.getElementById('affiliate-banner');
+    const bannerShopName = document.getElementById('agent-banner-shop-name') || document.getElementById('affiliate-shop-name');
+    const bannerLine = document.getElementById('agent-banner-line') || document.getElementById('affiliate-line');
+    const bannerTel = document.getElementById('agent-banner-tel') || document.getElementById('affiliate-tel');
 
     if (banner) {
       banner.style.display = 'block';
       if (bannerShopName) bannerShopName.innerText = current.name;
-      if (bannerLine) bannerLine.innerText = `LINE: ${current.line}`;
+      if (bannerLine) {
+        bannerLine.innerHTML = `<i class="fab fa-line" style="color: #00c300;"></i> LINE: ${current.line}`;
+      }
       if (bannerTel) {
-        bannerTel.innerText = current.tel ? `โทร: ${current.tel}` : '';
+        bannerTel.innerHTML = `<i class="fas fa-phone-alt"></i> โทร: ${current.tel}`;
         bannerTel.style.display = current.tel ? 'inline-block' : 'none';
       }
     }
@@ -279,6 +294,7 @@ const AgentSystem = (function () {
     isAdminAuthenticated,
     verifyAdminPin,
     changeAdminPin,
+    updateAdminPin,
     logoutAdmin,
     generateAffiliateUrl,
     getQuickReplyTemplates,
