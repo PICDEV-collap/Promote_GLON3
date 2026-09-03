@@ -1,11 +1,11 @@
 import express, { Request, Response } from 'express';
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
-import fs from 'fs';
+import { Page, BrowserContext } from 'playwright';
 import http from 'http';
 import { CONFIG } from './config';
 import { SecurityGuard } from './automation/security-guard';
 import { N3Auth } from './automation/n3-auth';
 import { N3OrderService } from './automation/n3-order';
+import { PersistentBrowserManager } from './automation/browser-context';
 import { QuotaManager } from './quota/quota-manager';
 import { OrderQueue, OrderTask } from './queue/order-queue';
 import { LineReplyHandler } from './line/reply-handler';
@@ -23,31 +23,21 @@ const orderQueue = new OrderQueue();
 const lineHandler = new LineReplyHandler();
 const securityGuard = new SecurityGuard();
 
-let browser: Browser | null = null;
 let context: BrowserContext | null = null;
 let page: Page | null = null;
 let isLoggingIn: boolean = false;
 let currentPublicBaseUrl: string = CONFIG.BASE_URL;
 
 /**
- * เริ่มต้นเบราว์เซอร์ Playwright พร้อม Persistent Storage State
+ * เริ่มต้นเบราว์เซอร์ Playwright ด้วย Persistent Context (จำ Session ถาวร)
  */
 async function initBrowser() {
-  console.log('[BOT ENGINE] กำลังเปิด Browser Context...');
-  if (!browser) {
-    browser = await chromium.launch({ headless: true });
-  }
-
-  const hasStorageState = fs.existsSync(CONFIG.SESSION_STORAGE_PATH);
-  context = await browser.newContext({
-    viewport: { width: 1280, height: 900 },
-    storageState: hasStorageState ? CONFIG.SESSION_STORAGE_PATH : undefined
-  });
-
-  page = await context.newPage();
+  console.log('[BOT ENGINE] กำลังเปิด Persistent Browser...');
+  const res = await PersistentBrowserManager.getPage(true);
+  context = res.context;
+  page = res.page;
   securityGuard.attachToPage(page);
-
-  console.log(`[BOT ENGINE] Browser พร้อมทำงาน (Session Saved: ${hasStorageState})`);
+  console.log('[BOT ENGINE] Persistent Browser พร้อมทำงานเรียบร้อยแล้ว');
 }
 
 /**
@@ -184,7 +174,6 @@ export function parseOrderMessage(text: string): { number: string; quantity: num
 app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   res.status(200).send('OK');
 
-  // ดึง Public Domain อัตโนมัติจาก Cloudflare Header เพื่อให้รูปภาพ QR มี HTTPS URL ที่ถูกต้องเสมอ
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const proto = req.headers['x-forwarded-proto'] || 'https';
   if (host && !host.toString().includes('localhost')) {
@@ -202,7 +191,6 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
       const parsed = parseOrderMessage(userText);
       if (!parsed) {
-        // ข้อความคำสั่งพิเศษของ Admin
         const lower = userText.trim().toLowerCase();
         if (lower === 'login' || lower === 'ล็อกอิน' || lower === 'qr') {
           triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง');
