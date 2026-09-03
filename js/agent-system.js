@@ -13,10 +13,10 @@ const AgentSystem = (function () {
   const defaultAgent = {
     name: 'ร้านสลาก N3 ธนกิจนำโชค',
     dealerCode: 'ตัวแทนจำหน่ายสลากกินแบ่งรัฐบาล N3',
-    line: '@glon3',
+    line: '@586xxhlx',
     tel: '02-528-9999',
     location: 'จุดจำหน่ายสลากตัวเลขสามหลัก (N3) ออนไลน์',
-    shopUrl: 'https://n3.glolotteryshop.com',
+    shopUrl: 'https://line.me/R/ti/p/@586xxhlx',
     officialPortalUrl: 'https://n3.glolotteryshop.com',
     salesHours: 'ทุกวัน 06:00 - 23:00 น. (วันหวยออก 06:00 - 14:00 น.)',
     isCustomAgent: true

@@ -2,12 +2,13 @@
    GLO N3 - Service Worker (Network-First for fresh updates & Offline Cache)
    ========================================================================== */
 
-const CACHE_NAME = 'glo-n3-portal-v4-thanakit';
+const CACHE_NAME = 'glo-n3-portal-v5-thanakit';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
   './css/style.css',
+  './images/line-qr.png',
   './js/sound-effects.js',
   './js/particle-canvas.js',
   './js/ai-dream-engine.js',
