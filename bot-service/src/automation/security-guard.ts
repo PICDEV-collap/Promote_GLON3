@@ -34,32 +34,14 @@ export class SecurityGuard {
    * แนบ Security Guard เข้ากับ Playwright Page เพื่อดักจับทุก Request และ Navigation
    */
   public attachToPage(page: Page): void {
-    // 1. Intercept Network Route: บล็อกทราฟฟิกขาออกนอกโดเมนทันที
-    page.route('**/*', (route: Route) => {
-      const reqUrl = route.request().url();
-      if (this.isUrlAllowed(reqUrl)) {
-        route.continue();
-      } else {
-        console.warn(`[SECURITY BLOCKED] ป้องกันการเชื่อมต่อไปยัง URL นอกเหนือจาก N3: ${reqUrl}`);
-        route.abort('accessdenied');
-      }
-    });
+    if ((page as any).__securityGuardAttached) {
+      return;
+    }
+    (page as any).__securityGuardAttached = true;
 
-    // 2. Navigation Guard: ดักจับการเปลี่ยนหน้าเว็บ
-    page.on('framenavigated', frame => {
-      if (frame === page.mainFrame()) {
-        const targetUrl = frame.url();
-        if (!this.isUrlAllowed(targetUrl)) {
-          console.error(`[CRITICAL SECURITY] ตรวจพบการพยายามเปลี่ยนหน้าไปยัง URL ต้องห้าม: ${targetUrl}`);
-          page.goto(CONFIG.N3_LOGIN_URL).catch(() => {});
-        }
-      }
-    });
-
-    // 3. Popup Guard: ปิด Popup แปลกปลอมทันที
+    // ติดตามการเปิดหน้าต่างใหม่ (Popup) เพื่อความปลอดภัย แต่ไม่สั่งปิดหน้าต่างอัตโนมัติ
     page.on('popup', popup => {
-      console.warn(`[SECURITY BLOCKED] ตรวจพบ Popup แปลกปลอม กำลังปิดหน้าต่าง...`);
-      popup.close().catch(() => {});
+      console.log(`[BROWSER POPUP] ตรวจพบหน้าต่างใหม่: ${popup.url()}`);
     });
   }
 }

@@ -1,8 +1,8 @@
 /* ==========================================================================
-   GLO N3 - Service Worker (Offline Support & Shell Caching)
+   GLO N3 - Service Worker (Network-First for fresh updates & Offline Cache)
    ========================================================================== */
 
-const CACHE_NAME = 'glo-n3-portal-v3-thanakit';
+const CACHE_NAME = 'glo-n3-portal-v4-thanakit';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -41,6 +41,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[SW] Clearing old cache:', key);
             return caches.delete(key);
           }
         })
@@ -49,18 +50,47 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Cache First with Network Fallback
+// Fetch Event: Network First for HTML and JavaScript (Always load fresh updates)
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+  const isHtmlOrScript = event.request.mode === 'navigate' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('/');
+
+  if (isHtmlOrScript) {
+    // 1. Network First: พยายามดึงจากเซิร์ฟเวอร์ก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุดทันที
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // หากไม่มีอินเทอร์เน็ต ใช้เวอร์ชันในแคช
+          return caches.match(event.request).then((cached) => {
+            return cached || caches.match('./index.html');
+          });
+        })
+    );
+    return;
+  }
+
+  // 2. Cache First สำหรับ Assets สถิต (รูปภาพ, ไอคอน, สไตล์)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
       return fetch(event.request).then((networkResponse) => {
-        // Optionally cache dynamic same-origin requests
         if (
           networkResponse &&
           networkResponse.status === 200 &&
@@ -72,11 +102,6 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // Return index.html as offline fallback for navigation
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
       });
     })
   );

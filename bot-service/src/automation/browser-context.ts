@@ -13,34 +13,62 @@ export class PersistentBrowserManager {
       fs.mkdirSync(USER_DATA_DIR, { recursive: true });
     }
 
-    if (!this.context) {
-      console.log('[BROWSER] กำลังเปิด Chrome Persistent Context...');
+    // 1. ตรวจสอบว่า context และ page เดิมยังใช้งานได้จริงหรือไม่
+    if (this.context) {
       try {
-        // ใช้ Google Chrome จริงในเครื่อง
-        this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-          channel: 'chrome',
-          headless,
-          viewport: { width: 1440, height: 900 },
-          args: ['--disable-blink-features=AutomationControlled']
-        });
-      } catch {
-        // Fallback: ใช้ Chromium ของ Playwright
-        this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-          headless,
-          viewport: { width: 1440, height: 900 }
-        });
+        const pages = this.context.pages();
+        const activePage = pages.find(p => !p.isClosed());
+        if (activePage) {
+          this.page = activePage;
+          return { context: this.context, page: this.page };
+        } else {
+          // ถ้าไม่มีหน้า active อยู่ ให้ลองสร้าง page ใหม่ใน context เดิม
+          this.page = await this.context.newPage();
+          return { context: this.context, page: this.page };
+        }
+      } catch (e) {
+        console.warn('[BROWSER] Browser context เดิมปิดตัวหรือใช้งานไม่ได้แล้ว กำลังรีเซ็ต...');
+        await this.close().catch(() => {});
       }
-      
-      const pages = this.context.pages();
-      this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
     }
+
+    console.log('[BROWSER] กำลังเปิด Chrome Persistent Context...');
+    try {
+      // ใช้ Google Chrome จริงในเครื่อง
+      this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+        channel: 'chrome',
+        headless,
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: 2,
+        args: ['--disable-blink-features=AutomationControlled']
+      });
+    } catch {
+      // Fallback: ใช้ Chromium ของ Playwright
+      this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+        headless,
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: 2
+      });
+    }
+
+    // ดักฟัง event เมื่อ context หรือ browser ปิดตัว
+    this.context.on('close', () => {
+      console.log('[BROWSER EVENT] Browser Context ปิดตัวลง');
+      PersistentBrowserManager.context = null;
+      PersistentBrowserManager.page = null;
+    });
+    
+    const pages = this.context.pages();
+    this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
     return { context: this.context, page: this.page! };
   }
 
   public static async close(): Promise<void> {
     if (this.context) {
-      await this.context.close();
+      try {
+        await this.context.close().catch(() => {});
+      } catch {}
       this.context = null;
       this.page = null;
     }

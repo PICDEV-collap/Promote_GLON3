@@ -9,7 +9,7 @@ $body = @{
             message = @{
                 type = "text"
                 id = "12345"
-                text = "144 2"
+                text = "123 2, 456 1, 789 3"
             }
         }
     )

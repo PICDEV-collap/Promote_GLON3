@@ -12,6 +12,7 @@ export const CONFIG = {
   LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || '',
   LINE_ADMIN_USER_ID: adminId,
   ADMIN_LINE_USER_ID: adminId,
+  ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
   
   // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
   DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/',
@@ -21,6 +22,7 @@ export const CONFIG = {
     'n3.glolotteryshop.com',
     'glolotteryshop.com',
     'krungthai.com',
+    'ktb.co.th',
     'paotang-auth.krungthai.com'
   ],
 

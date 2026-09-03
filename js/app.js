@@ -406,7 +406,9 @@ document.addEventListener('DOMContentLoaded', function () {
         showToast('กรุณาระบุรหัส PIN ใหม่อย่างน้อย 4 หลัก');
         return;
       }
-      const res = AgentSystem.changeAdminPin('9999', newPin); // ยืนยันใน session แล้ว
+      const res = AgentSystem.updateAdminPin 
+        ? AgentSystem.updateAdminPin(newPin) 
+        : AgentSystem.changeAdminPin('9999', newPin);
       if (res.success) {
         showToast('🎉 เปลี่ยนรหัสผ่าน Admin PIN เรียบร้อยแล้ว!');
         agentChangePinInput.value = '';
@@ -489,20 +491,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const templates = AgentSystem.getQuickReplyTemplates(numberToUse);
-    quickRepliesContainer.innerHTML = templates.map(tpl => `
+    quickRepliesContainer.innerHTML = templates.map(tpl => {
+      const title = tpl.title || 'สคริปต์ข้อความ';
+      const desc = tpl.desc || '';
+      const content = tpl.content || tpl.text || '';
+      return `
       <div class="quick-reply-card">
         <div class="quick-reply-header">
           <div>
-            <h4>${tpl.title}</h4>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">${tpl.desc}</div>
+            <h4>${title}</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${desc}</div>
           </div>
-          <button class="btn btn-gold btn-copy-script" data-text="${encodeURIComponent(tpl.content)}" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
+          <button class="btn btn-gold btn-copy-script" data-text="${encodeURIComponent(content)}" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">
             <i class="fas fa-copy"></i> คัดลอก
           </button>
         </div>
-        <div class="quick-reply-text">${escapeHtml(tpl.content)}</div>
+        <div class="quick-reply-text">${escapeHtml(content)}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Wire copy buttons
     const copyBtns = quickRepliesContainer.querySelectorAll('.btn-copy-script');
@@ -516,7 +523,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function escapeHtml(str) {
-    return str
+    if (!str) return '';
+    return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
