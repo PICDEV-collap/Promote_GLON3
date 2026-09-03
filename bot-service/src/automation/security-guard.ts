@@ -22,11 +22,8 @@ export class SecurityGuard {
       const hostname = parsed.hostname.toLowerCase();
 
       return this.allowedDomains.some(allowed => {
-        if (allowed.startsWith('*.')) {
-          const baseDomain = allowed.slice(2).toLowerCase();
-          return hostname === baseDomain || hostname.endsWith('.' + baseDomain);
-        }
-        return hostname === allowed.toLowerCase();
+        const clean = allowed.replace(/^\*\./, '').toLowerCase();
+        return hostname === clean || hostname.endsWith('.' + clean);
       });
     } catch {
       return false;
