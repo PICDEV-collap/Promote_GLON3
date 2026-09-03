@@ -100,12 +100,18 @@ orderQueue.setWorker(async (task: OrderTask) => {
 });
 
 /**
- * ฟังก์ชันแกะข้อความสั่งซื้อ (Regex Parser)
- * รองรับ: "สั่ง 789 2 ใบ", "789 2", "123 5 ใบ", "999" (ถ้าไม่ระบุ = 1 ใบ)
+ * ฟังก์ชันแกะข้อความสั่งซื้อที่ยืดหยุ่นสูง (Smart Regex Parser)
+ * รองรับ:
+ * - "342 2ใบ", "342 2", "453 3"
+ * - "สั่ง 789 5 ใบ", "123=2", "999-1", "555x2"
+ * - "000" (หากไม่พิมพ์จำนวน = 1 ใบ)
  */
-function parseOrderMessage(text: string): { number: string; quantity: number } | null {
-  const cleanText = text.trim();
-  const match = cleanText.match(/(?:สั่ง\s*)?(\d{3})(?:\s*([0-9]+)\s*(?:ใบ)?)?/);
+export function parseOrderMessage(text: string): { number: string; quantity: number } | null {
+  if (!text) return null;
+  const clean = text.trim();
+
+  // Pattern: ดึงเลข 3 ตัว และตัวเลขจำนวนใบ
+  const match = clean.match(/(?:สั่ง\s*)?(\b\d{3}\b)(?:[\s=\-xX*\/,]*([0-9]+)\s*(?:ใบ)?)?/);
   if (match) {
     const number = match[1];
     const quantity = match[2] ? parseInt(match[2], 10) : 1;
@@ -122,37 +128,43 @@ function parseOrderMessage(text: string): { number: string; quantity: number } |
 app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   res.status(200).send('OK'); // ตอบ LINE ทันทีภายใน 1 วินาที
 
-  const events = req.body.events || [];
+  const events = req.body?.events || [];
+  console.log(`[WEBHOOK EVENT RECEIVED] จำนวน ${events.length} events`);
+
   for (const event of events) {
     if (event.type === 'message' && event.message.type === 'text') {
       const userText: string = event.message.text;
       const replyToken: string = event.replyToken;
-      const userId: string = event.source.userId || 'anonymous';
+      const userId: string = event.source?.userId || 'anonymous';
 
       console.log(`[WEBHOOK] ได้รับข้อความจาก ${userId}: "${userText}"`);
 
       // 1. ถอดรหัสข้อความสั่งซื้อ
       const parsed = parseOrderMessage(userText);
       if (!parsed) {
+        console.log(`[WEBHOOK] ข้อความ "${userText}" ไม่ใช่รูปแบบคำสั่งซื้อ -> ส่งข้อความแนะนำ`);
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
-            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 วิธีสั่งซื้อง่ายๆ:\nพิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 789 2 ใบ\n- สั่ง 123 5\n- 000 1'
+            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 วิธีสั่งซื้อง่ายๆ เพียงพิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 342 2ใบ\n- 453 3\n- สั่ง 789 5'
           }
         ]);
         continue;
       }
 
+      console.log(`[PARSED ORDER] เลข: ${parsed.number} | จำนวน: ${parsed.quantity} ใบ`);
+
       // 2. ตรวจสอบโควต้าสลาก (2,000 ใบ)
       const quotaCheck = quotaManager.canFulfill(parsed.quantity);
       if (!quotaCheck.allowed) {
+        console.log(`[QUOTA REJECT] ${quotaCheck.reason}`);
         await lineHandler.reply(replyToken, [
           FlexMessageBuilder.buildQuotaExceededMessage(quotaCheck.remaining)
         ]);
         continue;
       }
 
-      // 3. ใส่คำสั่งซื้อลงในคิวความเร็วสูง (ประมวลผล ~4-6 วินาที)
+      // 3. ใส่คำสั่งซื้อลงในคิวความเร็วสูง
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
@@ -241,9 +253,9 @@ function startServerWithPort(targetPort: number) {
 
   server.listen(targetPort, async () => {
     console.log(`====================================================`);
-    console.log(`🚀 N3 Order Bot Service รันอยู่ที่พอร์ต: http://localhost:${targetPort}`);
+    console.log(`🚀 N3 Order Bot Service รันอยู่ที่: http://localhost:${targetPort}`);
     console.log(`🔒 Security Domain Whitelist: ${CONFIG.ALLOWED_DOMAINS.join(', ')}`);
-    console.log(`🎫 โควต้าเริ่มต้น: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
+    console.log(`🎫 โควต้าคงเหลือ: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
     console.log(`====================================================`);
 
     // เริ่มต้นเบราว์เซอร์

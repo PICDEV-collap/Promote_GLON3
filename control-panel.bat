@@ -13,16 +13,18 @@ echo   [2] Test Paotang QR Login (Generate Login QR for Paotang Scan)
 echo   [3] Check and Test Quota Manager (2,000 Tickets)
 echo   [4] Run Development Mode (Hot Reload)
 echo   [5] Open QR Codes Image Folder
+echo   [6] Open LINE Webhook Public Tunnel (HTTPS)
 echo   [0] Exit
 echo.
 echo ===================================================================
-set /p choice="Please select an option [0-5]: "
+set /p choice="Please select an option [0-6]: "
 
 if "%choice%"=="1" goto START_BOT
 if "%choice%"=="2" goto TEST_LOGIN
 if "%choice%"=="3" goto TEST_QUOTA
 if "%choice%"=="4" goto DEV_MODE
 if "%choice%"=="5" goto OPEN_QR
+if "%choice%"=="6" goto START_TUNNEL
 if "%choice%"=="0" exit
 goto MENU
 
@@ -72,4 +74,9 @@ goto MENU
 
 :OPEN_QR
 start "" "%~dp0public\qrcodes"
+goto MENU
+
+:START_TUNNEL
+cls
+call "%~dp0tunnel.bat"
 goto MENU
