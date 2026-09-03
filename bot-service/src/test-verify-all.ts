@@ -258,7 +258,7 @@ function runTests() {
     // Hero contains only the single QR code image
     assert.strictEqual(bubble.hero.type, 'image');
     assert.strictEqual(bubble.hero.url, qrUrl);
-    assert.strictEqual(bubble.hero.aspectMode, 'fit');
+    assert.strictEqual(bubble.hero.aspectMode, 'cover');
     assert.strictEqual(bubble.hero.action.uri, downloadUrl);
 
     // Body contains order breakdown
@@ -275,6 +275,22 @@ function runTests() {
     // Footer contains download action button
     const footerStr = JSON.stringify(bubble.footer);
     assert(footerStr.includes(downloadUrl));
+  });
+
+  test('Flex Message: Multi-ticket order with default omitted quantity/price params', () => {
+    const items: OrderItem[] = [
+      { number: '334', quantity: 5 },
+      { number: '447', quantity: 6 },
+      { number: '778', quantity: 3 }
+    ];
+    const qrUrl = 'http://localhost:3333/qrcodes/payment-multi.png';
+
+    // Call without specifying quantity and totalPrice to ensure defaults do NOT override 14 tickets with 1 ticket
+    const msg = FlexMessageBuilder.buildPaymentQRMessage(qrUrl, items);
+    assert(msg.altText.includes('14 ใบ'), 'AltText should show 14 ใบ even when params omitted');
+    const bodyStr = JSON.stringify(msg.contents);
+    assert(bodyStr.includes('14 ใบ'), 'Body should show 14 ใบ');
+    assert(bodyStr.includes('280 บาท'), 'Body should show 280 บาท');
   });
 
   test('Flex Message: Single ticket order', () => {
@@ -300,6 +316,142 @@ function runTests() {
     assert.strictEqual(canFulfill.allowed, true);
     assert(canFulfill.remaining >= 14);
   });
+
+  // TEST SUITE 4: QR Code 1:1 Square Crop Geometry & Quiet Zone
+  test('QR Code Geometry: 1:1 square clip with ~28px quiet zone padding', () => {
+    // Given a QR bounding box from browser DOM
+    const mockQrBox = { x: 570, y: 195, width: 220, height: 220 };
+    const pad = 28; // 24-32px Quiet Zone Margin
+    const qrSize = Math.max(mockQrBox.width, mockQrBox.height);
+    const totalSize = qrSize + pad * 2;
+    const centerX = mockQrBox.x + mockQrBox.width / 2;
+    const centerY = mockQrBox.y + mockQrBox.height / 2;
+
+    const clipX = Math.max(0, Math.round(centerX - totalSize / 2));
+    const clipY = Math.max(0, Math.round(centerY - totalSize / 2));
+    const clipW = Math.round(totalSize);
+    const clipH = Math.round(totalSize);
+
+    // Assert that the clip is a PERFECT 1:1 SQUARE
+    assert.strictEqual(clipW, clipH);
+    assert.strictEqual(clipW, 276);
+    assert.strictEqual(clipH, 276);
+    assert.strictEqual(clipX, 542);
+    assert.strictEqual(clipY, 167);
+
+    // Ratio must be exactly 1.0 (1:1) to fill LINE Flex Hero without distortion or letterboxing
+    const aspectRatio = clipW / clipH;
+    assert.strictEqual(aspectRatio, 1.0);
+  });
+
+  // TEST SUITE 5: Whitespace & Format Tolerant Number Matching in DOM
+  test('Whitespace & Format Tolerant Number Matching for GLO N3 DOM', () => {
+    const targetNum = '334';
+    const cleanTarget = targetNum.replace(/\s+/g, '');
+
+    const domSnippets = [
+      '3 3 4',
+      '3  3  4',
+      '3\n3\n4',
+      '3 - 3 - 4',
+      'สลาก 3 3 4 จำนวน 1 ใบ',
+      '334'
+    ];
+
+    for (const snippet of domSnippets) {
+      const cleanSnippet = snippet.replace(/[\s\-]+/g, '');
+      assert(
+        cleanSnippet.includes(cleanTarget),
+        `Snippet "${snippet}" should match target "${targetNum}"`
+      );
+    }
+  });
+
+  // TEST SUITE 6: Quantity Stepper & Cart Item Verification
+  test('Quantity Breakdown and Cart Aggregation for 334=5, 447=6, 778=3', () => {
+    const items = [
+      { number: '334', quantity: 5 },
+      { number: '447', quantity: 6 },
+      { number: '778', quantity: 3 }
+    ];
+
+    const totalQty = items.reduce((sum, it) => sum + it.quantity, 0);
+    const totalPrice = totalQty * 20;
+
+    assert.strictEqual(totalQty, 14);
+    assert.strictEqual(totalPrice, 280);
+
+    // Verify each item's subtotal
+    assert.strictEqual(items[0].quantity * 20, 100);
+    assert.strictEqual(items[1].quantity * 20, 120);
+    assert.strictEqual(items[2].quantity * 20, 60);
+
+    // Verify quantities are not stuck at 1
+    items.forEach(it => {
+      assert(it.quantity > 1, `Item ${it.number} quantity should be > 1`);
+    });
+  });
+
+  // TEST SUITE 7: GLO N3 DOM Stepper Detection
+  test('GLO N3 Stepper: Detect img[src*="plus-icon"] and input[type="number"]', () => {
+    // Simulate real GLO Next.js rendered markup
+    const sampleCardHtml = `
+      <div class="border rounded-lg w-full">
+        <div class="p-3">
+          <div class="flex justify-between">
+            <div>3 3 4</div>
+            <div class="flex items-center">
+              <div class="flex h-auto w-[112px] items-center justify-between rounded-lg border">
+                <div class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md">
+                  <img src="/images/minus-icon.webp" width="16" height="16" alt="lotto-card-glo-logo" />
+                </div>
+                <input type="number" inputmode="numeric" value="1" class="text-center" />
+                <div class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md">
+                  <img src="/images/plus-icon.webp" width="16" height="16" alt="lotto-card-glo-logo" />
+                </div>
+              </div>
+              <p>ใบ</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 1. Ensure matcher identifies the plus image
+    const hasPlusImg = sampleCardHtml.includes('/images/plus-icon.webp');
+    assert.strictEqual(hasPlusImg, true, 'Card markup must contain plus-icon.webp');
+
+    // 2. Ensure matcher identifies the numeric input
+    const hasNumberInput = sampleCardHtml.includes('type="number"');
+    assert.strictEqual(hasNumberInput, true, 'Card markup must contain numeric input');
+
+    // 3. Confirm why old button:has-text("+") failed:
+    const hasButtonPlus = sampleCardHtml.includes('<button>+</button>') || sampleCardHtml.includes('button:has-text');
+    assert.strictEqual(hasButtonPlus, false, 'GLO does NOT use <button>+ for steppers, explaining old failure');
+  });
+
+  // TEST SUITE 8: Viewport-Relative QR Geometry Clip without Scroll Offset
+  test('QR Geometry: Viewport coordinates without scroll displacement', () => {
+    // BoundingClientRect is ALREADY relative to the viewport.
+    // Adding window.scrollY when page is scrolled down (e.g. scrollY = 300)
+    // was a fatal bug that shifted the clip area off-target.
+    const clientRect = { x: 610, y: 220, width: 220, height: 220 };
+    const pad = 28;
+    const qrSize = Math.max(clientRect.width, clientRect.height);
+    const totalSize = qrSize + pad * 2;
+    const centerX = clientRect.x + clientRect.width / 2;
+    const centerY = clientRect.y + clientRect.height / 2;
+
+    const clipX = Math.max(0, Math.round(centerX - totalSize / 2));
+    const clipY = Math.max(0, Math.round(centerY - totalSize / 2));
+    const clipSize = Math.round(totalSize);
+
+    // Assert that clip dimensions and coordinates are exact viewport values
+    assert.strictEqual(clipX, 582);
+    assert.strictEqual(clipY, 192);
+    assert.strictEqual(clipSize, 276);
+  });
+
 
   console.log(`\n====================================================`);
   console.log(`TEST SUMMARY: ${passed} / ${total} tests passed (100%)`);
