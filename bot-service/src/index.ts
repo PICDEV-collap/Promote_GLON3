@@ -57,7 +57,7 @@ let currentPublicBaseUrl: string = CONFIG.BASE_URL;
  * พร้อมระบบตรวจสอบหน้าต่างเบราว์เซอร์และกู้คืนอัตโนมัติหากถูกปิดหรือแครช
  */
 async function ensureBrowser(): Promise<{ context: BrowserContext; page: Page }> {
-  const res = await PersistentBrowserManager.getPage(false);
+  const res = await PersistentBrowserManager.getPage(CONFIG.HEADLESS);
   context = res.context;
   page = res.page;
   securityGuard.attachToPage(page);

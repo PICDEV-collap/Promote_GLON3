@@ -13,6 +13,7 @@ export const CONFIG = {
   LINE_ADMIN_USER_ID: adminId,
   ADMIN_LINE_USER_ID: adminId,
   ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
+  HEADLESS: process.env.HEADLESS !== 'false', // ค่าเริ่มต้นคือ true (ซ่อนหน้าต่างเบราว์เซอร์ 100%)
   
   // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
   DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/',

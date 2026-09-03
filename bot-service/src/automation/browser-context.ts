@@ -1,4 +1,5 @@
 import { chromium, BrowserContext, Page } from 'playwright';
+import { CONFIG } from '../config';
 import path from 'path';
 import fs from 'fs';
 
@@ -8,7 +9,7 @@ export class PersistentBrowserManager {
   private static context: BrowserContext | null = null;
   private static page: Page | null = null;
 
-  public static async getPage(headless: boolean = false): Promise<{ context: BrowserContext; page: Page }> {
+  public static async getPage(headless: boolean = CONFIG.HEADLESS): Promise<{ context: BrowserContext; page: Page }> {
     if (!fs.existsSync(USER_DATA_DIR)) {
       fs.mkdirSync(USER_DATA_DIR, { recursive: true });
     }
