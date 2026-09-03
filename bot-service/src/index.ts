@@ -14,7 +14,7 @@ import { FlexMessageBuilder } from './line/flex-message';
 const app = express();
 app.use(express.json());
 
-// เสิร์ฟรูปภาพ QR Code ชั่วคราวผ่าน Static Route
+// เสิร์ฟรูปภาพ QR Code ผ่าน Static Route
 app.use('/qrcodes', express.static(CONFIG.QR_OUTPUT_DIR));
 
 // เริ่มต้นระบบหลัก
@@ -26,6 +26,8 @@ const securityGuard = new SecurityGuard();
 let browser: Browser | null = null;
 let context: BrowserContext | null = null;
 let page: Page | null = null;
+let isLoggingIn: boolean = false;
+let currentPublicBaseUrl: string = CONFIG.BASE_URL;
 
 /**
  * เริ่มต้นเบราว์เซอร์ Playwright พร้อม Persistent Storage State
@@ -49,6 +51,48 @@ async function initBrowser() {
 }
 
 /**
+ * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้แอดมินทันที
+ */
+async function triggerAdminLoginQR(reason: string): Promise<void> {
+  if (isLoggingIn || !page || !context) return;
+  isLoggingIn = true;
+
+  try {
+    console.log('[AUTO LOGIN] กำลังดึง QR Code หน้า Login เป๋าตังเพื่อส่งเข้า LINE แอดมิน...');
+    const { qrImagePath } = await N3Auth.generatePaotangLoginQR(page);
+    const qrFileName = qrImagePath.split(/[\/\\]/).pop();
+    const qrPublicUrl = `${currentPublicBaseUrl}/qrcodes/${qrFileName}`;
+
+    console.log(`[AUTO LOGIN] รูปภาพ QR ส่งไปยัง LINE: ${qrPublicUrl}`);
+
+    await lineHandler.pushToAdmin([
+      {
+        type: 'text',
+        text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:`
+      },
+      {
+        type: 'image',
+        originalContentUrl: qrPublicUrl,
+        previewImageUrl: qrPublicUrl
+      }
+    ]);
+
+    console.log('[AUTO LOGIN] ส่งภาพ QR Login เป๋าตังเข้า LINE แอดมินเรียบร้อยแล้ว กำลังรอสแกน...');
+
+    const success = await N3Auth.waitForAdminScan(page, context);
+    if (success) {
+      await lineHandler.pushToAdmin([
+        { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉' }
+      ]);
+    }
+  } catch (err) {
+    console.error('[AUTO LOGIN ERROR]', err);
+  } finally {
+    isLoggingIn = false;
+  }
+}
+
+/**
  * ตั้งค่า Worker สำหรับประมวลผลคำสั่งซื้อในคิว
  */
 orderQueue.setWorker(async (task: OrderTask) => {
@@ -57,7 +101,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
   }
 
   try {
-    // 1. ตรวจสอบโควต้าอีกครั้งเพื่อความปลอดภัย
+    // 1. ตรวจสอบโควต้า
     const quotaCheck = quotaManager.canFulfill(task.quantity);
     if (!quotaCheck.allowed) {
       await lineHandler.reply(task.replyToken, [
@@ -66,26 +110,19 @@ orderQueue.setWorker(async (task: OrderTask) => {
       return;
     }
 
-    // 2. ตรวจสอบสถานะการล็อกอิน N3 ก่อนดำเนินการ
+    // 2. ตรวจสอบสถานะล็อกอิน N3
     const isLoggedIn = await N3Auth.isSessionValid(page!);
     if (!isLoggedIn) {
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
-      // แจ้งลูกค้า
       await lineHandler.reply(task.replyToken, [
         {
           type: 'text',
-          text: 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อม กรุณารอสักครู่แล้วส่งคำสั่งซื้อใหม่อีกครั้งครับ 🙏'
+          text: 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อมเข้าระบบ กรุณารอสักครู่แล้วสั่งซื้อใหม่อีกครั้งครับ 🙏'
         }
       ]);
 
-      // แจ้งเตือนแอดมินด่วน
-      await lineHandler.pushToAdmin([
-        {
-          type: 'text',
-          text: `⚠️ [แจ้งเตือนแอดมิน] มีลูกค้าสั่งซื้อเลข ${task.number} จำนวน ${task.quantity} ใบ แต่ระบบยังไม่ได้ล็อกอินเป๋าตัง กรุณาเปิดแอปเป๋าตังสแกนล็อกอินด่วนครับ!`
-        }
-      ]);
+      triggerAdminLoginQR(`มีลูกค้าสั่งซื้อเลข ${task.number} จำนวน ${task.quantity} ใบ แต่ระบบยังไม่ได้ล็อกอิน`);
       return;
     }
 
@@ -93,16 +130,16 @@ orderQueue.setWorker(async (task: OrderTask) => {
     const result = await N3OrderService.executeOrder(page!, task.number, task.quantity);
 
     if (result.success && result.qrImageUrl) {
-      // หักลบโควต้าสลาก (เพดาน 2,000 ใบ)
       quotaManager.deductQuota(task.quantity);
 
-      // ส่งรูป QR Code ชำระเงินกลับหาลูกค้าผ่าน ReplyToken ทันที (ฟรี ไม่เสียโควต้า LINE OA)
+      const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, currentPublicBaseUrl);
+
       const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(
-        result.qrImageUrl,
+        qrPublicUrl,
         task.number,
         task.quantity,
         task.totalPrice,
-        10 // 10 นาที
+        10
       );
 
       await lineHandler.reply(task.replyToken, [flexMsg]);
@@ -147,9 +184,14 @@ export function parseOrderMessage(text: string): { number: string; quantity: num
 app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   res.status(200).send('OK');
 
-  const events = req.body?.events || [];
-  console.log(`[WEBHOOK] ได้รับ ${events.length} event(s) จาก LINE`);
+  // ดึง Public Domain อัตโนมัติจาก Cloudflare Header เพื่อให้รูปภาพ QR มี HTTPS URL ที่ถูกต้องเสมอ
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  if (host && !host.toString().includes('localhost')) {
+    currentPublicBaseUrl = `${proto}://${host}`;
+  }
 
+  const events = req.body?.events || [];
   for (const event of events) {
     if (event.type === 'message' && event.message.type === 'text') {
       const userText: string = event.message.text;
@@ -158,13 +200,22 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
       console.log(`[USER MESSAGE] "${userText}" จาก ${userId}`);
 
-      // 1. ถอดรหัสข้อความสั่งซื้อ
       const parsed = parseOrderMessage(userText);
       if (!parsed) {
+        // ข้อความคำสั่งพิเศษของ Admin
+        const lower = userText.trim().toLowerCase();
+        if (lower === 'login' || lower === 'ล็อกอิน' || lower === 'qr') {
+          triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง');
+          await lineHandler.reply(replyToken, [
+            { type: 'text', text: 'กำลังสร้างและส่ง QR Code สำหรับล็อกอินเป๋าตังให้แอดมิน รอสักครู่ครับ...' }
+          ]);
+          continue;
+        }
+
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
-            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 พิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 342 2ใบ\n- 453 3\n- สั่ง 789 5'
+            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 พิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 144 2\n- 342 2ใบ\n- สั่ง 789 5'
           }
         ]);
         continue;
@@ -172,7 +223,6 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
       console.log(`[ORDER DETECTED] เลข: ${parsed.number} | จำนวน: ${parsed.quantity} ใบ`);
 
-      // 2. ตรวจสอบโควต้าสลาก (2,000 ใบ)
       const quotaCheck = quotaManager.canFulfill(parsed.quantity);
       if (!quotaCheck.allowed) {
         await lineHandler.reply(replyToken, [
@@ -181,7 +231,6 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // 3. ใส่คำสั่งซื้อลงในคิว
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
@@ -197,43 +246,9 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-/**
- * Admin API: ดึง QR Code หน้า Login ส่งเข้า LINE แอดมิน
- */
 app.post('/admin/login-qr', async (_req: Request, res: Response) => {
-  if (!page || !context) {
-    await initBrowser();
-  }
-
-  try {
-    const { qrImagePath } = await N3Auth.generatePaotangLoginQR(page!);
-    const qrFileName = qrImagePath.split(/[\/\\]/).pop();
-    const qrPublicUrl = `${CONFIG.BASE_URL}/qrcodes/${qrFileName}`;
-
-    await lineHandler.pushToAdmin([
-      {
-        type: 'text',
-        text: '⚠️ กรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:'
-      },
-      {
-        type: 'image',
-        originalContentUrl: qrPublicUrl,
-        previewImageUrl: qrPublicUrl
-      }
-    ]);
-
-    N3Auth.waitForAdminScan(page!, context!).then(success => {
-      if (success) {
-        lineHandler.pushToAdmin([
-          { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! บอทพร้อมรับออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉' }
-        ]);
-      }
-    });
-
-    res.json({ success: true, qrUrl: qrPublicUrl });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err?.message });
-  }
+  triggerAdminLoginQR('เรียกผ่าน API Admin');
+  res.json({ success: true, message: 'กำลังส่งภาพ QR Login เข้า LINE แอดมิน' });
 });
 
 app.get('/admin/quota', (_req: Request, res: Response) => {
