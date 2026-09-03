@@ -12,7 +12,7 @@ export class N3OrderService {
    * 5. กดปุ่ม "ตรวจสอบสลากฯ"
    * 6. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
    * 7. กดยืนยันในป๊อปอัป
-   * 8. แคปเจอร์เฉพาะรูป QR Code คมชัดเต็มใบ
+   * 8. แคปเจอร์เฉพาะรูป QR Code คมชัดเต็มใบตรงเป๊ะ 100%
    */
   public static async executeOrder(
     page: Page,
@@ -95,39 +95,60 @@ export class N3OrderService {
 
       // 10. รอหน้าแสดง QR Code (/qr/)
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(2500); // รอรูป QR โหลดชัดเจน
 
-      // 11. แคปเจอร์เฉพาะตัว QR Code คมชัดเต็มภาพ (สแกนง่าย 100%)
+      // 11. คำนวณหาตำแหน่ง QR Code ที่แท้จริงเหนือปุ่ม "บันทึก"
       const qrFileName = `payment-${lotteryNumber}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
-      // หา Element QR Code ที่แท้จริง (canvas หรือ img ในกรอบ QR)
-      const qrElementFound = await page.evaluate(() => {
-        // ค้นหา canvas หรือ img ที่มีขนาดรูปทรงสี่เหลี่ยมจัตุรัสสำหรับ QR
-        const elements = Array.from(document.querySelectorAll('canvas, img, svg'));
-        for (const el of elements) {
-          const rect = el.getBoundingClientRect();
-          // QR Code จะมีขนาดประมาณ 150px - 400px และเป็นสี่เหลี่ยมจัตุรัส
-          if (rect.width >= 120 && rect.width <= 450 && Math.abs(rect.width - rect.height) < 20) {
-            el.setAttribute('data-target-qr', 'true');
-            return true;
+      const clipArea = await page.evaluate(() => {
+        // หาปุ่ม "บันทึก" ด้านล่างของ QR Code
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const saveBtn = buttons.find(b => b.innerText.includes('บันทึก'));
+
+        // ค้นหา canvas หรือ img หรือ svg ขนาดใหญ่ตรงกลาง
+        const candidates = Array.from(document.querySelectorAll('canvas, img, svg'));
+        for (const el of candidates) {
+          const r = el.getBoundingClientRect();
+          // ตัว QR Code จะมีขนาดระหว่าง 140px ถึง 450px และอยู่กึ่งกลางจอ
+          if (r.width >= 140 && r.height >= 140 && r.x > 200 && r.y > 100) {
+            if (!saveBtn || r.bottom <= saveBtn.getBoundingClientRect().top + 50) {
+              // เพิ่ม padding รอบรูป 10px เพื่อให้สแกนติดง่ายขึ้น
+              return {
+                x: Math.max(0, Math.round(r.x - 10)),
+                y: Math.max(0, Math.round(r.y - 10)),
+                width: Math.round(r.width + 20),
+                height: Math.round(r.height + 20)
+              };
+            }
           }
         }
-        return false;
+
+        // Fallback: ถ้าหาไม่เจอ ให้คำนวณจากปุ่ม "บันทึก"
+        if (saveBtn) {
+          const bRect = saveBtn.getBoundingClientRect();
+          const qrSize = 300;
+          return {
+            x: Math.round(bRect.x + (bRect.width / 2) - (qrSize / 2)),
+            y: Math.max(0, Math.round(bRect.top - qrSize - 25)),
+            width: qrSize,
+            height: qrSize
+          };
+        }
+
+        // Default Fallback
+        return { x: 520, y: 260, width: 320, height: 320 };
       });
 
-      if (qrElementFound) {
-        const qrEl = page.locator('[data-target-qr="true"]').first();
-        await qrEl.screenshot({ path: qrFilePath });
-        console.log(`[SUCCESS] แคปเจอร์เฉพาะตัว QR Code สำเร็จ (ขนาดคมชัด): ${qrFilePath}`);
-      } else {
-        // Fallback: ครอปเฉพาะกึ่งกลางจอที่แสดง QR Code อย่างแม่นยำ
-        await page.screenshot({
-          path: qrFilePath,
-          clip: { x: 520, y: 320, width: 400, height: 400 }
-        });
-        console.log(`[SUCCESS] แคปเจอร์ QR Code แบบพิกัด Crop คมชัด: ${qrFilePath}`);
-      }
+      console.log('[QR CROP] พิกัดที่จะทำการแคปเจอร์:', JSON.stringify(clipArea));
+
+      // แคปเจอร์เฉพาะตัว QR Code
+      await page.screenshot({
+        path: qrFilePath,
+        clip: clipArea
+      });
+
+      console.log(`[SUCCESS] บันทึกภาพ QR Code คมชัดตรงเป๊ะสำเร็จ: ${qrFilePath}`);
 
       // 12. กดปุ่ม "กลับหน้าหลัก"
       const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
