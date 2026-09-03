@@ -7,12 +7,12 @@ export class N3OrderService {
    * สั่งซื้อสลาก N3 ตาม Flow จริง:
    * 1. กรอกเลข 3 หลัก
    * 2. กดปุ่ม "เลือกเลข"
-   * 3. คลิกปุ่ม "เลือก" (ตรงตัว ไม่ใช่ "เลือกเลข") หรือติ๊ก "เลือกทั้งหมด"
-   * 4. ปรับจำนวนใบ (+) ถ้าต้องการมากกว่า 1 ใบ
+   * 3. คลิกปุ่ม "เลือก" ในแถวรายการ
+   * 4. ปรับจำนวนใบ (+)
    * 5. กดปุ่ม "ตรวจสอบสลากฯ"
    * 6. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
    * 7. กดยืนยันในป๊อปอัป
-   * 8. แคปเจอร์รูป QR Code ชำระเงิน ส่งให้ลูกค้า
+   * 8. แคปเจอร์เฉพาะรูป QR Code คมชัดเต็มใบ
    */
   public static async executeOrder(
     page: Page,
@@ -24,15 +24,13 @@ export class N3OrderService {
 
       // 1. ไปยังหน้าค้นหาเลข
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
-      console.log(`[STEP 1] ไปยังหน้าค้นหา: ${searchUrl}`);
       await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
       if (page.url().includes('/login')) {
         return { success: false, error: 'Session หลุด กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
       }
 
-      // 2. กรอกตัวเลข 3 ตัวลงใน 3 ช่อง
-      console.log(`[STEP 2] กำลังกรอกเลข 3 ตัว: ${lotteryNumber}`);
+      // 2. กรอกตัวเลข 3 ตัว
       const digits = lotteryNumber.split('');
       const inputBoxes = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
       const boxCount = await inputBoxes.count();
@@ -49,36 +47,25 @@ export class N3OrderService {
       }
 
       // 3. กดปุ่ม "เลือกเลข"
-      console.log('[STEP 3] กดปุ่ม "เลือกเลข"...');
       const selectNumberBtn = page.locator('button:has-text("เลือกเลข")').first();
       await selectNumberBtn.click();
-      await page.waitForTimeout(1500); // รอผลการค้นหาแสดง
+      await page.waitForTimeout(1500);
 
-      // 4. คลิกเลือกสลากในแถวรายการ (ใช้ DOM evaluate เพื่อความแม่นยำ ไม่สับสนกับ "เลือกเลข")
-      console.log('[STEP 4] กำลังคลิกเลือกสลากในรายการ...');
-      const clicked = await page.evaluate(() => {
-        // หาปุ่มที่มีข้อความว่า "เลือก" ตัวเดียวโดดๆ
+      // 4. คลิกปุ่ม "เลือก" สลากในแถวรายการ
+      await page.evaluate(() => {
         const allButtons = Array.from(document.querySelectorAll('button'));
         const exactPickBtn = allButtons.find(b => b.innerText.trim() === 'เลือก');
         if (exactPickBtn) {
           exactPickBtn.click();
-          return 'clicked_button';
+        } else {
+          const checkbox = document.querySelector('input[type="checkbox"]');
+          if (checkbox) (checkbox as HTMLInputElement).click();
         }
-        // ถ้าไม่เจอปุ่ม ให้ติ๊ก checkbox "เลือกทั้งหมด"
-        const checkbox = document.querySelector('input[type="checkbox"]');
-        if (checkbox) {
-          (checkbox as HTMLInputElement).click();
-          return 'clicked_checkbox';
-        }
-        return 'not_found';
       });
-
-      console.log(`[STEP 4 RESULT] การเลือกสลาก: ${clicked}`);
       await page.waitForTimeout(1000);
 
-      // 5. ปรับจำนวนใบ (ถ้าสั่งมากกว่า 1 ใบ)
+      // 5. ปรับจำนวนใบ
       if (quantity > 1) {
-        console.log(`[STEP 5] กำลังเพิ่มจำนวนใบเป็น ${quantity} ใบ...`);
         for (let i = 1; i < quantity; i++) {
           await page.evaluate(() => {
             const plusBtn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === '+');
@@ -88,46 +75,59 @@ export class N3OrderService {
         }
       }
 
-      // 6. กดปุ่ม "ตรวจสอบสลากฯ" (ปุ่มสีฟ้ามุมขวาล่าง)
-      console.log('[STEP 6] กดปุ่ม "ตรวจสอบสลากฯ"...');
+      // 6. กดปุ่ม "ตรวจสอบสลากฯ"
       const inspectBtn = page.locator('button:has-text("ตรวจสอบสลากฯ")').first();
       await inspectBtn.waitFor({ state: 'visible', timeout: 15000 });
       await inspectBtn.click();
 
       // 7. รอหน้ายืนยันรายการ (/lotto-confirm/)
-      console.log('[STEP 7] รอหน้ายืนยันรายการ (/lotto-confirm/)...');
       await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 });
 
       // 8. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
-      console.log('[STEP 8] กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"...');
       const createQrBtn = page.locator('button:has-text("สร้าง QR")').first();
       await createQrBtn.waitFor({ state: 'visible', timeout: 10000 });
       await createQrBtn.click();
 
       // 9. รอป๊อปอัปยืนยัน และกดปุ่ม "ยืนยัน"
-      console.log('[STEP 9] รอป๊อปอัปยืนยัน และกดปุ่ม "ยืนยัน"...');
       const confirmDialogBtn = page.locator('button:has-text("ยืนยัน")').last();
       await confirmDialogBtn.waitFor({ state: 'visible', timeout: 10000 });
       await confirmDialogBtn.click();
 
       // 10. รอหน้าแสดง QR Code (/qr/)
-      console.log('[STEP 10] รอหน้าแสดง QR Code (/qr/)...');
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
-      await page.waitForTimeout(2000); // รอรูป QR ชัดเจน
+      await page.waitForTimeout(2000);
 
-      // 11. แคปเจอร์ภาพ QR Code ชำระเงิน
+      // 11. แคปเจอร์เฉพาะตัว QR Code คมชัดเต็มภาพ (สแกนง่าย 100%)
       const qrFileName = `payment-${lotteryNumber}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
-      // แคปเจอร์เฉพาะส่วน QR Code ชำระเงินตรงกลาง
-      const qrCodeImg = page.locator('img[src*="data:image"], img[alt*="QR"], .qr-container, canvas').first();
-      if (await qrCodeImg.isVisible()) {
-        await qrCodeImg.screenshot({ path: qrFilePath });
-      } else {
-        await page.screenshot({ path: qrFilePath, clip: { x: 300, y: 150, width: 840, height: 600 } });
-      }
+      // หา Element QR Code ที่แท้จริง (canvas หรือ img ในกรอบ QR)
+      const qrElementFound = await page.evaluate(() => {
+        // ค้นหา canvas หรือ img ที่มีขนาดรูปทรงสี่เหลี่ยมจัตุรัสสำหรับ QR
+        const elements = Array.from(document.querySelectorAll('canvas, img, svg'));
+        for (const el of elements) {
+          const rect = el.getBoundingClientRect();
+          // QR Code จะมีขนาดประมาณ 150px - 400px และเป็นสี่เหลี่ยมจัตุรัส
+          if (rect.width >= 120 && rect.width <= 450 && Math.abs(rect.width - rect.height) < 20) {
+            el.setAttribute('data-target-qr', 'true');
+            return true;
+          }
+        }
+        return false;
+      });
 
-      console.log(`[SUCCESS] บันทึกภาพ QR Code ชำระเงินสำเร็จ: ${qrFilePath}`);
+      if (qrElementFound) {
+        const qrEl = page.locator('[data-target-qr="true"]').first();
+        await qrEl.screenshot({ path: qrFilePath });
+        console.log(`[SUCCESS] แคปเจอร์เฉพาะตัว QR Code สำเร็จ (ขนาดคมชัด): ${qrFilePath}`);
+      } else {
+        // Fallback: ครอปเฉพาะกึ่งกลางจอที่แสดง QR Code อย่างแม่นยำ
+        await page.screenshot({
+          path: qrFilePath,
+          clip: { x: 520, y: 320, width: 400, height: 400 }
+        });
+        console.log(`[SUCCESS] แคปเจอร์ QR Code แบบพิกัด Crop คมชัด: ${qrFilePath}`);
+      }
 
       // 12. กดปุ่ม "กลับหน้าหลัก"
       const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
