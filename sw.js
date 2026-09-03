@@ -2,7 +2,7 @@
    GLO N3 - Service Worker (Network-First for fresh updates & Offline Cache)
    ========================================================================== */
 
-const CACHE_NAME = 'glo-n3-portal-v7-thanakit';
+const CACHE_NAME = 'glo-n3-portal-v8-thanakit';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
