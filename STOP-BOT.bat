@@ -1,15 +1,21 @@
 @echo off
-title STOP N3 BOT SERVICE
+title STOP N3 BOT SERVICE - ปิดบอทสลาก N3
 chcp 65001 >nul
+cd /d "%~dp0"
 
 echo ===================================================================
-echo     🛑 กำลังปิดการทำงานของระบบบอท N3 ในเบื้องหลัง...
+echo     🛑 ร้านสลาก N3 ธนกิจนำโชค - สั่งหยุดการทำงานของบอท (STOP-BOT)
 echo ===================================================================
 echo.
-
-powershell -Command "Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"
-powershell -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*browser_profile*' -or $_.CommandLine -like '*n3-bot-service*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
-
-echo [SUCCESS] ปิดระบบบอทและ Chrome เบื้องหลังเรียบร้อยแล้วครับ!
+echo กำลังหยุดการทำงานของบอท, Cloudflare Tunnel และคืนหน่วยความจำ...
 echo.
-timeout /t 3
+
+node scripts\n3-engine.js stop
+
+echo.
+echo ===================================================================
+echo     ✅ บอทและโปรเซสเบื้องหลังหยุดทำงานเรียบร้อยแล้ว
+echo ===================================================================
+echo.
+echo กำลังปิดหน้าต่างนี้ใน 3 วินาที... (หรือกดปุ่มใดๆ เพื่อปิดทันที)
+timeout /t 3 >nul 2>&1
