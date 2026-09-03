@@ -24,6 +24,7 @@ function startServices() {
   const botProc = spawn('node', ['dist/index.js'], {
     cwd: path.join(__dirname, 'bot-service'),
     detached: true,
+    shell: true,
     stdio: ['ignore', botOut, botOut],
     windowsHide: true
   });
@@ -34,6 +35,7 @@ function startServices() {
   const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const cfProc = spawn(npxExecutable, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333'], {
     detached: true,
+    shell: true,
     stdio: ['ignore', cfOut, cfOut],
     windowsHide: true
   });
