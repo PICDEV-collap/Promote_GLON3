@@ -50,8 +50,8 @@ const PosterStudio = (function () {
     const shopName = config.shopName || 'ร้านสลาก N3 ธนกิจนำโชค';
     const drawDate = config.drawDate || 'งวดประจำวันที่ 1 และ 16';
     const featuredNumbers = config.numbers || ['789', '532', '904'];
-    const contactLine = config.line || '@glon3';
-    const contactTel = config.tel || '02-528-9999';
+    const contactLine = config.line || '@586xxhlx';
+    const contactTel = config.tel || '';
     const customHeadline = config.headline || 'สลากกินแบ่งรัฐบาล N3 (3 หลัก) ใบละ 20 บาท';
     const qrSrc = config.qrImage || (typeof AgentSystem !== 'undefined' ? AgentSystem.getAgentQR() : null);
 
@@ -240,7 +240,8 @@ const PosterStudio = (function () {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '700 26px "Prompt", sans-serif';
-    ctx.fillText(`🛒 สั่งซื้อกับเรา: LINE ${contactLine}  |  โทร: ${contactTel}`, width / 2, footerY);
+    const contactText = contactTel ? `🛒 สั่งซื้อกับเรา: LINE ${contactLine}  |  โทร: ${contactTel}` : `🛒 สั่งซื้อกับเรา: LINE ${contactLine}`;
+    ctx.fillText(contactText, width / 2, footerY);
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '400 18px "Kanit", sans-serif';
