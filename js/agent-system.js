@@ -1,19 +1,25 @@
 /* ==========================================================================
    GLO N3 - Dynamic White-label Agent & Affiliate System
-   URL Query Parameter Parser, Agent Branding, QR Management, & Quick-Reply Engine
+   URL Query Parameter Parser, Agent Branding, QR Management, & Admin Auth Guard
    ========================================================================== */
 
 const AgentSystem = (function () {
   const STORAGE_KEY = 'glo_n3_agent_config';
   const STORAGE_QR_KEY = 'glo_n3_agent_qr';
+  const STORAGE_PIN_KEY = 'glo_n3_admin_pin';
+  const SESSION_AUTH_KEY = 'glo_n3_admin_session_auth';
+  const DEFAULT_PIN = '9999';
 
   const defaultAgent = {
-    name: 'GLO N3 Official Partner',
+    name: 'ร้านสลาก N3 ธนกิจนำโชค',
+    dealerCode: 'ตัวแทนจำหน่ายสลากกินแบ่งรัฐบาล N3',
     line: '@glon3',
     tel: '02-528-9999',
-    shopUrl: 'https://line.me',
+    location: 'จุดจำหน่ายสลากตัวเลขสามหลัก (N3) ออนไลน์',
+    shopUrl: 'https://n3.glolotteryshop.com',
     officialPortalUrl: 'https://n3.glolotteryshop.com',
-    isCustomAgent: false
+    salesHours: 'ทุกวัน 06:00 - 23:00 น. (วันหวยออก 06:00 - 14:00 น.)',
+    isCustomAgent: true
   };
 
   /**
@@ -22,13 +28,14 @@ const AgentSystem = (function () {
   function parseUrlParams() {
     const params = new URLSearchParams(window.location.search);
     const shopName = params.get('shop') || params.get('shop_name') || params.get('name');
+    const dealerCode = params.get('dealer') || params.get('code');
     const line = params.get('line');
     const tel = params.get('tel') || params.get('phone');
+    const location = params.get('loc') || params.get('location');
     const shopUrl = params.get('url') || params.get('shop_url');
     const agentId = params.get('agent') || params.get('ref');
 
-    if (shopName || line || tel || shopUrl || agentId) {
-      // Build dynamic shop URL if line is specified
+    if (shopName || dealerCode || line || tel || location || shopUrl || agentId) {
       let finalShopUrl = shopUrl;
       if (!finalShopUrl && line) {
         finalShopUrl = line.startsWith('http') ? line : `https://line.me/R/ti/p/${line.startsWith('@') ? line : '@' + line}`;
@@ -36,10 +43,13 @@ const AgentSystem = (function () {
 
       return {
         name: shopName || defaultAgent.name,
+        dealerCode: dealerCode || defaultAgent.dealerCode,
         line: line || defaultAgent.line,
         tel: tel || defaultAgent.tel,
+        location: location || defaultAgent.location,
         shopUrl: finalShopUrl || defaultAgent.shopUrl,
         officialPortalUrl: defaultAgent.officialPortalUrl,
+        salesHours: defaultAgent.salesHours,
         agentId: agentId || '',
         isCustomAgent: true
       };
@@ -62,7 +72,7 @@ const AgentSystem = (function () {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        return { ...defaultAgent, ...JSON.parse(saved) };
       }
     } catch (e) {}
 
@@ -80,15 +90,17 @@ const AgentSystem = (function () {
       ...info,
       isCustomAgent: true
     };
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {}
-    applyAgentBranding(updated);
+    } catch (e) {
+      console.error('Failed to save agent info to localStorage:', e);
+    }
     return updated;
   }
 
   /**
-   * QR Code Image Management (Base64)
+   * QR Code Image Management
    */
   function getAgentQR() {
     try {
@@ -100,14 +112,10 @@ const AgentSystem = (function () {
 
   function saveAgentQR(dataUrl) {
     try {
-      if (dataUrl) {
-        localStorage.setItem(STORAGE_QR_KEY, dataUrl);
-      } else {
-        localStorage.removeItem(STORAGE_QR_KEY);
-      }
+      localStorage.setItem(STORAGE_QR_KEY, dataUrl);
       return true;
     } catch (e) {
-      console.error('Failed to save QR Code in localStorage:', e);
+      console.error('Failed to save QR Code image:', e);
       return false;
     }
   }
@@ -115,99 +123,150 @@ const AgentSystem = (function () {
   function clearAgentQR() {
     try {
       localStorage.removeItem(STORAGE_QR_KEY);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * ADMIN AUTHENTICATION & PIN MANAGEMENT
+   */
+  function getStoredPin() {
+    try {
+      return localStorage.getItem(STORAGE_PIN_KEY) || DEFAULT_PIN;
+    } catch (e) {
+      return DEFAULT_PIN;
+    }
+  }
+
+  function isAdminAuthenticated() {
+    try {
+      return sessionStorage.getItem(SESSION_AUTH_KEY) === 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function verifyAdminPin(inputPin) {
+    const storedPin = getStoredPin();
+    if (inputPin && inputPin.toString().trim() === storedPin.trim()) {
+      try {
+        sessionStorage.setItem(SESSION_AUTH_KEY, 'true');
+      } catch (e) {}
+      return true;
+    }
+    return false;
+  }
+
+  function changeAdminPin(oldPin, newPin) {
+    if (!verifyAdminPin(oldPin)) {
+      return { success: false, message: 'รหัสผ่านเดิมไม่ถูกต้อง' };
+    }
+    if (!newPin || newPin.toString().trim().length < 4) {
+      return { success: false, message: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 หลัก' };
+    }
+
+    try {
+      localStorage.setItem(STORAGE_PIN_KEY, newPin.toString().trim());
+      return { success: true, message: 'เปลี่ยนรหัสผ่านผู้ดูแลเรียบร้อยแล้ว' };
+    } catch (e) {
+      return { success: false, message: 'ไม่สามารถบันทึกรหัสผ่านได้' };
+    }
+  }
+
+  function logoutAdmin() {
+    try {
+      sessionStorage.removeItem(SESSION_AUTH_KEY);
     } catch (e) {}
   }
 
   /**
-   * Generate an affiliate link with query params
+   * Generate Affiliate URL
    */
-  function generateAffiliateUrl(shopName, line, tel, shopUrl) {
+  function generateAffiliateUrl(name, line, tel, shopUrl, dealerCode, location) {
     const baseUrl = window.location.origin + window.location.pathname;
     const params = new URLSearchParams();
-
-    if (shopName && shopName !== defaultAgent.name) params.set('shop', shopName.trim());
-    if (line && line !== defaultAgent.line) params.set('line', line.trim());
-    if (tel && tel !== defaultAgent.tel) params.set('tel', tel.trim());
-    if (shopUrl && shopUrl !== defaultAgent.shopUrl) params.set('url', shopUrl.trim());
-
-    const queryString = params.toString();
-    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+    if (name) params.set('shop', name);
+    if (dealerCode) params.set('dealer', dealerCode);
+    if (line) params.set('line', line);
+    if (tel) params.set('tel', tel);
+    if (location) params.set('loc', location);
+    if (shopUrl) params.set('url', shopUrl);
+    return `${baseUrl}?${params.toString()}`;
   }
 
   /**
-   * Quick-Reply Templates Generator for Social & LINE OA
+   * Quick-Reply Templates
    */
-  function getQuickReplyTemplates(featuredNumber = '789') {
-    const info = getAgentInfo();
-    const shopName = info.name || defaultAgent.name;
-    const lineContact = info.line || defaultAgent.line;
-    const webUrl = generateAffiliateUrl(info.name, info.line, info.tel, info.shopUrl);
+  function getQuickReplyTemplates() {
+    const agent = getAgentInfo();
+    const currentUrl = window.location.href;
+    const shopLine = agent.line || '@glon3';
+    const shopName = agent.name || defaultAgent.name;
 
     return [
       {
-        id: 'hook-dream',
-        title: '🔮 แจกชุดเลขเด็ด N3 & นิมิตฝัน',
-        desc: 'เหมาะสำหรับโพสต์กลุ่ม LINE / Facebook เพื่อดึงคนเข้าเว็บและสั่งซื้อ',
-        content: `✨ เลขเด็ดสลาก N3 ประจำงวดนี้จาก AI ทำนายฝัน ✨\nชุดเลขมงคลเด่น: [ ${featuredNumber} ] (3 ตรง / 3 โต๊ด / 2 ตัวท้าย)\n\n🛒 สั่งซื้อสลาก N3 ใบละ 20 บาท ถูกต้องตามกฎหมายกับ ${shopName}\n👉 ตรวจดวงและขอรับ QR สแกนซื้อได้ที่: ${webUrl}\n📲 LINE: ${lineContact}`
+        id: 'reply-order',
+        title: '🛒 สนใจสั่งซื้อสลาก N3',
+        text: `สวัสดีครับ สนใจสั่งซื้อสลาก N3 กับร้าน "${shopName}" ใบละ 20 บาท ไม่มีเลขอั้น\n👉 สามารถพิมพ์บอกเลข 3 ตัวและจำนวนใบในแชทนี้ได้เลยครับ เช่น "123 2ใบ" หรือเปิดแอปเป๋าตังเพื่อสแกนซื้อได้ทันทีครับ`
       },
       {
-        id: 'guide-buyer',
-        title: '📲 คู่มือวิธีซื้อผ่านเป๋าตัง (ลูกค้าใหม่)',
-        desc: 'ส่งให้ลูกค้าที่ยังไม่เคยซื้อสลาก N3 ในแอปเป๋าตัง',
-        content: `📌 4 ขั้นตอนง่ายๆ ในการซื้อสลาก N3 (ใบละ 20 บาท) ผ่านแอปเป๋าตัง:\n1. แจ้งเลขที่ต้องการซื้อกับทางร้าน ${shopName} เพื่อรับ QR Code ชำระเงิน\n2. เปิดแอป "เป๋าตัง" เข้าเมนู "สลากกินแบ่งรัฐบาล" -> เลือก "สลากตัวเลขสามหลัก (N3)"\n3. กดปุ่ม "สแกนซื้อสลาก" แล้วสแกนรูป QR Code ที่ทางร้านส่งให้\n4. ตรวจสอบรายการและกดยืนยันชำระเงินผ่าน G-Wallet (20 บ./ใบ)\n\n🎉 สลากจะถูกเก็บในเมนู "สลากของฉัน" ทันที ลุ้นได้ถึง 4 รางวัลใหญ่!`
+        id: 'reply-dream',
+        title: '🔮 ชวนลูกค้าทำนายฝัน',
+        text: `ฝันเห็นอะไรเมื่อคืน? ลองมาแปลความฝันเป็นเลขเด็ด 3 ตัวแม่นๆ ฟรี กับ AI ทำนายฝันร้าน "${shopName}" ได้ที่นี่เลยครับ:\n👉 ${currentUrl}`
       },
       {
-        id: 'result-alert',
-        title: '🏆 แจ้งเตือนตรวจผลรางวัล N3',
-        desc: 'ส่งในวันหวยออก (วันที่ 1 และ 16) เพื่อให้ลูกค้ากลับมาตรวจผล',
-        content: `🎉 ประกาศผลสลากกินแบ่งรัฐบาล N3 งวดประจำวันนี้!\nใครถูกรางวัล 3 ตรง, 3 โต๊ด, 2 ตัวตรง หรือ รางวัลพิเศษ สามารถตรวจผลและขึ้นเงินรางวัลผ่านแอปเป๋าตังได้เลยครับ 💰\n\n🔮 ตรวจผลย้อนหลังและคำนวณเงินรางวัลได้ที่: ${webUrl}\nขอบคุณที่อุดหนุน ${shopName} ครับ 🙏`
+        id: 'reply-how-to-buy',
+        title: '📖 วิธีซื้อและจ่ายเงินผ่านเป๋าตัง',
+        text: `วิธีซื้อสลาก N3 ง่ายๆ ใน 3 ขั้นตอน:\n1. บอกเลขที่ต้องการให้ทางร้าน\n2. นำรูป QR Code ชำระเงินไปเปิดสแกนในแอป "เป๋าตัง"\n3. สลากจะเข้ากระเป๋าในแอปเป๋าตังของคุณทันที ปลอดภัย 100% ครับ!`
       }
     ];
   }
 
   /**
-   * Inject agent info into UI elements across the page
+   * Apply branding across DOM
    */
-  function applyAgentBranding(agent = null) {
-    const current = agent || getAgentInfo();
+  function applyAgentBranding() {
+    const current = getAgentInfo();
 
-    // 1. Update Agent Banner
-    const banner = document.getElementById('agent-banner');
-    const bannerShopName = document.getElementById('agent-banner-shop-name');
-    const bannerLine = document.getElementById('agent-banner-line');
-    const bannerTel = document.getElementById('agent-banner-tel');
+    // 1. Update Affiliate Banner
+    const banner = document.getElementById('affiliate-banner');
+    const bannerShopName = document.getElementById('affiliate-shop-name');
+    const bannerLine = document.getElementById('affiliate-line');
+    const bannerTel = document.getElementById('affiliate-tel');
 
     if (banner) {
-      if (current.isCustomAgent) {
-        banner.style.display = 'block';
-        if (bannerShopName) bannerShopName.innerText = current.name;
-        if (bannerLine) bannerLine.innerText = `LINE: ${current.line}`;
-        if (bannerTel) {
-          bannerTel.innerText = current.tel ? `โทร: ${current.tel}` : '';
-          bannerTel.style.display = current.tel ? 'inline-block' : 'none';
-        }
-      } else {
-        banner.style.display = 'none';
+      banner.style.display = 'block';
+      if (bannerShopName) bannerShopName.innerText = current.name;
+      if (bannerLine) bannerLine.innerText = `LINE: ${current.line}`;
+      if (bannerTel) {
+        bannerTel.innerText = current.tel ? `โทร: ${current.tel}` : '';
+        bannerTel.style.display = current.tel ? 'inline-block' : 'none';
       }
     }
 
-    // 2. Update Shop Buttons Text & Links
+    // 2. Update Shop Buttons
     const shopButtons = document.querySelectorAll('.btn-our-shop');
     shopButtons.forEach(btn => {
-      if (current.isCustomAgent && current.name) {
+      if (current.name) {
         btn.setAttribute('title', `สั่งซื้อกับ ${current.name}`);
       }
     });
 
-    // 3. Update Modals & Inputs
+    // 3. Update Inputs
     const shopNameInput = document.getElementById('agent-input-name');
+    const dealerCodeInput = document.getElementById('agent-input-dealer-code');
     const shopLineInput = document.getElementById('agent-input-line');
     const shopTelInput = document.getElementById('agent-input-tel');
+    const locationInput = document.getElementById('agent-input-location');
     const shopUrlInput = document.getElementById('shop-url-input');
 
-    if (shopNameInput && !shopNameInput.value) shopNameInput.value = current.isCustomAgent ? current.name : '';
-    if (shopLineInput && !shopLineInput.value) shopLineInput.value = current.isCustomAgent ? current.line : '';
-    if (shopTelInput && !shopTelInput.value) shopTelInput.value = current.isCustomAgent ? current.tel : '';
+    if (shopNameInput) shopNameInput.value = current.name;
+    if (dealerCodeInput) dealerCodeInput.value = current.dealerCode || '';
+    if (shopLineInput) shopLineInput.value = current.line;
+    if (shopTelInput) shopTelInput.value = current.tel;
+    if (locationInput) locationInput.value = current.location || '';
     if (shopUrlInput) shopUrlInput.value = current.shopUrl || defaultAgent.shopUrl;
   }
 
@@ -217,6 +276,10 @@ const AgentSystem = (function () {
     getAgentQR,
     saveAgentQR,
     clearAgentQR,
+    isAdminAuthenticated,
+    verifyAdminPin,
+    changeAdminPin,
+    logoutAdmin,
     generateAffiliateUrl,
     getQuickReplyTemplates,
     applyAgentBranding,

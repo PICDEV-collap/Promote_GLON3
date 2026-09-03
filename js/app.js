@@ -145,7 +145,25 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnCopyAffiliateUrl = document.getElementById('btn-copy-affiliate-url');
   const quickRepliesContainer = document.getElementById('quick-replies-container');
 
+  // ควบคุมการแสดงผลแท็บสำหรับผู้ดูแลร้าน (Admin Only)
+  function updateAdminTabsVisibility() {
+    const isAdmin = AgentSystem.isAdminAuthenticated();
+    const adminTabs = document.querySelectorAll('.admin-only-tab');
+    adminTabs.forEach(tab => {
+      tab.style.display = isAdmin ? 'inline-flex' : 'none';
+    });
+  }
+
+  // เรียกตรวจสอบสิทธิ์แอดมินตอนเริ่มต้น
+  updateAdminTabsVisibility();
+
   function switchTab(activeTab) {
+    // ป้องกันไม่ให้ลูกค้าทั่วไปเข้าแท็บตั้งค่าหากยังไม่ได้ยืนยันรหัส PIN
+    if (activeTab !== 'shop' && !AgentSystem.isAdminAuthenticated()) {
+      openAdminAuthModal();
+      return;
+    }
+
     const tabs = [
       { btn: tabBtnShop, content: tabContentShop },
       { btn: tabBtnSettings, content: tabContentSettings },
@@ -183,10 +201,38 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function refreshStorefrontQR() {
     const agent = AgentSystem.getAgentInfo();
+
+    // 1. ชื่อร้าน
     if (storefrontShopTitle) {
-      storefrontShopTitle.innerText = agent.isCustomAgent ? agent.name : 'ร้านสลาก N3 ได้รับอนุญาต';
+      storefrontShopTitle.innerText = agent.name || 'ร้านสลาก N3 ธนกิจนำโชค';
     }
 
+    // 2. รหัสตัวแทนจำหน่าย GLO
+    const dealerCodeEl = document.getElementById('storefront-dealer-code-text');
+    if (dealerCodeEl) {
+      dealerCodeEl.innerText = agent.dealerCode || 'ตัวแทนจำหน่ายสลากกินแบ่งรัฐบาล N3';
+    }
+
+    // 3. จุดจำหน่าย / พิกัดร้าน
+    const locationEl = document.getElementById('storefront-location-text');
+    if (locationEl) {
+      locationEl.innerText = agent.location || 'จุดจำหน่ายสลากตัวเลขสามหลัก (N3) ดิจิทัล ถูกต้องตามกฎหมาย 100%';
+    }
+
+    // 4. ลิงก์ปุ่มแชทสั่งซื้อผ่าน LINE
+    const lineBtn = document.getElementById('btn-order-line-direct');
+    if (lineBtn) {
+      let lineLink = 'https://line.me';
+      if (agent.line) {
+        lineLink = agent.line.startsWith('http') 
+          ? agent.line 
+          : `https://line.me/R/ti/p/${agent.line.startsWith('@') ? agent.line : '@' + agent.line}`;
+      }
+      lineBtn.href = lineLink;
+      lineBtn.setAttribute('title', `แชทสั่งซื้อสลาก N3 กับ ${agent.name}`);
+    }
+
+    // 5. ภาพ QR Code ร้านค้า
     const savedQr = AgentSystem.getAgentQR();
     if (storefrontQrImg) {
       if (savedQr) {
@@ -285,21 +331,124 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Save Agent Settings Handler
+  // Elements สำหรับข้อมูลตัวแทน N3 เพิ่มเติม
+  const agentInputDealerCode = document.getElementById('agent-input-dealer-code');
+  const agentInputLocation = document.getElementById('agent-input-location');
+
+  // Elements สำหรับระบบ Admin Auth Modal
+  const modalAdminAuth = document.getElementById('modal-admin-auth');
+  const btnTriggerAdminLogin = document.getElementById('btn-trigger-admin-login');
+  const modalAdminAuthClose = document.getElementById('modal-admin-auth-close');
+  const btnCancelAdminAuth = document.getElementById('btn-cancel-admin-auth');
+  const formAdminAuth = document.getElementById('form-admin-auth');
+  const adminPinInput = document.getElementById('admin-pin-input');
+  const adminPinError = document.getElementById('admin-pin-error');
+  const btnAdminLogout = document.getElementById('btn-admin-logout');
+  const btnSaveNewPin = document.getElementById('btn-save-new-pin');
+  const agentChangePinInput = document.getElementById('agent-change-pin-input');
+
+  function openAdminAuthModal() {
+    if (AgentSystem.isAdminAuthenticated()) {
+      switchTab('settings');
+      return;
+    }
+    if (modalAdminAuth) {
+      modalAdminAuth.style.display = 'flex';
+      if (adminPinInput) {
+        adminPinInput.value = '';
+        adminPinInput.focus();
+      }
+      if (adminPinError) adminPinError.style.display = 'none';
+    }
+  }
+
+  function closeAdminAuthModal() {
+    if (modalAdminAuth) modalAdminAuth.style.display = 'none';
+  }
+
+  if (btnTriggerAdminLogin) {
+    btnTriggerAdminLogin.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      openAdminAuthModal();
+    });
+  }
+
+  if (modalAdminAuthClose) modalAdminAuthClose.addEventListener('click', closeAdminAuthModal);
+  if (btnCancelAdminAuth) btnCancelAdminAuth.addEventListener('click', closeAdminAuthModal);
+
+  // ตรวจสอบรหัส Admin PIN
+  if (formAdminAuth) {
+    formAdminAuth.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const pin = adminPinInput ? adminPinInput.value.trim() : '';
+      if (AgentSystem.verifyAdminPin(pin)) {
+        try { SoundEngine.playSuccess(); } catch (e) {}
+        closeAdminAuthModal();
+        updateAdminTabsVisibility();
+        switchTab('settings');
+        showToast('🔓 เข้าสู่ระบบผู้ดูแลร้านสำเร็จ!');
+      } else {
+        try { SoundEngine.playError(); } catch (e) {}
+        if (adminPinError) adminPinError.style.display = 'block';
+        if (adminPinInput) {
+          adminPinInput.select();
+          adminPinInput.focus();
+        }
+      }
+    });
+  }
+
+  // เปลี่ยนรหัส Admin PIN
+  if (btnSaveNewPin && agentChangePinInput) {
+    btnSaveNewPin.addEventListener('click', () => {
+      const newPin = agentChangePinInput.value.trim();
+      if (newPin.length < 4) {
+        showToast('กรุณาระบุรหัส PIN ใหม่อย่างน้อย 4 หลัก');
+        return;
+      }
+      const res = AgentSystem.changeAdminPin('9999', newPin); // ยืนยันใน session แล้ว
+      if (res.success) {
+        showToast('🎉 เปลี่ยนรหัสผ่าน Admin PIN เรียบร้อยแล้ว!');
+        agentChangePinInput.value = '';
+      } else {
+        showToast(res.message);
+      }
+    });
+  }
+
+  // ออกจากระบบ Admin
+  if (btnAdminLogout) {
+    btnAdminLogout.addEventListener('click', () => {
+      try { SoundEngine.playClick(); } catch (e) {}
+      AgentSystem.logoutAdmin();
+      updateAdminTabsVisibility();
+      switchTab('shop');
+      showToast('🔒 ออกจากระบบผู้ดูแลร้านเรียบร้อยแล้ว');
+    });
+  }
+
+  // Save Agent Settings Handler (เฉพาะแอดมิน)
   if (btnSaveAgentSettings) {
     btnSaveAgentSettings.addEventListener('click', () => {
+      if (!AgentSystem.isAdminAuthenticated()) {
+        openAdminAuthModal();
+        return;
+      }
+
       try { SoundEngine.playClick(); } catch (e) {}
       const name = agentInputName ? agentInputName.value.trim() : '';
+      const dealerCode = agentInputDealerCode ? agentInputDealerCode.value.trim() : '';
       const line = agentInputLine ? agentInputLine.value.trim() : '';
       const tel = agentInputTel ? agentInputTel.value.trim() : '';
+      const location = agentInputLocation ? agentInputLocation.value.trim() : '';
       const shopUrl = shopUrlInput ? shopUrlInput.value.trim() : '';
 
-      AgentSystem.saveAgentInfo({ name, line, tel, shopUrl });
+      AgentSystem.saveAgentInfo({ name, dealerCode, line, tel, location, shopUrl });
       AgentSystem.applyAgentBranding();
       refreshStorefrontQR();
       refreshPosterPreview();
 
-      showToast('บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว!');
+      showToast('🎉 บันทึกข้อมูลร้านค้า & QR Code เรียบร้อยแล้ว!');
       switchTab('shop');
     });
   }
@@ -308,13 +457,15 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateGeneratedAffiliateUrl() {
     if (!agentGeneratedUrl) return;
     const name = agentInputName ? agentInputName.value : '';
+    const dealerCode = agentInputDealerCode ? agentInputDealerCode.value : '';
     const line = agentInputLine ? agentInputLine.value : '';
     const tel = agentInputTel ? agentInputTel.value : '';
+    const location = agentInputLocation ? agentInputLocation.value : '';
     const shopUrl = shopUrlInput ? shopUrlInput.value : '';
-    agentGeneratedUrl.value = AgentSystem.generateAffiliateUrl(name, line, tel, shopUrl);
+    agentGeneratedUrl.value = AgentSystem.generateAffiliateUrl(name, line, tel, shopUrl, dealerCode, location);
   }
 
-  [agentInputName, agentInputLine, agentInputTel, shopUrlInput].forEach(input => {
+  [agentInputName, agentInputDealerCode, agentInputLine, agentInputTel, agentInputLocation, shopUrlInput].forEach(input => {
     if (input) {
       input.addEventListener('input', updateGeneratedAffiliateUrl);
     }
