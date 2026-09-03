@@ -494,7 +494,7 @@
       <!-- Birthday Zodiac Numerology Box -->
       <div class="checker-card" style="max-width: 750px; margin: 0 auto;">
         <h3 style="color: var(--color-gold); margin-bottom: 1rem;"><i class="fas fa-star-and-crescent"></i> ดูดวงตัวเลขตามราศีเกิด</h3>
-        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 1rem;">
+        <div class="zodiac-input-grid">
           <select id="zodiac-select" class="checker-select" style="margin-bottom: 0;">
             <!-- Filled by JS -->
           </select>
@@ -533,7 +533,7 @@
           <label for="checker-number-input" style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">กรอกหมายเลขสลาก N3 ของคุณ (3 หลัก):</label>
           <div class="checker-input-wrapper">
             <input type="text" id="checker-number-input" class="checker-num-input" maxlength="3" placeholder="789" inputmode="numeric">
-            <button id="btn-check-prize" class="btn btn-gold" style="padding: 0 1.75rem; font-size: 1.05rem;">
+            <button id="btn-check-prize" class="btn btn-gold btn-checker-action">
               <i class="fas fa-check"></i> ตรวจรางวัล
             </button>
           </div>
@@ -799,7 +799,7 @@
     <div class="container">
       <div class="section-title">
         <span class="badge badge-gold"><i class="fas fa-book"></i> OFFICIAL 4-STEP GUIDE</span>
-        <h2>วิธีสั่งซื้อสลาก <span class="text-gradient-gold">GLO N3</span> ผ่านแอปเป๋าตัง</h2>
+        <h2>วิธีสั่งซื้อสลาก <span class="text-gradient-gold">GLO N3</span></h2>
         <p>4 ขั้นตอนง่ายๆ ตามระบบทางการของสำนักงานสลากกินแบ่งรัฐบาล สแกนซื้อสะดวก ปลอดภัย 100%</p>
       </div>
 
@@ -813,7 +813,7 @@
         <div class="step-card">
           <div class="step-number">2</div>
           <h3>รับ QR Code ร้านค้า</h3>
-          <p>กดปุ่ม <strong>"ร้านค้าของเรา"</strong> เพื่อรับภาพ QR Code หรือลิงก์ร้านค้าตัวแทนที่ได้รับอนุญาต</p>
+          <p>กดปุ่ม <strong>"ร้านค้าของเรา"</strong> หรือแชท LINE เพื่อรับภาพ QR Code สั่งซื้อของร้านตัวแทนที่ได้รับอนุญาต</p>
         </div>
 
         <div class="step-card">
@@ -829,11 +829,11 @@
         </div>
       </div>
 
-      <div style="text-align: center; margin-top: 3.5rem; display: flex; justify-content: center; gap: 1.25rem; flex-wrap: wrap;">
-        <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="padding: 1rem 2.5rem; font-size: 1.1rem; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
-          <i class="fab fa-line" style="font-size: 1.3rem;"></i> แชทสั่งซื้อสลากผ่าน LINE
+      <div class="guide-cta-group" style="text-align: center; margin-top: 3rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald guide-cta-btn" style="padding: 0.9rem 1.75rem; font-size: 1.05rem; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+          <i class="fab fa-line" style="font-size: 1.25rem;"></i> แชทสั่งซื้อสลากผ่าน LINE
         </a>
-        <a href="#" class="btn btn-gold btn-our-shop" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
+        <a href="#" class="btn btn-gold btn-our-shop guide-cta-btn" style="padding: 0.9rem 1.75rem; font-size: 1.05rem;">
           <i class="fas fa-qrcode"></i> ดู QR Code หน้าร้าน
         </a>
       </div>

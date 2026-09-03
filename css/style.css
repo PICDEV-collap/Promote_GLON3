@@ -77,13 +77,24 @@
 
 html, body {
   width: 100%;
-  max-width: 100vw;
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  position: relative;
 }
 
 html {
   scroll-behavior: smooth;
   font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+img, svg, video, canvas, audio, iframe {
+  max-width: 100%;
+}
+
+input, button, textarea, select {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 body {
@@ -1134,8 +1145,22 @@ footer {
 
 .checker-num-input:focus {
   border-color: var(--color-gold-light);
-  box-shadow: var(--glow-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
   background: rgba(0, 0, 0, 0.6);
+}
+
+.btn-checker-action {
+  padding: 0 1.75rem;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.zodiac-input-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .checker-select {
@@ -1944,6 +1969,63 @@ footer {
 
   .modal-card {
     padding: 1.5rem 1rem;
+  }
+
+  /* Agent Commission Cards Mobile Fix (No overflow beyond screen) */
+  .agent-stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .agent-earnings-card {
+    padding: 1.25rem 0.85rem !important;
+  }
+
+  .agent-stat-box {
+    padding: 0.85rem !important;
+  }
+
+  /* Lottery Checker Mobile Fix (Button wraps below input, 100% width, no overflow) */
+  .checker-input-wrapper {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .checker-num-input {
+    width: 100% !important;
+    font-size: 1.6rem !important;
+    padding: 0.65rem 0.5rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .btn-checker-action {
+    width: 100% !important;
+    padding: 0.85rem 1rem !important;
+    font-size: 1rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Zodiac Grid Mobile Fix */
+  .zodiac-input-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  #btn-check-zodiac {
+    width: 100% !important;
+  }
+
+  /* Guide CTA Buttons Mobile Fix */
+  .guide-cta-group {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .guide-cta-btn {
+    width: 100% !important;
+    padding: 0.85rem 1rem !important;
+    box-sizing: border-box !important;
   }
 }
 
