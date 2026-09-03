@@ -32,7 +32,9 @@ let page: Page | null = null;
  */
 async function initBrowser() {
   console.log('[BOT ENGINE] กำลังเปิด Browser Context...');
-  browser = await chromium.launch({ headless: true });
+  if (!browser) {
+    browser = await chromium.launch({ headless: true });
+  }
 
   const hasStorageState = fs.existsSync(CONFIG.SESSION_STORAGE_PATH);
   context = await browser.newContext({
@@ -64,14 +66,37 @@ orderQueue.setWorker(async (task: OrderTask) => {
       return;
     }
 
-    // 2. สั่งซื้อบนเว็บ N3
+    // 2. ตรวจสอบสถานะการล็อกอิน N3 ก่อนดำเนินการ
+    const isLoggedIn = await N3Auth.isSessionValid(page!);
+    if (!isLoggedIn) {
+      console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
+      
+      // แจ้งลูกค้า
+      await lineHandler.reply(task.replyToken, [
+        {
+          type: 'text',
+          text: 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อม กรุณารอสักครู่แล้วส่งคำสั่งซื้อใหม่อีกครั้งครับ 🙏'
+        }
+      ]);
+
+      // แจ้งเตือนแอดมินด่วน
+      await lineHandler.pushToAdmin([
+        {
+          type: 'text',
+          text: `⚠️ [แจ้งเตือนแอดมิน] มีลูกค้าสั่งซื้อเลข ${task.number} จำนวน ${task.quantity} ใบ แต่ระบบยังไม่ได้ล็อกอินเป๋าตัง กรุณาเปิดแอปเป๋าตังสแกนล็อกอินด่วนครับ!`
+        }
+      ]);
+      return;
+    }
+
+    // 3. สั่งซื้อบนเว็บ N3
     const result = await N3OrderService.executeOrder(page!, task.number, task.quantity);
 
     if (result.success && result.qrImageUrl) {
-      // 3. หักลบโควต้าสลาก (เพดาน 2,000 ใบ)
+      // หักลบโควต้าสลาก (เพดาน 2,000 ใบ)
       quotaManager.deductQuota(task.quantity);
 
-      // 4. ส่งรูป QR Code ชำระเงินกลับหาลูกค้าผ่าน ReplyToken ทันที (ฟรี ไม่เสียโควต้า LINE OA)
+      // ส่งรูป QR Code ชำระเงินกลับหาลูกค้าผ่าน ReplyToken ทันที (ฟรี ไม่เสียโควต้า LINE OA)
       const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(
         result.qrImageUrl,
         task.number,
@@ -83,7 +108,6 @@ orderQueue.setWorker(async (task: OrderTask) => {
       await lineHandler.reply(task.replyToken, [flexMsg]);
       console.log(`[SUCCESS] ส่ง QR Code ชำระเงินให้ลูกค้า ${task.userId} เรียบร้อยแล้ว`);
     } else {
-      // แจ้งลูกค้าหากเกิดข้อผิดพลาดในการกดเว็บ
       await lineHandler.reply(task.replyToken, [
         {
           type: 'text',
@@ -100,17 +124,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
 });
 
 /**
- * ฟังก์ชันแกะข้อความสั่งซื้อที่ยืดหยุ่นสูง (Smart Regex Parser)
- * รองรับ:
- * - "342 2ใบ", "342 2", "453 3"
- * - "สั่ง 789 5 ใบ", "123=2", "999-1", "555x2"
- * - "000" (หากไม่พิมพ์จำนวน = 1 ใบ)
+ * ฟังก์ชันแกะข้อความสั่งซื้อ
  */
 export function parseOrderMessage(text: string): { number: string; quantity: number } | null {
   if (!text) return null;
   const clean = text.trim();
 
-  // Pattern: ดึงเลข 3 ตัว และตัวเลขจำนวนใบ
   const match = clean.match(/(?:สั่ง\s*)?(\b\d{3}\b)(?:[\s=\-xX*\/,]*([0-9]+)\s*(?:ใบ)?)?/);
   if (match) {
     const number = match[1];
@@ -126,10 +145,10 @@ export function parseOrderMessage(text: string): { number: string; quantity: num
  * LINE Webhook Endpoint
  */
 app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
-  res.status(200).send('OK'); // ตอบ LINE ทันทีภายใน 1 วินาที
+  res.status(200).send('OK');
 
   const events = req.body?.events || [];
-  console.log(`[WEBHOOK EVENT RECEIVED] จำนวน ${events.length} events`);
+  console.log(`[WEBHOOK] ได้รับ ${events.length} event(s) จาก LINE`);
 
   for (const event of events) {
     if (event.type === 'message' && event.message.type === 'text') {
@@ -137,41 +156,39 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       const replyToken: string = event.replyToken;
       const userId: string = event.source?.userId || 'anonymous';
 
-      console.log(`[WEBHOOK] ได้รับข้อความจาก ${userId}: "${userText}"`);
+      console.log(`[USER MESSAGE] "${userText}" จาก ${userId}`);
 
       // 1. ถอดรหัสข้อความสั่งซื้อ
       const parsed = parseOrderMessage(userText);
       if (!parsed) {
-        console.log(`[WEBHOOK] ข้อความ "${userText}" ไม่ใช่รูปแบบคำสั่งซื้อ -> ส่งข้อความแนะนำ`);
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
-            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 วิธีสั่งซื้อง่ายๆ เพียงพิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 342 2ใบ\n- 453 3\n- สั่ง 789 5'
+            text: 'ยินดีต้อนรับสู่บริการสั่งซื้อสลาก N3 อัตโนมัติ 🎉\n\n📌 พิมพ์เลข 3 ตัวตามด้วยจำนวนใบ เช่น:\n- 342 2ใบ\n- 453 3\n- สั่ง 789 5'
           }
         ]);
         continue;
       }
 
-      console.log(`[PARSED ORDER] เลข: ${parsed.number} | จำนวน: ${parsed.quantity} ใบ`);
+      console.log(`[ORDER DETECTED] เลข: ${parsed.number} | จำนวน: ${parsed.quantity} ใบ`);
 
       // 2. ตรวจสอบโควต้าสลาก (2,000 ใบ)
       const quotaCheck = quotaManager.canFulfill(parsed.quantity);
       if (!quotaCheck.allowed) {
-        console.log(`[QUOTA REJECT] ${quotaCheck.reason}`);
         await lineHandler.reply(replyToken, [
           FlexMessageBuilder.buildQuotaExceededMessage(quotaCheck.remaining)
         ]);
         continue;
       }
 
-      // 3. ใส่คำสั่งซื้อลงในคิวความเร็วสูง
+      // 3. ใส่คำสั่งซื้อลงในคิว
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
         userId,
         number: parsed.number,
         quantity: parsed.quantity,
-        totalPrice: parsed.quantity * 20, // ใบละ 20 บาท
+        totalPrice: parsed.quantity * 20,
         timestamp: Date.now()
       };
 
@@ -196,7 +213,7 @@ app.post('/admin/login-qr', async (_req: Request, res: Response) => {
     await lineHandler.pushToAdmin([
       {
         type: 'text',
-        text: '⚠️ ตรวจพบระบบต้องล็อกอินใหม่ กรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที:'
+        text: '⚠️ กรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:'
       },
       {
         type: 'image',
@@ -208,7 +225,7 @@ app.post('/admin/login-qr', async (_req: Request, res: Response) => {
     N3Auth.waitForAdminScan(page!, context!).then(success => {
       if (success) {
         lineHandler.pushToAdmin([
-          { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว ระบบพร้อมรับออเดอร์ลูกค้าอัตโนมัติ' }
+          { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! บอทพร้อมรับออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉' }
         ]);
       }
     });
@@ -219,57 +236,34 @@ app.post('/admin/login-qr', async (_req: Request, res: Response) => {
   }
 });
 
-/**
- * Admin API: ตรวจสอบและจัดการโควต้า
- */
 app.get('/admin/quota', (_req: Request, res: Response) => {
   res.json(quotaManager.getStatus());
 });
 
-app.post('/admin/quota/reset', (req: Request, res: Response) => {
-  const round = req.body.round || new Date().toLocaleDateString('th-TH');
-  const maxQuota = req.body.maxQuota || 2000;
-  const updated = quotaManager.resetRound(round, maxQuota);
-  res.json({ success: true, quota: updated });
-});
-
-/**
- * Health check & status
- */
 app.get('/status', (_req: Request, res: Response) => {
   res.json({
     status: 'online',
     queueLength: orderQueue.getQueueLength(),
-    quota: quotaManager.getStatus(),
-    allowedDomains: CONFIG.ALLOWED_DOMAINS
+    quota: quotaManager.getStatus()
   });
 });
 
-/**
- * ฟังก์ชันเริ่มรันเซิร์ฟเวอร์ พร้อมระบบ Auto Port Conflict Fallback
- */
 function startServerWithPort(targetPort: number) {
   const server = http.createServer(app);
 
   server.listen(targetPort, async () => {
     console.log(`====================================================`);
     console.log(`🚀 N3 Order Bot Service รันอยู่ที่: http://localhost:${targetPort}`);
-    console.log(`🔒 Security Domain Whitelist: ${CONFIG.ALLOWED_DOMAINS.join(', ')}`);
     console.log(`🎫 โควต้าคงเหลือ: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
     console.log(`====================================================`);
 
-    // เริ่มต้นเบราว์เซอร์
     await initBrowser();
   });
 
   server.on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
-      console.warn(`[PORT WARNING] พอร์ต ${targetPort} กำลังถูกใช้งานโดยโปรเจกต์อื่น`);
-      const nextPort = targetPort + 1;
-      console.log(`[PORT FALLBACK] กำลังสลับไปใช้พอร์ต ${nextPort} อัตโนมัติ...`);
-      startServerWithPort(nextPort);
-    } else {
-      console.error('[SERVER ERROR]', err);
+      console.warn(`[PORT WARNING] พอร์ต ${targetPort} ไม่ว่าง กำลังสลับพอร์ต...`);
+      startServerWithPort(targetPort + 1);
     }
   });
 }
