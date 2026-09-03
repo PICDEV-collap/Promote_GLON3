@@ -57,4 +57,26 @@ export class LineReplyHandler {
       return false;
     }
   }
+
+  /**
+   * ส่งข้อความ Push โดยตรงไปยัง User ID ของลูกค้า (ใช้เมื่อคิวต้องรอนานจน replyToken หมดอายุ)
+   */
+  public async push(userId: string, messages: messagingApi.Message[]): Promise<boolean> {
+    if (!this.client || !userId) {
+      console.log(`[LINE SIMULATE PUSH] ส่งให้ ${userId}:`, JSON.stringify(messages, null, 2));
+      return true;
+    }
+
+    try {
+      await this.client.pushMessage({
+        to: userId,
+        messages
+      });
+      console.log(`[LINE PUSH SUCCESS] ส่งข้อความ Push ให้ลูกค้า ${userId} สำเร็จ`);
+      return true;
+    } catch (error) {
+      console.error(`[LINE PUSH ERROR] ไม่สามารถส่งข้อความ Push ให้ลูกค้า ${userId} ได้:`, error);
+      return false;
+    }
+  }
 }

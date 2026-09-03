@@ -91,10 +91,19 @@ orderQueue.setWorker(async (task: OrderTask) => {
   }
 
   try {
+    // ฟังก์ชันช่วยส่งข้อความหาลูกค้า (หากเคยตอบแจ้งคิวไปแล้วจะใช้ Push Message)
+    const sendCustomerMessage = async (messages: any[]) => {
+      if (task.hasRepliedQueue) {
+        await lineHandler.push(task.userId, messages);
+      } else {
+        await lineHandler.reply(task.replyToken, messages);
+      }
+    };
+
     // 1. ตรวจสอบเวลาจำหน่ายอีกครั้งก่อนประมวลผล
     const timeStatus = OperatingHoursGuard.checkSalesStatus();
     if (!timeStatus.isOpen) {
-      await lineHandler.reply(task.replyToken, [
+      await sendCustomerMessage([
         FlexMessageBuilder.buildOutsideOperatingHoursMessage(timeStatus)
       ]);
       return;
@@ -103,7 +112,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     // 2. ตรวจสอบโควต้า
     const quotaCheck = quotaManager.canFulfill(task.quantity);
     if (!quotaCheck.allowed) {
-      await lineHandler.reply(task.replyToken, [
+      await sendCustomerMessage([
         FlexMessageBuilder.buildQuotaExceededMessage(quotaCheck.remaining)
       ]);
       return;
@@ -114,7 +123,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     if (!isLoggedIn) {
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
-      await lineHandler.reply(task.replyToken, [
+      await sendCustomerMessage([
         {
           type: 'text',
           text: 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อมเข้าระบบ กรุณารอสักครู่แล้วสั่งซื้อใหม่อีกครั้งครับ 🙏'
@@ -141,10 +150,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
         10
       );
 
-      await lineHandler.reply(task.replyToken, [flexMsg]);
-      console.log(`[SUCCESS] ส่ง QR Code ชำระเงินให้ลูกค้า ${task.userId} เรียบร้อยแล้ว`);
+      await sendCustomerMessage([flexMsg]);
+      console.log(`[SUCCESS] ส่ง QR Code ชำระเงินให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
     } else {
-      await lineHandler.reply(task.replyToken, [
+      await sendCustomerMessage([
         {
           type: 'text',
           text: `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อเลข ${task.number}: ${result.error || 'กรุณาลองใหม่อีกครั้ง'}`
@@ -153,9 +162,15 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
   } catch (err: any) {
     console.error('[WORKER EXCEPTION]', err);
-    await lineHandler.reply(task.replyToken, [
-      { type: 'text', text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ' }
-    ]);
+    if (task.hasRepliedQueue) {
+      await lineHandler.push(task.userId, [
+        { type: 'text', text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ' }
+      ]);
+    } else {
+      await lineHandler.reply(task.replyToken, [
+        { type: 'text', text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ' }
+      ]);
+    }
   }
 });
 
@@ -252,7 +267,9 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // 5. นำเข้าคิวสั่งซื้อ
+      // 5. นำเข้าคิวสั่งซื้อ & แจ้งเตือนลูกค้าหากมีคิวรอ
+      const isQueueBusy = orderQueue.isBusy();
+
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
@@ -260,10 +277,24 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         number: parsed.number,
         quantity: parsed.quantity,
         totalPrice: parsed.quantity * 20,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        hasRepliedQueue: false
       };
 
-      orderQueue.enqueue(orderTask);
+      if (isQueueBusy) {
+        // หากมีคิวรออยู่: ส่งการ์ดแจ้งลำดับคิวและเวลารอโดยประมาณทันที เพื่อให้ลูกค้าสบายใจ
+        const queuePos = orderQueue.enqueue(orderTask);
+        const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
+        orderTask.hasRepliedQueue = true;
+
+        console.log(`[QUEUE NOTIFY] คิวกำลังทำงาน! ส่งการ์ดแจ้งคิวที่ ${queuePos} (รอ ~${estSeconds} วิ) ให้ลูกค้า ${userId}`);
+        await lineHandler.reply(replyToken, [
+          FlexMessageBuilder.buildQueueStatusMessage(queuePos, estSeconds, parsed.number, parsed.quantity)
+        ]);
+      } else {
+        // ไม่มีคิว: นำเข้าคิวและบอทจะส่ง QR ทันที
+        orderQueue.enqueue(orderTask);
+      }
     }
   }
 });
