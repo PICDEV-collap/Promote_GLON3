@@ -16,12 +16,12 @@ export const CONFIG = {
   // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
   DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/',
 
-  // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก
+  // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก (เฉพาะทางการของกองสลากและเป๋าตังกรุงไทยเท่านั้น)
   ALLOWED_DOMAINS: [
+    'n3.glolotteryshop.com',
     'glolotteryshop.com',
     'krungthai.com',
-    'googletagmanager.com',
-    'google-analytics.com'
+    'paotang-auth.krungthai.com'
   ],
 
   // ข้อมูลระบบจำหน่ายสลาก N3
