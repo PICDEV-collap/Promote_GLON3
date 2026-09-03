@@ -18,10 +18,10 @@ export const CONFIG = {
 
   // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก
   ALLOWED_DOMAINS: [
-    'n3.glolotteryshop.com',
     'glolotteryshop.com',
     'krungthai.com',
-    'paotang-auth.krungthai.com'
+    'googletagmanager.com',
+    'google-analytics.com'
   ],
 
   // ข้อมูลระบบจำหน่ายสลาก N3
