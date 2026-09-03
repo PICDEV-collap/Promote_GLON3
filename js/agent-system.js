@@ -14,7 +14,7 @@ const AgentSystem = (function () {
     name: 'ร้านสลาก N3 ธนกิจนำโชค',
     dealerCode: 'ตัวแทนจำหน่ายสลากกินแบ่งรัฐบาล N3',
     line: '@586xxhlx',
-    tel: '02-528-9999',
+    tel: '',
     location: 'จุดจำหน่ายสลากตัวเลขสามหลัก (N3) ออนไลน์',
     shopUrl: 'https://line.me/R/ti/p/@586xxhlx',
     officialPortalUrl: 'https://n3.glolotteryshop.com',
@@ -72,7 +72,10 @@ const AgentSystem = (function () {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return { ...defaultAgent, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        if (parsed.tel === '02-528-9999') parsed.tel = '';
+        if (parsed.line === '@glon3') parsed.line = '@586xxhlx';
+        return { ...defaultAgent, ...parsed };
       }
     } catch (e) {}
 
