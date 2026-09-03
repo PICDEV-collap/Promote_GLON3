@@ -27,3 +27,8 @@ bot-service/public/qrcodes/
 # Build Artifacts
 dist/
 bot-service/dist/
+bot.log
+tunnel.log
+services.pid
+cf-log.txt
+Webhook
