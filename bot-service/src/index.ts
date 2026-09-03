@@ -85,16 +85,20 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
       await lineHandler.pushToAdmin([
         { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉' }
       ]);
+      console.log('[BROWSER READY] ล็อกอินสำเร็จ หน้าต่าง Chrome พร้อมรับคำสั่งซื้อทันที');
+    } else {
+      // หากหมดเวลาหรือไม่สำเร็จ ให้ปิดหน้าต่างเบราว์เซอร์
+      await PersistentBrowserManager.close();
+      context = null;
+      page = null;
     }
   } catch (err) {
     console.error('[ADMIN AUTH ERROR]', err);
-  } finally {
-    isLoggingIn = false;
-    // ปิดเบราว์เซอร์ทันทีเพื่อไม่ให้เปิดค้างไว้เบื้องหลัง
     await PersistentBrowserManager.close();
     context = null;
     page = null;
-    console.log('[BROWSER] ปิดเบราว์เซอร์เรียบร้อยแล้ว ไม่เปิดค้างไว้เบื้องหลัง');
+  } finally {
+    isLoggingIn = false;
   }
 }
 
@@ -184,14 +188,6 @@ orderQueue.setWorker(async (task: OrderTask) => {
       await lineHandler.reply(task.replyToken, [
         { type: 'text', text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ' }
       ]);
-    }
-  } finally {
-    // เมื่อประมวลผลหมดทุกคิวแล้ว ให้ปิดเบราว์เซอร์ทันที ไม่เปิดค้างไว้เบื้องหลัง
-    if (orderQueue.getQueueLength() === 0) {
-      await PersistentBrowserManager.close();
-      context = null;
-      page = null;
-      console.log('[BROWSER] คิวว่าง ปิดเบราว์เซอร์เรียบร้อยแล้ว ไม่เปิดค้างไว้เบื้องหลัง');
     }
   }
 });
