@@ -33,6 +33,19 @@ export class PersistentBrowserManager {
     }
 
     console.log('[BROWSER] กำลังเปิด Chrome Persistent Context...');
+    const browserArgs = [
+      '--disable-blink-features=AutomationControlled',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding'
+    ];
+
     try {
       // ใช้ Google Chrome จริงในเครื่อง
       this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
@@ -40,14 +53,15 @@ export class PersistentBrowserManager {
         headless,
         viewport: { width: 1440, height: 900 },
         deviceScaleFactor: 2,
-        args: ['--disable-blink-features=AutomationControlled']
+        args: browserArgs
       });
     } catch {
       // Fallback: ใช้ Chromium ของ Playwright
       this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
         headless,
         viewport: { width: 1440, height: 900 },
-        deviceScaleFactor: 2
+        deviceScaleFactor: 2,
+        args: browserArgs
       });
     }
 

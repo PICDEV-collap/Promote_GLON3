@@ -218,10 +218,18 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const itemsDesc = task.items && task.items.length > 0
         ? task.items.map(i => i.number).join(', ')
         : (task.number || '');
+
+      let userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc} กรุณาลองใหม่อีกครั้งครับ`;
+      if (result.outOfStockItems && result.outOfStockItems.length > 0) {
+        userMsg = `ขออภัยครับ สลากเลข ${result.outOfStockItems.join(', ')} ไม่มีจำหน่ายหรือสลากหมดในระบบแล้วครับ`;
+      } else if (result.error && !result.error.includes('Target page') && !result.error.includes('closed') && !result.error.includes('evaluate')) {
+        userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc}: ${result.error}`;
+      }
+
       await sendCustomerMessage([
         {
           type: 'text',
-          text: `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc}: ${result.error || 'กรุณาลองใหม่อีกครั้ง'}`
+          text: userMsg
         }
       ]);
     }
