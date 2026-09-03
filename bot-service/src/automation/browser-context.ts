@@ -8,18 +8,28 @@ export class PersistentBrowserManager {
   private static context: BrowserContext | null = null;
   private static page: Page | null = null;
 
-  public static async getPage(headless: boolean = true): Promise<{ context: BrowserContext; page: Page }> {
+  public static async getPage(headless: boolean = false): Promise<{ context: BrowserContext; page: Page }> {
     if (!fs.existsSync(USER_DATA_DIR)) {
       fs.mkdirSync(USER_DATA_DIR, { recursive: true });
     }
 
     if (!this.context) {
-      console.log('[BROWSER] กำลังเปิด Persistent Context ที่:', USER_DATA_DIR);
-      this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-        headless,
-        viewport: { width: 1440, height: 900 },
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-      });
+      console.log('[BROWSER] กำลังเปิด Chrome Persistent Context...');
+      try {
+        // ใช้ Google Chrome จริงในเครื่อง
+        this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+          channel: 'chrome',
+          headless,
+          viewport: { width: 1440, height: 900 },
+          args: ['--disable-blink-features=AutomationControlled']
+        });
+      } catch {
+        // Fallback: ใช้ Chromium ของ Playwright
+        this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+          headless,
+          viewport: { width: 1440, height: 900 }
+        });
+      }
       
       const pages = this.context.pages();
       this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
