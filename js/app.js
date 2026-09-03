@@ -232,14 +232,13 @@ document.addEventListener('DOMContentLoaded', function () {
       lineBtn.setAttribute('title', `แชทสั่งซื้อสลาก N3 กับ ${agent.name}`);
     }
 
-    // 5. ภาพ QR Code ร้านค้า
+    // 5. ภาพ QR Code ร้านค้า (LINE Official Account)
     const savedQr = AgentSystem.getAgentQR();
     if (storefrontQrImg) {
       if (savedQr) {
         storefrontQrImg.src = savedQr;
       } else {
-        const link = agent.shopUrl || 'https://n3.glolotteryshop.com';
-        storefrontQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+        storefrontQrImg.src = 'images/line-qr.png';
       }
     }
   }
