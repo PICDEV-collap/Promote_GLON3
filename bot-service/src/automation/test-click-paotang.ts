@@ -1,10 +1,14 @@
 import { chromium } from 'playwright';
 import { SecurityGuard } from './security-guard';
+import { N3Auth } from './n3-auth';
 import { CONFIG } from '../config';
 import path from 'path';
+import { exec } from 'child_process';
 
 async function testClickPaotangLogin() {
-  console.log('--- ทดสอบคลิกปุ่มเข้าสู่ระบบด้วยเป๋าตังเพื่อดู QR Code ---');
+  console.log('====================================================');
+  console.log('    N3 PAOTANG LOGIN & SESSION GENERATOR (5 MINS)   ');
+  console.log('====================================================');
   
   const security = new SecurityGuard();
   const browser = await chromium.launch({ headless: true });
@@ -15,54 +19,48 @@ async function testClickPaotangLogin() {
   security.attachToPage(page);
 
   try {
+    console.log('[1/4] Connecting to N3 Portal: ' + CONFIG.N3_LOGIN_URL);
     await page.goto(CONFIG.N3_LOGIN_URL, { waitUntil: 'networkidle' });
     
-    // หาปุ่มหรือองค์ประกอบที่มีข้อความ "เข้าสู่ระบบด้วยแอปฯ​ เป๋าตัง" หรือ #iconButtonLoginByPT
-    console.log('กำลังคลิกปุ่ม "เข้าสู่ระบบด้วยแอปฯ​ เป๋าตัง"...');
-    
-    // ใช้ locator ที่ครอบคลุมทั้ง text และ id
+    console.log('[2/4] Clicking "Login with Paotang App"...');
     const paotangBtn = page.locator('text=เข้าสู่ระบบด้วยแอปฯ').first();
     await paotangBtn.click();
     
-    // รอให้อัปเดตหน้าจอหรือมี QR Code แสดงขึ้นมา
-    await page.waitForTimeout(3000);
-    
-    console.log(`URL ปัจจุบันหลังคลิก: ${page.url()}`);
-    
-    // บันทึกภาพหน้าจอหลังคลิก
+    // รอ QR Code แสดง
+    console.log('[3/4] Waiting for Paotang Login QR Code...');
+    const qrImageLocator = page.locator('img[src^="data:image/"]').first();
+    await qrImageLocator.waitFor({ state: 'visible', timeout: 20000 });
+
     const qrScreenshotPath = path.join(CONFIG.QR_OUTPUT_DIR, 'n3-paotang-qr-login.png');
-    await page.screenshot({ path: qrScreenshotPath, fullPage: true });
-    console.log(`[SUCCESS] บันทึกภาพหน้า QR Code ล็อกอินที่: ${qrScreenshotPath}`);
+    await qrImageLocator.screenshot({ path: qrScreenshotPath });
+    console.log('[SUCCESS] Saved Login QR Code to: ' + qrScreenshotPath);
 
-    // ค้นหา element QR code (เช่น canvas, img, svg)
-    const qrElements = await page.evaluate(() => {
-      const results: any[] = [];
-      document.querySelectorAll('canvas, svg, img').forEach(el => {
-        const rect = el.getBoundingClientRect();
-        if (rect.width > 50 && rect.height > 50) {
-          results.push({
-            tagName: el.tagName,
-            id: el.id,
-            className: el.className,
-            width: rect.width,
-            height: rect.height,
-            src: (el as HTMLImageElement).src ? (el as HTMLImageElement).src.substring(0, 100) : undefined
-          });
-        }
-      });
-      return results;
-    });
+    // เปิดรูป QR Code ขึ้นมาบนหน้าจอคอมทันที
+    console.log('--> Opening QR Code on your screen now...');
+    exec(`start "" "${qrScreenshotPath}"`);
 
-    console.log('Element ที่คาดว่าเป็น QR Code:', JSON.stringify(qrElements, null, 2));
+    console.log('====================================================');
+    console.log('>>> ACTION REQUIRED: <<<');
+    console.log('1. Open your "Paotang" (เป๋าตัง) app on mobile.');
+    console.log('2. Scan the QR Code that just popped up on your screen.');
+    console.log('3. Waiting for scan confirmation (Timeout: 5 mins)...');
+    console.log('====================================================');
 
-    const bodyText = await page.evaluate(() => document.body.innerText.substring(0, 600));
-    console.log('ข้อความในหน้าหลังคลิก:\n', bodyText);
+    // รอให้แอดมินสแกนและบันทึก Session
+    const scanSuccess = await N3Auth.waitForAdminScan(page, context, 300000);
+    if (scanSuccess) {
+      console.log('🎉 [SUCCESS] Login successful! Session has been saved to:');
+      console.log('   ' + CONFIG.SESSION_STORAGE_PATH);
+      console.log('--> You can now run the bot with "Session Saved: true"');
+    } else {
+      console.warn('⚠️ [TIMEOUT] No scan detected within 5 minutes. Please try again.');
+    }
 
   } catch (error) {
-    console.error('[ERROR] เกิดข้อผิดพลาด:', error);
+    console.error('[ERROR]', error);
   } finally {
     await browser.close();
-    console.log('--- สิ้นสุดการทดสอบ ---');
+    console.log('====================================================');
   }
 }
 
