@@ -4,20 +4,13 @@ const path = require('path');
 const readline = require('readline');
 
 const CF_LOG = path.join(__dirname, 'tunnel.log');
+const BOT_LOG = path.join(__dirname, 'bot.log');
 
 function stopServices() {
   console.log('\n[STOP] Stopping all background services...');
   try {
-    // 1. ปิด Node process บนพอร์ต 3333
     execSync('powershell -Command "Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"', { stdio: 'ignore' });
-    // 2. ปิด cloudflared ทั้งหมด
     execSync('powershell -Command "Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"', { stdio: 'ignore' });
-  } catch (e) {}
-
-  try {
-    if (fs.existsSync(CF_LOG)) {
-      fs.unlinkSync(CF_LOG);
-    }
   } catch (e) {}
 
   console.log('[SUCCESS] All bot services stopped clean. Taskbar is clear!\n');
@@ -27,15 +20,24 @@ function startServices() {
   stopServices();
 
   console.log('[1/3] Starting N3 Bot Engine in Background...');
-  // สตาร์ท Bot ผ่าน PowerShell แบบซ่อนหน้าต่าง (WindowStyle Hidden) ไม่ขึ้นบน Taskbar แน่นอน
-  const botCmd = `Start-Process -FilePath "node" -ArgumentList "dist/index.js" -WorkingDirectory "${path.join(__dirname, 'bot-service')}" -WindowStyle Hidden`;
-  execSync(`powershell -Command "${botCmd}"`);
+  const botOut = fs.openSync(BOT_LOG, 'a');
+  const botProc = spawn('node', ['dist/index.js'], {
+    cwd: path.join(__dirname, 'bot-service'),
+    detached: true,
+    stdio: ['ignore', botOut, botOut],
+    windowsHide: true
+  });
+  botProc.unref();
 
   console.log('[2/3] Starting Cloudflare Tunnel in Background...');
-  // สตาร์ท Tunnel แบบซ่อนหน้าต่าง และบันทึกลง tunnel.log
-  const logEscaped = CF_LOG.replace(/\\/g, '\\\\');
-  const tunnelCmd = `Start-Process -FilePath "cmd.exe" -ArgumentList "/c npx --yes cloudflared tunnel --url http://localhost:3333 > \"${logEscaped}\" 2>&1" -WindowStyle Hidden`;
-  execSync(`powershell -Command "${tunnelCmd}"`);
+  const cfOut = fs.openSync(CF_LOG, 'w');
+  const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const cfProc = spawn(npxExecutable, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333'], {
+    detached: true,
+    stdio: ['ignore', cfOut, cfOut],
+    windowsHide: true
+  });
+  cfProc.unref();
 
   console.log('[3/3] Waiting for Public Webhook URL (5-10 seconds)...');
 
@@ -116,7 +118,7 @@ function showMenu() {
       showMenu();
     } else if (choice === '4') {
       console.log('Launching live login...');
-      const p = spawn('npx', ['ts-node', 'src/automation/open-live-browser.ts'], {
+      const p = spawn('npx.cmd', ['ts-node', 'src/automation/open-live-browser.ts'], {
         cwd: path.join(__dirname, 'bot-service'),
         shell: true,
         stdio: 'inherit'
