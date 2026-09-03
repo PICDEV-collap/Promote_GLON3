@@ -156,94 +156,87 @@ export class N3OrderService {
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
       await page.waitForTimeout(2000); // รอรูป QR โหลดชัดเจน
 
-      // 7. ดึงภาพ QR Code คมชัดระดับ Retina High-Definition โดยตรงจาก DOM (ไม่คลิกปุ่มบันทึก เพื่อป้องกัน Browser Crash)
+      // 7. ดึงภาพ QR Code ทางการ หรือแคปเจอร์ทั้งใบอย่างสมบูรณ์
       const fileSummary = fulfilledItems.map(i => i.number).join('-');
       const qrFileName = `payment-${fileSummary}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
-      console.log('[N3 ORDER STEP 7] กำลังตรวจจับตำแหน่ง QR Code บนหน้าจอ...');
+      let isCaptured = false;
 
-      if (page.isClosed()) {
-        throw new Error('หน้าต่างเบราว์เซอร์ปิดตัวลงก่อนดึงภาพ QR Code');
+      // ทางเลือกที่ 1 (วิธีทางการของเว็บสลาก): ดาวน์โหลดรูปภาพสลากทางการ 1280x1116 คมชัดระดับ HD
+      const saveBtn = page.locator('button:has-text("บันทึก")').first();
+      if (await saveBtn.isVisible().catch(() => false)) {
+        try {
+          console.log('[N3 ORDER STEP 7] ตรวจพบปุ่ม "บันทึก" ของกองสลากฯ -> กำลังดักรับไฟล์ดาวน์โหลดสลากทางการ...');
+          const [download] = await Promise.all([
+            page.waitForEvent('download', { timeout: 6000 }),
+            saveBtn.click()
+          ]);
+          if (download) {
+            await download.saveAs(qrFilePath);
+            isCaptured = true;
+            console.log(`[QR CAPTURE SUCCESS] บันทึกไฟล์รูป QR แท้ทางการจากกองสลากสำเร็จ (1280x1116): ${qrFilePath}`);
+          }
+        } catch (e) {
+          console.log('[QR DOWNLOAD NOTICE] ปุ่มบันทึกไม่ได้ส่ง download event -> สลับไปแคปเจอร์ภาพการ์ด N3...');
+        }
       }
 
-      // ตรวจจับ Element QR Code ตัวจริง พร้อมคำนวณ Quiet Zone และแคปเจอร์ขนาดใหญ่
-      const qrDetection = await page.evaluate(() => {
-        // 1. ตรวจจับ Element QR โดยตรง (canvas, svg, หรือ img)
-        const mediaElements = Array.from(document.querySelectorAll('canvas, svg, img'));
-        const candidates: { width: number; height: number; area: number; left: number; top: number }[] = [];
+      // ทางเลือกที่ 2: หากดาวน์โหลดไม่ติด ให้แคปเจอร์ตัว QR Code หรือการ์ดชำระเงินเต็มใบ
+      if (!isCaptured) {
+        console.log('[N3 ORDER STEP 7-FALLBACK] กำลังค้นหาตำแหน่ง QR Code...');
 
-        for (const el of mediaElements) {
-          const rect = el.getBoundingClientRect();
-          // QR Code สลาก N3 จะมีขนาดประมาณ 160px - 650px และเป็นสี่เหลี่ยมจัตุรัส
-          if (rect.width >= 160 && rect.height >= 160 && rect.width <= 650 && rect.height <= 650) {
-            const ratio = rect.width / rect.height;
-            if (Math.abs(1 - ratio) < 0.2) {
-              candidates.push({
-                width: Math.round(rect.width),
-                height: Math.round(rect.height),
-                area: rect.width * rect.height,
-                left: Math.round(rect.left),
-                top: Math.round(rect.top)
-              });
-            }
+        // 2.1 หา Element QR Code (canvas หรือ img) โดยตรง
+        const qrEl = page.locator('canvas, img[src*="data:image"], img[alt*="QR"]').first();
+        if (await qrEl.isVisible().catch(() => false)) {
+          const box = await qrEl.boundingBox();
+          if (box && box.width >= 120 && box.height >= 120) {
+            const pad = 36;
+            await page.screenshot({
+              path: qrFilePath,
+              clip: {
+                x: Math.max(0, Math.round(box.x - pad)),
+                y: Math.max(0, Math.round(box.y - pad)),
+                width: Math.round(box.width + pad * 2),
+                height: Math.round(box.height + pad * 2)
+              }
+            });
+            isCaptured = true;
+            console.log(`[QR CAPTURE SUCCESS] แคปเจอร์จาก QR Element โดยตรงสำเร็จ: ${qrFilePath}`);
           }
         }
 
-        if (candidates.length > 0) {
-          // เลือกตัวที่ใหญ่ที่สุด (ตัว QR Code หลัก ไม่ใช่โลโก้ N3 อันเล็กๆ ตรงกลาง)
-          candidates.sort((a, b) => b.area - a.area);
-          const best = candidates[0];
-          const padding = 24; // ขอบขาว Quiet Zone ตามมาตรฐาน QR Code
-          return {
-            strategy: 'element-qr',
-            clip: {
-              x: Math.max(0, best.left - padding),
-              y: Math.max(0, best.top - padding),
-              width: best.width + (padding * 2),
-              height: best.height + (padding * 2)
-            }
-          };
-        }
-
-        // 2. ถ้าตรวจจับ Media ไม่เจอ: หาตำแหน่งการ์ดสีขาวที่แสดง QR ("กรุณาสแกน QR ผ่านแอปฯ เป๋าตัง")
-        const leafNodes = Array.from(document.querySelectorAll('*')).filter(el =>
-          el.children.length === 0 && el.textContent && el.textContent.includes('กรุณาสแกน QR')
-        );
-
-        if (leafNodes.length > 0) {
-          let container = leafNodes[0].parentElement;
-          while (container && container !== document.body) {
-            const cr = container.getBoundingClientRect();
-            if (cr.width >= 350 && cr.width <= 800 && cr.height >= 400) {
-              return {
-                strategy: 'card-container',
+        // 2.2 หากไม่เจอตัว QR เดี่ยวๆ ให้แคปเจอร์การ์ดใบสลากสีขาวทั้งใบ
+        if (!isCaptured) {
+          const cardEl = page.locator('div:has-text("กรุณาสแกน QR")').last();
+          if (await cardEl.isVisible().catch(() => false)) {
+            const cardBox = await cardEl.boundingBox();
+            if (cardBox && cardBox.width >= 300) {
+              await page.screenshot({
+                path: qrFilePath,
                 clip: {
-                  x: Math.max(0, Math.round(cr.left)),
-                  y: Math.max(0, Math.round(cr.top)),
-                  width: Math.round(cr.width),
-                  height: Math.round(cr.height)
+                  x: Math.max(0, Math.round(cardBox.x)),
+                  y: Math.max(0, Math.round(cardBox.y)),
+                  width: Math.round(cardBox.width),
+                  height: Math.round(cardBox.height)
                 }
-              };
+              });
+              isCaptured = true;
+              console.log(`[QR CAPTURE SUCCESS] แคปเจอร์จากการ์ด N3 ทั้งใบสำเร็จ: ${qrFilePath}`);
             }
-            container = container.parentElement;
           }
         }
 
-        // 3. Fallback: พิกัดกึ่งกลางหน้าจอขนาดใหญ่ 480x480px สำหรับสลาก N3
-        return {
-          strategy: 'center-fallback',
-          clip: { x: 480, y: 280, width: 480, height: 480 }
-        };
-      });
-
-      console.log(`[QR CROP] กลยุทธ์การตรวจจับ: ${qrDetection.strategy} | พิกัด:`, JSON.stringify(qrDetection.clip));
-
-      await page.screenshot({
-        path: qrFilePath,
-        clip: qrDetection.clip
-      });
-      console.log(`[QR CAPTURE SUCCESS] แคปเจอร์ภาพ QR Code ความละเอียดสูงสำเร็จ: ${qrFilePath}`);
+        // 2.3 Fallback สุดท้าย: แคปเจอร์พื้นที่กึ่งกลางจอขนาดใหญ่ 720x750px (ครอบคลุมทั้งการ์ดแน่นอน)
+        if (!isCaptured) {
+          console.log('[QR CAPTURE FALLBACK] ใช้พิกัดกึ่งกลางจอมาตรฐาน (720x750px)...');
+          await page.screenshot({
+            path: qrFilePath,
+            clip: { x: 360, y: 100, width: 720, height: 750 }
+          });
+          console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกึ่งกลางจอสำเร็จ: ${qrFilePath}`);
+        }
+      }
 
       // 8. กดปุ่ม "กลับหน้าหลัก"
       const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
