@@ -1,6 +1,7 @@
 /* ==========================================================================
    GLO N3 - Agent Poster & Banner Marketing Studio (Canvas Engine)
    Renders High-DPI Marketing Posters for Social Media & Storefronts
+   With Dynamic Agent QR Code Embedding & GLO Official Compliance
    ========================================================================== */
 
 const PosterStudio = (function () {
@@ -19,9 +20,23 @@ const PosterStudio = (function () {
   }
 
   /**
-   * Render Poster to Canvas Data URL
+   * Helper to load Image from src
    */
-  function renderPoster(config) {
+  function loadImage(src) {
+    return new Promise((resolve) => {
+      if (!src) return resolve(null);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  /**
+   * Render Poster Async with QR Code support
+   */
+  async function renderPosterAsync(config) {
     const isStory = config.ratio === 'story';
     const width = 1080;
     const height = isStory ? 1920 : 1080;
@@ -33,11 +48,12 @@ const PosterStudio = (function () {
 
     const theme = config.theme || 'gold';
     const shopName = config.shopName || 'ร้านสลาก N3 มหามงคล';
-    const drawDate = config.drawDate || '1 กันยายน 2569';
+    const drawDate = config.drawDate || 'งวดประจำวันที่ 1 และ 16';
     const featuredNumbers = config.numbers || ['789', '532', '904'];
     const contactLine = config.line || '@glon3';
     const contactTel = config.tel || '02-528-9999';
     const customHeadline = config.headline || 'สลากกินแบ่งรัฐบาล N3 (3 หลัก) ใบละ 20 บาท';
+    const qrSrc = config.qrImage || (typeof AgentSystem !== 'undefined' ? AgentSystem.getAgentQR() : null);
 
     // 1. Background Fill by Theme
     const bgGrad = ctx.createLinearGradient(0, 0, width, height);
@@ -76,23 +92,23 @@ const PosterStudio = (function () {
     ctx.strokeRect(margin + 15, margin + 15, width - (margin + 15) * 2, height - (margin + 15) * 2);
 
     // 3. Top Header: GLO Official Badge & Shop Name
-    let currentY = isStory ? 160 : 120;
+    let currentY = isStory ? 140 : 110;
 
     // GLO Pill Badge
     ctx.fillStyle = 'rgba(255, 215, 0, 0.15)';
     ctx.strokeStyle = '#ffd700';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(width / 2 - 220, currentY - 45, 440, 56, 28);
+    ctx.roundRect(width / 2 - 240, currentY - 45, 480, 56, 28);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = '#ffd700';
     ctx.font = '700 24px "Prompt", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('✦ สลากกินแบ่งรัฐบาล GLO N3 ✦', width / 2, currentY - 8);
+    ctx.fillText('✦ สลากกินแบ่งรัฐบาล GLO N3 (3 หลัก) ✦', width / 2, currentY - 8);
 
-    currentY += isStory ? 100 : 75;
+    currentY += isStory ? 90 : 70;
 
     // Shop Name
     drawGlowText(
@@ -100,45 +116,45 @@ const PosterStudio = (function () {
       shopName,
       width / 2,
       currentY,
-      '900 52px "Prompt", sans-serif',
+      '900 50px "Prompt", sans-serif',
       '#ffffff',
       'rgba(255, 215, 0, 0.6)',
       25
     );
 
-    currentY += isStory ? 60 : 45;
+    currentY += isStory ? 55 : 45;
 
     // Draw Date Pill
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '500 26px "Kanit", sans-serif';
-    ctx.fillText(`งวดประจำวันที่ ${drawDate} • ใบละ 20 บาท`, width / 2, currentY);
+    ctx.font = '500 24px "Kanit", sans-serif';
+    ctx.fillText(`${drawDate} • ใบละ 20 บาท`, width / 2, currentY);
 
-    currentY += isStory ? 90 : 60;
+    currentY += isStory ? 80 : 55;
 
     // Headline
     ctx.fillStyle = theme === 'emerald' ? '#34d399' : '#ffd700';
-    ctx.font = '700 32px "Prompt", sans-serif';
+    ctx.font = '700 30px "Prompt", sans-serif';
     ctx.fillText(customHeadline, width / 2, currentY);
 
     // 4. Featured 3-Digit Balls Section
-    currentY += isStory ? 130 : 90;
+    currentY += isStory ? 110 : 80;
 
     drawGlowText(
       ctx,
       '★ ชุดเลขเด็ด N3 คัดพิเศษประจำงวด ★',
       width / 2,
       currentY,
-      '700 28px "Prompt", sans-serif',
+      '700 26px "Prompt", sans-serif',
       '#ffffff',
       'rgba(16, 185, 129, 0.5)',
       15
     );
 
-    currentY += isStory ? 110 : 80;
+    currentY += isStory ? 100 : 70;
 
-    // Draw 3 Big Number Cards / Balls
+    // Draw 3 Big Number Cards
     const boxWidth = 280;
-    const boxHeight = isStory ? 160 : 130;
+    const boxHeight = isStory ? 150 : 120;
     const startX = width / 2 - (boxWidth * 3 + 30 * 2) / 2;
 
     featuredNumbers.slice(0, 3).forEach((numStr, idx) => {
@@ -156,69 +172,101 @@ const PosterStudio = (function () {
 
       // Card Title
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '600 20px "Prompt", sans-serif';
-      ctx.fillText(`ชุดที่ ${idx + 1} (3 ตัวตรง)`, bx + boxWidth / 2, by + 36);
+      ctx.font = '600 18px "Prompt", sans-serif';
+      ctx.fillText(`ชุดที่ ${idx + 1} (3 ตัวตรง)`, bx + boxWidth / 2, by + 32);
 
       // Digits
       drawGlowText(
         ctx,
         numStr,
         bx + boxWidth / 2,
-        by + boxHeight - 28,
-        '900 64px "Prompt", sans-serif',
+        by + boxHeight - 24,
+        '900 58px "Prompt", sans-serif',
         theme === 'emerald' ? '#34d399' : '#ffd700',
         'rgba(255, 215, 0, 0.7)',
         20
       );
     });
 
-    currentY += boxHeight + (isStory ? 100 : 60);
+    currentY += boxHeight + (isStory ? 80 : 50);
 
-    // 5. 4 Prizes Value Proposition
+    // 5. Official 4 Prizes Allocation Box
     ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 1.5;
-    const propWidth = 920;
-    const propHeight = isStory ? 240 : 160;
+    const propWidth = 940;
+    const propHeight = isStory ? 210 : 140;
     ctx.beginPath();
     ctx.roundRect(width / 2 - propWidth / 2, currentY, propWidth, propHeight, 20);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = '#ffd700';
-    ctx.font = '700 26px "Prompt", sans-serif';
-    ctx.fillText('🏆 ลุ้นรับ 4 รางวัลใหญ่ สัดส่วนเงินรางวัล 60% ของยอดขาย 🏆', width / 2, currentY + 45);
+    ctx.font = '700 24px "Prompt", sans-serif';
+    ctx.fillText('🏆 สัดส่วนเงินรางวัล 60% ของยอดขาย (สำนักงานสลากกินแบ่งรัฐบาล) 🏆', width / 2, currentY + 38);
 
     ctx.fillStyle = '#e2e8f0';
-    ctx.font = '400 22px "Kanit", sans-serif';
-    ctx.fillText('• 3 ตัวตรง (30%)   • 3 ตัวโต๊ด (30%)   • 2 ตัวตรง (39%)   • แจ็กพอตพิเศษ (1%)', width / 2, currentY + 95);
+    ctx.font = '400 20px "Kanit", sans-serif';
+    ctx.fillText('• 3 ตรง (22.5%)   • 3 โต๊ด (14.7%)   • 2 ตรง (22.4%)   • แจ็กพอตพิเศษ (0.4%)', width / 2, currentY + 80);
 
-    if (isStory) {
-      ctx.fillStyle = '#34d399';
-      ctx.font = '500 22px "Kanit", sans-serif';
-      ctx.fillText('✓ สลากดิจิทัลถูกต้องตามกฎหมาย 100% ซื้อตรงผ่านร้านค้าและแอปเป๋าตัง', width / 2, currentY + 160);
-      ctx.fillText('✓ รับเงินรางวัลเต็มจำนวน ปลอดภัย ตรวจผลรางวัลอัตโนมัติ', width / 2, currentY + 200);
+    ctx.fillStyle = '#34d399';
+    ctx.font = '500 19px "Kanit", sans-serif';
+    ctx.fillText('✓ สลากดิจิทัล N3 ใบละ 20 บาท • สแกนซื้อผ่านแอปเป๋าตัง สะดวก ปลอดภัย 100%', width / 2, currentY + 115);
+
+    // 6. QR Code Section (if Story layout or space permits)
+    const qrImg = await loadImage(qrSrc);
+    if (isStory && qrImg) {
+      currentY += propHeight + 60;
+      const qrSize = 220;
+      const qrX = width / 2 - qrSize / 2;
+      const qrY = currentY;
+
+      // QR White Background Card
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 20);
+      ctx.fill();
+
+      // Draw QR Image
+      ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+      ctx.fillStyle = '#ffd700';
+      ctx.font = '700 22px "Prompt", sans-serif';
+      ctx.fillText('📲 สแกน QR ผ่านแอป "เป๋าตัง" เพื่อสั่งซื้อทันที', width / 2, qrY + qrSize + 46);
     }
 
-    // 6. Footer Contact & QR Placeholder
-    const footerY = height - (isStory ? 220 : 140);
+    // 7. Footer Contact & Compliance
+    const footerY = height - (isStory ? 160 : 120);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = '700 30px "Prompt", sans-serif';
+    ctx.font = '700 26px "Prompt", sans-serif';
     ctx.fillText(`🛒 สั่งซื้อกับเรา: LINE ${contactLine}  |  โทร: ${contactTel}`, width / 2, footerY);
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '400 20px "Kanit", sans-serif';
-    ctx.fillText('แสกนสั่งซื้อผ่านแอปพลิเคชัน "เป๋าตัง" หรือติดต่อหน้าร้านค้าของเราได้ตลอด 24 ชม.', width / 2, footerY + 45);
+    ctx.font = '400 18px "Kanit", sans-serif';
+    ctx.fillText('สแกนสั่งซื้อผ่านแอปพลิเคชัน "เป๋าตัง" (เมนูสลากตัวเลขสามหลัก N3)', width / 2, footerY + 36);
+
+    // GLO Compliance Badge Line
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '500 16px "Kanit", sans-serif';
+    ctx.fillText('⚠️ คำเตือน: ห้ามจำหน่ายแก่บุคคลที่มีอายุต่ำกว่า 20 ปีบริบูรณ์ • ไม่จำหน่ายในสถานศึกษา • เล่นอย่างมีสติ', width / 2, footerY + 70);
 
     return canvas.toDataURL('image/png');
   }
 
   /**
+   * Render Poster Sync wrapper
+   */
+  function renderPoster(config) {
+    // For synchronous calls, we render without waiting for image or use existing canvas
+    return renderPosterAsync(config);
+  }
+
+  /**
    * Trigger download of generated poster
    */
-  function downloadPoster(config) {
-    const dataUrl = renderPoster(config);
+  async function downloadPoster(config) {
+    const dataUrl = await renderPosterAsync(config);
     const link = document.createElement('a');
     link.download = `GLO-N3-Poster-${config.ratio || 'square'}-${Date.now()}.png`;
     link.href = dataUrl;
@@ -229,6 +277,7 @@ const PosterStudio = (function () {
 
   return {
     renderPoster,
+    renderPosterAsync,
     downloadPoster
   };
 })();

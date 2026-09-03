@@ -1,16 +1,18 @@
 /* ==========================================================================
    GLO N3 - Dynamic White-label Agent & Affiliate System
-   URL Query Parameter Parser, Agent Branding Injector, & Share Link Generator
+   URL Query Parameter Parser, Agent Branding, QR Management, & Quick-Reply Engine
    ========================================================================== */
 
 const AgentSystem = (function () {
   const STORAGE_KEY = 'glo_n3_agent_config';
+  const STORAGE_QR_KEY = 'glo_n3_agent_qr';
 
   const defaultAgent = {
     name: 'GLO N3 Official Partner',
     line: '@glon3',
     tel: '02-528-9999',
     shopUrl: 'https://line.me',
+    officialPortalUrl: 'https://n3.glolotteryshop.com',
     isCustomAgent: false
   };
 
@@ -37,6 +39,7 @@ const AgentSystem = (function () {
         line: line || defaultAgent.line,
         tel: tel || defaultAgent.tel,
         shopUrl: finalShopUrl || defaultAgent.shopUrl,
+        officialPortalUrl: defaultAgent.officialPortalUrl,
         agentId: agentId || '',
         isCustomAgent: true
       };
@@ -70,8 +73,10 @@ const AgentSystem = (function () {
    * Save custom agent info
    */
   function saveAgentInfo(info) {
+    const current = getAgentInfo();
     const updated = {
       ...defaultAgent,
+      ...current,
       ...info,
       isCustomAgent: true
     };
@@ -83,18 +88,81 @@ const AgentSystem = (function () {
   }
 
   /**
+   * QR Code Image Management (Base64)
+   */
+  function getAgentQR() {
+    try {
+      return localStorage.getItem(STORAGE_QR_KEY) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveAgentQR(dataUrl) {
+    try {
+      if (dataUrl) {
+        localStorage.setItem(STORAGE_QR_KEY, dataUrl);
+      } else {
+        localStorage.removeItem(STORAGE_QR_KEY);
+      }
+      return true;
+    } catch (e) {
+      console.error('Failed to save QR Code in localStorage:', e);
+      return false;
+    }
+  }
+
+  function clearAgentQR() {
+    try {
+      localStorage.removeItem(STORAGE_QR_KEY);
+    } catch (e) {}
+  }
+
+  /**
    * Generate an affiliate link with query params
    */
-  function generateAffiliateUrl(shopName, line, tel) {
+  function generateAffiliateUrl(shopName, line, tel, shopUrl) {
     const baseUrl = window.location.origin + window.location.pathname;
     const params = new URLSearchParams();
 
     if (shopName && shopName !== defaultAgent.name) params.set('shop', shopName.trim());
     if (line && line !== defaultAgent.line) params.set('line', line.trim());
     if (tel && tel !== defaultAgent.tel) params.set('tel', tel.trim());
+    if (shopUrl && shopUrl !== defaultAgent.shopUrl) params.set('url', shopUrl.trim());
 
     const queryString = params.toString();
     return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+  }
+
+  /**
+   * Quick-Reply Templates Generator for Social & LINE OA
+   */
+  function getQuickReplyTemplates(featuredNumber = '789') {
+    const info = getAgentInfo();
+    const shopName = info.name || defaultAgent.name;
+    const lineContact = info.line || defaultAgent.line;
+    const webUrl = generateAffiliateUrl(info.name, info.line, info.tel, info.shopUrl);
+
+    return [
+      {
+        id: 'hook-dream',
+        title: '🔮 แจกชุดเลขเด็ด N3 & นิมิตฝัน',
+        desc: 'เหมาะสำหรับโพสต์กลุ่ม LINE / Facebook เพื่อดึงคนเข้าเว็บและสั่งซื้อ',
+        content: `✨ เลขเด็ดสลาก N3 ประจำงวดนี้จาก AI ทำนายฝัน ✨\nชุดเลขมงคลเด่น: [ ${featuredNumber} ] (3 ตรง / 3 โต๊ด / 2 ตัวท้าย)\n\n🛒 สั่งซื้อสลาก N3 ใบละ 20 บาท ถูกต้องตามกฎหมายกับ ${shopName}\n👉 ตรวจดวงและขอรับ QR สแกนซื้อได้ที่: ${webUrl}\n📲 LINE: ${lineContact}`
+      },
+      {
+        id: 'guide-buyer',
+        title: '📲 คู่มือวิธีซื้อผ่านเป๋าตัง (ลูกค้าใหม่)',
+        desc: 'ส่งให้ลูกค้าที่ยังไม่เคยซื้อสลาก N3 ในแอปเป๋าตัง',
+        content: `📌 4 ขั้นตอนง่ายๆ ในการซื้อสลาก N3 (ใบละ 20 บาท) ผ่านแอปเป๋าตัง:\n1. แจ้งเลขที่ต้องการซื้อกับทางร้าน ${shopName} เพื่อรับ QR Code ชำระเงิน\n2. เปิดแอป "เป๋าตัง" เข้าเมนู "สลากกินแบ่งรัฐบาล" -> เลือก "สลากตัวเลขสามหลัก (N3)"\n3. กดปุ่ม "สแกนซื้อสลาก" แล้วสแกนรูป QR Code ที่ทางร้านส่งให้\n4. ตรวจสอบรายการและกดยืนยันชำระเงินผ่าน G-Wallet (20 บ./ใบ)\n\n🎉 สลากจะถูกเก็บในเมนู "สลากของฉัน" ทันที ลุ้นได้ถึง 4 รางวัลใหญ่!`
+      },
+      {
+        id: 'result-alert',
+        title: '🏆 แจ้งเตือนตรวจผลรางวัล N3',
+        desc: 'ส่งในวันหวยออก (วันที่ 1 และ 16) เพื่อให้ลูกค้ากลับมาตรวจผล',
+        content: `🎉 ประกาศผลสลากกินแบ่งรัฐบาล N3 งวดประจำวันนี้!\nใครถูกรางวัล 3 ตรง, 3 โต๊ด, 2 ตัวตรง หรือ รางวัลพิเศษ สามารถตรวจผลและขึ้นเงินรางวัลผ่านแอปเป๋าตังได้เลยครับ 💰\n\n🔮 ตรวจผลย้อนหลังและคำนวณเงินรางวัลได้ที่: ${webUrl}\nขอบคุณที่อุดหนุน ${shopName} ครับ 🙏`
+      }
+    ];
   }
 
   /**
@@ -146,7 +214,11 @@ const AgentSystem = (function () {
   return {
     getAgentInfo,
     saveAgentInfo,
+    getAgentQR,
+    saveAgentQR,
+    clearAgentQR,
     generateAffiliateUrl,
+    getQuickReplyTemplates,
     applyAgentBranding,
     defaultAgent
   };

@@ -1516,6 +1516,238 @@ footer {
 }
 
 /* ==========================================================================
+   GLO COMPLIANCE & TRUST BAR
+   ========================================================================== */
+.compliance-bar {
+  background: rgba(10, 15, 29, 0.85);
+  border-top: 1px solid rgba(255, 215, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+  padding: 0.75rem 0;
+  backdrop-filter: blur(10px);
+}
+
+.compliance-grid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.compliance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-glass);
+  transition: var(--transition-fast);
+}
+
+.compliance-chip:hover {
+  border-color: var(--border-gold);
+  color: var(--text-primary);
+}
+
+.compliance-chip i {
+  color: var(--color-gold);
+}
+
+/* ==========================================================================
+   STOREFRONT QR CODE MODAL & DROPZONE
+   ========================================================================== */
+.storefront-qr-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 1.25rem auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+  max-width: 280px;
+  width: 100%;
+}
+
+.storefront-qr-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+.qr-countdown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #d97706;
+  background: #fef3c7;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  margin-top: 0.75rem;
+}
+
+.qr-dropzone {
+  border: 2px dashed var(--border-emerald);
+  background: rgba(16, 185, 129, 0.05);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.qr-dropzone:hover, .qr-dropzone.dragover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: var(--color-emerald-light);
+}
+
+.qr-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.qr-preview-thumbnail {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+/* ==========================================================================
+   AGENT QUICK-REPLY TEMPLATES
+   ========================================================================== */
+.quick-replies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: left;
+}
+
+.quick-reply-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1.15rem;
+  transition: var(--transition-fast);
+}
+
+.quick-reply-card:hover {
+  border-color: var(--border-gold);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.quick-reply-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.quick-reply-header h4 {
+  font-size: 0.95rem;
+  color: var(--color-gold-light);
+}
+
+.quick-reply-text {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  line-height: 1.45;
+  margin-bottom: 0.75rem;
+  max-height: 120px;
+  overflow-y: auto;
+  font-family: var(--font-body);
+}
+
+/* ==========================================================================
+   AGENT EARNINGS ESTIMATOR & ROLLOVER CARD
+   ========================================================================== */
+.agent-earnings-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+  border: 1px solid var(--border-emerald);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  margin-top: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.agent-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  margin: 1.25rem 0 0.5rem 0;
+}
+
+.agent-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-emerald);
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.8);
+  border: 2px solid #fff;
+}
+
+.agent-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.agent-stat-box {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  text-align: center;
+}
+
+.rollover-card {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+}
+
+.rollover-card i {
+  font-size: 1.75rem;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
    RESPONSIVE MEDIA QUERIES (Mobile & Tablet Optimization)
    ========================================================================== */
 
