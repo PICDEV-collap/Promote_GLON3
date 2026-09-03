@@ -4,16 +4,15 @@ import path from 'path';
 
 export class N3OrderService {
   /**
-   * สั่งซื้อสลาก N3 ตาม Flow จริงที่ผ่านการวิเคราะห์:
-   * 1. กรอกเลข 3 ตัว [x][y][z]
+   * สั่งซื้อสลาก N3 ตาม Flow จริง:
+   * 1. กรอกเลข 3 หลัก
    * 2. กดปุ่ม "เลือกเลข"
-   * 3. กดปุ่ม "เลือก" ในแถวรายการสลากฯ เพื่อหยิบใส่ตะกร้า
-   * 4. ปรับจำนวนใบ (+) ตามจำนวนที่ลูกค้าสั่ง
-   * 5. กดปุ่ม "ตรวจสอบสลากฯ" (มุมขวาล่าง)
-   * 6. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ" ในหน้า lotto-confirm
+   * 3. คลิกปุ่ม "เลือก" (ตรงตัว ไม่ใช่ "เลือกเลข") หรือติ๊ก "เลือกทั้งหมด"
+   * 4. ปรับจำนวนใบ (+) ถ้าต้องการมากกว่า 1 ใบ
+   * 5. กดปุ่ม "ตรวจสอบสลากฯ"
+   * 6. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
    * 7. กดยืนยันในป๊อปอัป
-   * 8. แคปเจอร์ภาพ QR Code ชำระเงิน ส่งให้ลูกค้า
-   * 9. กดปุ่ม "กลับหน้าหลัก"
+   * 8. แคปเจอร์รูป QR Code ชำระเงิน ส่งให้ลูกค้า
    */
   public static async executeOrder(
     page: Page,
@@ -21,9 +20,9 @@ export class N3OrderService {
     quantity: number
   ): Promise<{ success: boolean; qrImageUrl?: string; error?: string }> {
     try {
-      console.log(`[N3 ORDER] เริ่มกระบวนการสั่งซื้อเลข ${lotteryNumber} จำนวน ${quantity} ใบ...`);
+      console.log(`[N3 ORDER] เริ่มสั่งซื้อเลข ${lotteryNumber} จำนวน ${quantity} ใบ...`);
 
-      // 1. นำทางไปยังหน้าค้นหาเลข N3 โดยตรง
+      // 1. ไปยังหน้าค้นหาเลข
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
       console.log(`[STEP 1] ไปยังหน้าค้นหา: ${searchUrl}`);
       await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
@@ -32,7 +31,7 @@ export class N3OrderService {
         return { success: false, error: 'Session หลุด กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
       }
 
-      // 2. กรอกตัวเลข 3 ตัว
+      // 2. กรอกตัวเลข 3 ตัวลงใน 3 ช่อง
       console.log(`[STEP 2] กำลังกรอกเลข 3 ตัว: ${lotteryNumber}`);
       const digits = lotteryNumber.split('');
       const inputBoxes = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
@@ -53,35 +52,50 @@ export class N3OrderService {
       console.log('[STEP 3] กดปุ่ม "เลือกเลข"...');
       const selectNumberBtn = page.locator('button:has-text("เลือกเลข")').first();
       await selectNumberBtn.click();
+      await page.waitForTimeout(1500); // รอผลการค้นหาแสดง
+
+      // 4. คลิกเลือกสลากในแถวรายการ (ใช้ DOM evaluate เพื่อความแม่นยำ ไม่สับสนกับ "เลือกเลข")
+      console.log('[STEP 4] กำลังคลิกเลือกสลากในรายการ...');
+      const clicked = await page.evaluate(() => {
+        // หาปุ่มที่มีข้อความว่า "เลือก" ตัวเดียวโดดๆ
+        const allButtons = Array.from(document.querySelectorAll('button'));
+        const exactPickBtn = allButtons.find(b => b.innerText.trim() === 'เลือก');
+        if (exactPickBtn) {
+          exactPickBtn.click();
+          return 'clicked_button';
+        }
+        // ถ้าไม่เจอปุ่ม ให้ติ๊ก checkbox "เลือกทั้งหมด"
+        const checkbox = document.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          (checkbox as HTMLInputElement).click();
+          return 'clicked_checkbox';
+        }
+        return 'not_found';
+      });
+
+      console.log(`[STEP 4 RESULT] การเลือกสลาก: ${clicked}`);
       await page.waitForTimeout(1000);
 
-      // 4. กดปุ่ม "เลือก" ในแถวรายการสลากฯ (สำคัญมาก!)
-      console.log('[STEP 4] กดปุ่ม "เลือก" สลากที่ค้นพบ...');
-      const pickTicketBtn = page.locator('button:has-text("เลือก")').first();
-      await pickTicketBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await pickTicketBtn.click();
-      await page.waitForTimeout(1000);
-
-      // 5. ปรับจำนวนใบ (ถ้าสั่งมากกว่า 1 ใบ ให้กดปุ่ม +)
+      // 5. ปรับจำนวนใบ (ถ้าสั่งมากกว่า 1 ใบ)
       if (quantity > 1) {
-        console.log(`[STEP 5] กำลังปรับจำนวนใบเป็น ${quantity} ใบ...`);
-        const plusBtn = page.locator('button:has-text("+")').first();
+        console.log(`[STEP 5] กำลังเพิ่มจำนวนใบเป็น ${quantity} ใบ...`);
         for (let i = 1; i < quantity; i++) {
-          if (await plusBtn.isVisible()) {
-            await plusBtn.click();
-            await page.waitForTimeout(300);
-          }
+          await page.evaluate(() => {
+            const plusBtn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === '+');
+            if (plusBtn) plusBtn.click();
+          });
+          await page.waitForTimeout(300);
         }
       }
 
-      // 6. กดปุ่ม "ตรวจสอบสลากฯ" (มุมขวาล่าง)
+      // 6. กดปุ่ม "ตรวจสอบสลากฯ" (ปุ่มสีฟ้ามุมขวาล่าง)
       console.log('[STEP 6] กดปุ่ม "ตรวจสอบสลากฯ"...');
       const inspectBtn = page.locator('button:has-text("ตรวจสอบสลากฯ")').first();
-      await inspectBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await inspectBtn.waitFor({ state: 'visible', timeout: 15000 });
       await inspectBtn.click();
 
-      // 7. รอหน้าเว็บเปลี่ยนไปที่ /lotto-confirm/
-      console.log('[STEP 7] กำลังรอหน้ายืนยันรายการ (/lotto-confirm/)...');
+      // 7. รอหน้ายืนยันรายการ (/lotto-confirm/)
+      console.log('[STEP 7] รอหน้ายืนยันรายการ (/lotto-confirm/)...');
       await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 });
 
       // 8. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
@@ -99,7 +113,7 @@ export class N3OrderService {
       // 10. รอหน้าแสดง QR Code (/qr/)
       console.log('[STEP 10] รอหน้าแสดง QR Code (/qr/)...');
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
-      await page.waitForTimeout(2000); // รอรูป QR แสดงผลคมชัด
+      await page.waitForTimeout(2000); // รอรูป QR ชัดเจน
 
       // 11. แคปเจอร์ภาพ QR Code ชำระเงิน
       const qrFileName = `payment-${lotteryNumber}-${Date.now()}.png`;
@@ -110,7 +124,6 @@ export class N3OrderService {
       if (await qrCodeImg.isVisible()) {
         await qrCodeImg.screenshot({ path: qrFilePath });
       } else {
-        // Fallback: แคปภาพหน้าจอตรงกลางที่มี QR Code
         await page.screenshot({ path: qrFilePath, clip: { x: 300, y: 150, width: 840, height: 600 } });
       }
 
