@@ -3,6 +3,7 @@ import { parseOrderMessage } from './index';
 import { FlexMessageBuilder } from './line/flex-message';
 import { QuotaManager } from './quota/quota-manager';
 import { OrderItem } from './queue/order-queue';
+import { CONFIG } from './config';
 
 function runTests() {
   console.log('====================================================');
@@ -315,6 +316,9 @@ function runTests() {
     const canFulfill = qm.canFulfill(14);
     assert.strictEqual(canFulfill.allowed, true);
     assert(canFulfill.remaining >= 14);
+
+    // Verify Headless default configuration for background automation
+    assert.strictEqual(CONFIG.HEADLESS, true, 'CONFIG.HEADLESS must default to true for background order automation');
   });
 
   // TEST SUITE 4: QR Code 1:1 Square Crop Geometry & Quiet Zone
