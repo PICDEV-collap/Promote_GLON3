@@ -35,30 +35,55 @@ export class N3OrderService {
 
       console.log(`[N3 ORDER] เริ่มสั่งซื้อสลากจำนวน ${items.length} รายการ: ${items.map(i => `${i.number}x${i.quantity}`).join(', ')}...`);
 
-      // 1. วนลูปค้นหาและเลือกแต่ละสลากเข้าตะกร้า
+      // เข้าสู่หน้าค้นหาสลาก lotto-search เพียงครั้งเดียว เพื่อให้ทุกรายการรวมอยู่ในตะกร้าเดียวกัน
+      const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
+      if (!page.url().includes('/lotto-search/')) {
+        await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      }
+
+      if (page.url().includes('/login')) {
+        return { success: false, error: 'Session หลุด กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+      }
+
+      // 1. วนลูปค้นหาและเลือกแต่ละสลากรวมเข้าในตะกร้าเดียวกัน
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
-        console.log(`[N3 ORDER ITEM ${idx + 1}/${items.length}] กำลังค้นหาเลข ${item.number} (จำนวน ${item.quantity} ใบ)...`);
+        console.log(`[N3 ORDER ITEM ${idx + 1}/${items.length}] กำลังค้นหาและเพิ่มเลข ${item.number} (จำนวน ${item.quantity} ใบ)...`);
 
-        const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
-        await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
-
-        if (page.url().includes('/login')) {
-          return { success: false, error: 'Session หลุด กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+        // หากเป็นรายการที่ 2 เป็นต้นไป ตรวจสอบว่ามีปุ่ม "เลือกเลขอื่น" หรือ "เพิ่มสลาก" หรือแท็บตำแหน่งถัดไปหรือไม่
+        if (idx > 0) {
+          const addMoreBtn = page.locator('button:has-text("เลือกเลขอื่น"), button:has-text("เพิ่มสลาก"), button:has-text("เลือกสลากเพิ่ม"), button:has-text("ค้นหาเพิ่ม")').first();
+          if (await addMoreBtn.isVisible().catch(() => false)) {
+            await addMoreBtn.click();
+            await page.waitForTimeout(500);
+          }
         }
 
         // กรอกตัวเลข 3 ตัว
         const digits = item.number.split('');
-        const inputBoxes = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
-        const boxCount = await inputBoxes.count();
+        let inputBoxes = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
+        let boxCount = await inputBoxes.count();
+
+        // กรณีช่องกรอกไม่ปรากฏในรายการถัดไป ลองสลับไปที่ position ถัดไป
+        if (boxCount < 3 && idx > 0) {
+          const posUrl = `https://n3.glolotteryshop.com/lotto-search/?position=${idx + 1}`;
+          console.log(`[N3 ORDER] สลับไปช่องสลากตำแหน่งที่ ${idx + 1}: ${posUrl}`);
+          await page.goto(posUrl, { waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
+          inputBoxes = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
+          boxCount = await inputBoxes.count();
+        }
 
         if (boxCount >= 3) {
+          await inputBoxes.nth(0).fill('');
           await inputBoxes.nth(0).fill(digits[0]);
+          await inputBoxes.nth(1).fill('');
           await inputBoxes.nth(1).fill(digits[1]);
+          await inputBoxes.nth(2).fill('');
           await inputBoxes.nth(2).fill(digits[2]);
         } else {
           const mainInput = page.locator('input').first();
           if (await mainInput.isVisible()) {
+            await mainInput.fill('');
             await mainInput.fill(item.number);
           }
         }
@@ -80,7 +105,7 @@ export class N3OrderService {
           continue;
         }
 
-        // คลิกปุ่ม "เลือก" สลากในแถวรายการ
+        // คลิกปุ่ม "เลือก" สลากในแถวรายการที่เพิ่งค้นหา
         const selectedSuccess = await page.evaluate(() => {
           const allButtons = Array.from(document.querySelectorAll('button'));
           const exactPickBtn = allButtons.find(b => b.innerText.trim() === 'เลือก');
@@ -88,9 +113,10 @@ export class N3OrderService {
             exactPickBtn.click();
             return true;
           } else {
-            const checkbox = document.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-              (checkbox as HTMLInputElement).click();
+            const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+            const uncheck = checkboxes.find(c => !c.checked);
+            if (uncheck) {
+              uncheck.click();
               return true;
             }
           }
@@ -104,20 +130,26 @@ export class N3OrderService {
         }
         await page.waitForTimeout(1000);
 
-        // ปรับจำนวนใบ
+        // ปรับจำนวนใบสำหรับรายการล่าสุดที่เพิ่งเพิ่มเข้าตะกร้า
         if (item.quantity > 1) {
           for (let q = 1; q < item.quantity; q++) {
             if (page.isClosed()) break;
-            await page.evaluate(() => {
-              const plusBtn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === '+');
-              if (plusBtn) plusBtn.click();
-            }).catch(() => {});
+            const plusButtons = page.locator('button:has-text("+")');
+            const plusCount = await plusButtons.count();
+            if (plusCount > 0) {
+              await plusButtons.last().click();
+            } else {
+              await page.evaluate(() => {
+                const pluses = Array.from(document.querySelectorAll('button')).filter(b => b.innerText.trim() === '+');
+                if (pluses.length > 0) pluses[pluses.length - 1].click();
+              }).catch(() => {});
+            }
             await page.waitForTimeout(200);
           }
         }
 
         fulfilledItems.push(item);
-        console.log(`[N3 ORDER ITEM ${idx + 1} SUCCESS] เลือกเลข ${item.number} x ${item.quantity} ใบ เรียบร้อยแล้ว`);
+        console.log(`[N3 ORDER ITEM ${idx + 1} SUCCESS] บรรจุเลข ${item.number} x ${item.quantity} ใบ ลงตะกร้าเรียบร้อยแล้ว`);
       }
 
       // ตรวจสอบว่ามีสลากที่เลือกสำเร็จอย่างน้อย 1 รายการหรือไม่
