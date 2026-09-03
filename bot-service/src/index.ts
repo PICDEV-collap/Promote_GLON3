@@ -30,32 +30,36 @@ let isLoggingIn: boolean = false;
 let currentPublicBaseUrl: string = CONFIG.BASE_URL;
 
 /**
- * เริ่มต้นเบราว์เซอร์ Playwright ด้วย Persistent Context (จำ Session ถาวร)
+ * ฟังก์ชันเปิดเบราว์เซอร์เฉพาะเมื่อมีงานเข้ามาจริง (On-Demand) ไม่เปิดค้างทิ้งไว้เบื้องหลัง
  */
-async function initBrowser() {
-  console.log('[BOT ENGINE] กำลังเปิด Persistent Browser...');
-  const res = await PersistentBrowserManager.getPage(false);
-  context = res.context;
-  page = res.page;
-  securityGuard.attachToPage(page);
-  console.log('[BOT ENGINE] Persistent Browser พร้อมทำงานเรียบร้อยแล้ว');
+async function ensureBrowser(): Promise<{ context: BrowserContext; page: Page }> {
+  if (!context || !page) {
+    console.log('[BOT ENGINE] กำลังเปิดหน้าต่าง Google Chrome...');
+    const res = await PersistentBrowserManager.getPage(false); // เปิดแบบแสดงหน้าต่างปกติ (Headed Mode)
+    context = res.context;
+    page = res.page;
+    securityGuard.attachToPage(page);
+    console.log('[BOT ENGINE] Google Chrome พร้อมทำงานเรียบร้อยแล้ว');
+  }
+  return { context, page };
 }
 
 /**
  * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้ "ผู้ดูแลระบบ (ADMIN)" เท่านั้น!
  */
-async function triggerAdminLoginQR(reason: string): Promise<void> {
-  if (isLoggingIn || !page || !context) return;
+async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise<void> {
+  if (isLoggingIn) return;
   isLoggingIn = true;
 
   try {
+    const { page: currentPage, context: currentContext } = await ensureBrowser();
+
     console.log(`[ADMIN AUTH] ${reason} -> กำลังสร้าง QR Login ส่งให้แอดมิน...`);
-    const { qrImagePath } = await N3Auth.generatePaotangLoginQR(page);
+    const { qrImagePath } = await N3Auth.generatePaotangLoginQR(currentPage);
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
     const qrPublicUrl = `${currentPublicBaseUrl}/qrcodes/${qrFileName}`;
 
-    // ส่งเข้าแชทส่วนตัวของ Admin เท่านั้น
-    await lineHandler.pushToAdmin([
+    const adminMessages: any[] = [
       {
         type: 'text',
         text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:`
@@ -65,11 +69,18 @@ async function triggerAdminLoginQR(reason: string): Promise<void> {
         originalContentUrl: qrPublicUrl,
         previewImageUrl: qrPublicUrl
       }
-    ]);
+    ];
+
+    // ส่งภาพ QR Code ตอบกลับในแชททันที
+    if (replyToken) {
+      await lineHandler.reply(replyToken, adminMessages);
+    } else {
+      await lineHandler.pushToAdmin(adminMessages);
+    }
 
     console.log('[ADMIN AUTH] ส่งภาพ QR เข้า LINE แอดมินเรียบร้อยแล้ว กำลังรอสแกน...');
 
-    const success = await N3Auth.waitForAdminScan(page, context);
+    const success = await N3Auth.waitForAdminScan(currentPage, currentContext);
     if (success) {
       await lineHandler.pushToAdmin([
         { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉' }
@@ -79,6 +90,11 @@ async function triggerAdminLoginQR(reason: string): Promise<void> {
     console.error('[ADMIN AUTH ERROR]', err);
   } finally {
     isLoggingIn = false;
+    // ปิดเบราว์เซอร์ทันทีเพื่อไม่ให้เปิดค้างไว้เบื้องหลัง
+    await PersistentBrowserManager.close();
+    context = null;
+    page = null;
+    console.log('[BROWSER] ปิดเบราว์เซอร์เรียบร้อยแล้ว ไม่เปิดค้างไว้เบื้องหลัง');
   }
 }
 
@@ -86,9 +102,7 @@ async function triggerAdminLoginQR(reason: string): Promise<void> {
  * ตั้งค่า Worker สำหรับประมวลผลคำสั่งซื้อในคิว
  */
 orderQueue.setWorker(async (task: OrderTask) => {
-  if (!page) {
-    await initBrowser();
-  }
+  const { page: currentPage } = await ensureBrowser();
 
   try {
     // ฟังก์ชันช่วยส่งข้อความหาลูกค้า (หากเคยตอบแจ้งคิวไปแล้วจะใช้ Push Message)
@@ -119,7 +133,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
 
     // 3. ตรวจสอบสถานะล็อกอิน N3
-    const isLoggedIn = await N3Auth.isSessionValid(page!);
+    const isLoggedIn = await N3Auth.isSessionValid(currentPage);
     if (!isLoggedIn) {
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
@@ -135,7 +149,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
 
     // 4. สั่งซื้อบนเว็บ N3
-    const result = await N3OrderService.executeOrder(page!, task.number, task.quantity);
+    const result = await N3OrderService.executeOrder(currentPage, task.number, task.quantity);
 
     if (result.success && result.qrImageUrl) {
       quotaManager.deductQuota(task.quantity);
@@ -170,6 +184,14 @@ orderQueue.setWorker(async (task: OrderTask) => {
       await lineHandler.reply(task.replyToken, [
         { type: 'text', text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ' }
       ]);
+    }
+  } finally {
+    // เมื่อประมวลผลหมดทุกคิวแล้ว ให้ปิดเบราว์เซอร์ทันที ไม่เปิดค้างไว้เบื้องหลัง
+    if (orderQueue.getQueueLength() === 0) {
+      await PersistentBrowserManager.close();
+      context = null;
+      page = null;
+      console.log('[BROWSER] คิวว่าง ปิดเบราว์เซอร์เรียบร้อยแล้ว ไม่เปิดค้างไว้เบื้องหลัง');
     }
   }
 });
@@ -224,13 +246,11 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // 1. ตรวจสอบคำสั่งล็อกอิน Admin
-      if (lower === 'login' || lower === 'ล็อกอิน' || lower === 'qr') {
+      // 1. ตรวจสอบคำสั่งล็อกอิน Admin (ครอบคลุม Q, q, qr, QR, login, ล็อกอิน ทุกรูปแบบ)
+      const isAdminLoginCmd = /^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|ล็อกอิน|คิว|ขอคิว|ขอ\s*qr)$/i.test(userText);
+      if (isAdminLoginCmd) {
         if (isAdmin) {
-          triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง');
-          await lineHandler.reply(replyToken, [
-            { type: 'text', text: 'กำลังสร้างและส่ง QR Code สำหรับล็อกอินเป๋าตังให้แอดมิน รอสักครู่ครับ...' }
-          ]);
+          triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง', replyToken);
         } else {
           // ถ้าไม่ใช่ Admin: ห้ามส่ง QR เด็ดขาด! ส่งการ์ดแนะนำวิธีสั่งซื้อแทน
           console.warn(`[SECURITY] ผู้ใช้ทั่วไป ${userId} พยายามสั่ง ${userText} -> ปฏิเสธและส่งวิธีสั่งซื้อ`);
@@ -320,7 +340,7 @@ app.get('/status', (_req: Request, res: Response) => {
 function startServerWithPort(targetPort: number) {
   const server = http.createServer(app);
 
-  server.listen(targetPort, async () => {
+  server.listen(targetPort, () => {
     console.log(`====================================================`);
     console.log(`🚀 N3 Order Bot Service รันอยู่ที่: http://localhost:${targetPort}`);
     console.log(`🎫 โควต้าคงเหลือ: ${quotaManager.getStatus().remainingQuota} / 2,000 ใบ`);
@@ -328,9 +348,8 @@ function startServerWithPort(targetPort: number) {
     console.log(`⏰ สถานะเวลาจำหน่าย: ${status.isOpen ? 'เปิดจำหน่าย' : 'ปิดจำหน่าย'} (${status.currentHoursText})`);
     console.log(`👤 Admin LINE User ID: ${CONFIG.ADMIN_LINE_USER_ID || '(ว่าง)'}`);
     console.log(`🔮 ลิงก์ทำนายฝัน: ${CONFIG.DREAM_PREDICTION_URL}`);
+    console.log(`💡 เบราว์เซอร์: On-Demand (เปิดเมื่อมีงานและปิดทันทีเมื่อเสร็จ)`);
     console.log(`====================================================`);
-
-    await initBrowser();
   });
 
   server.on('error', (err: any) => {
