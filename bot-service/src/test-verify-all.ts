@@ -952,7 +952,8 @@ function runTests() {
     assert.strictEqual(menu.type, 'flex');
     assert(menu.altText.includes('เมนูหลัก'));
     assert(menu.quickReply, 'Must include quick reply buttons');
-    assert.strictEqual(menu.quickReply?.items?.length, 5, 'Must have 5 quick reply buttons');
+    assert.strictEqual(menu.quickReply?.items?.length, 6, 'Must have 6 quick reply buttons');
+    assert.strictEqual((menu.quickReply?.items?.[0]?.action as any)?.text, 'เมนู', 'First button must be Main Menu');
 
     const bubble: any = menu.contents;
     const bodyStr = JSON.stringify(bubble.body);

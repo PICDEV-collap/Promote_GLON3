@@ -831,6 +831,7 @@ function showMainMenu() {
   console.log('  [7] Stop Bot Service (🛑 สั่งหยุดการทำงานของบอท / ปิดบอทเบื้องหลัง)');
   console.log('  [8] Open QR Codes Folder (Open public/qrcodes in Explorer)');
   console.log('  [9] Open Website in Browser (Open index.html)');
+  console.log('  [R] Setup / Sync LINE Rich Menu (🎨 อัปเดตริชเมนู 6 ปุ่มด้านล่างหน้าจอแชท LINE)');
   console.log('  [S] Create Desktop Shortcuts (สร้างไอคอนทางลัด 3 ตัวบนหน้าจอ Desktop)');
   console.log('  [0] Exit');
   console.log('');
@@ -873,6 +874,15 @@ function showMainMenu() {
     } else if (c === '9') {
       openFile(path.join(ROOT_DIR, 'index.html'));
       showMainMenu();
+    } else if (c === 'r' || c === 'richmenu' || c === 'menu-setup') {
+      console.clear();
+      console.log('Setting up LINE Rich Menu...');
+      try {
+        execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      } catch (e) {
+        console.error('[ERROR] Failed to setup rich menu:', e.message);
+      }
+      waitForKeypress();
     } else if (c === 's' || c === 'shortcut' || c === 'shortcuts') {
       console.clear();
       console.log('Creating Desktop Shortcuts...');
@@ -916,6 +926,12 @@ async function main() {
     checkStatus();
   } else if (mode === 'login') {
     openLiveBrowser();
+  } else if (mode === 'richmenu' || mode === 'menu-setup') {
+    try {
+      execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+    } catch (e) {
+      console.error('[ERROR]', e.message);
+    }
   } else {
     showMainMenu();
   }

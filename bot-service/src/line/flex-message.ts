@@ -14,6 +14,14 @@ export class FlexMessageBuilder {
           type: 'action',
           action: {
             type: 'message',
+            label: '🏠 เมนูหลัก',
+            text: 'เมนู'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
             label: '🛒 สั่งซื้อสลาก',
             text: 'สั่งซื้อ'
           }
@@ -284,6 +292,17 @@ export class FlexMessageBuilder {
                 label: '🔮 ทำนายฝัน หาเลขเด็ด N3',
                 uri: CONFIG.DREAM_PREDICTION_URL
               }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
+              }
             }
           ],
           paddingAll: '12px'
@@ -453,6 +472,17 @@ export class FlexMessageBuilder {
                 type: 'uri',
                 label: '🔮 ทำนายฝัน หาเลขเด็ด N3',
                 uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
               }
             }
           ],
@@ -1160,6 +1190,17 @@ export class FlexMessageBuilder {
                 label: '🔮 ทำนายฝัน AI หาเลขเด็ด',
                 uri: CONFIG.DREAM_PREDICTION_URL
               }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
+              }
             }
           ],
           paddingAll: '12px'
@@ -1175,6 +1216,7 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: 'แจ้งเตือน: อยู่นอกเวลาจำหน่ายสลาก N3',
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -1259,6 +1301,17 @@ export class FlexMessageBuilder {
                 label: '🔮 ทำนายฝัน หาเลขเด็ดล่วงหน้า',
                 uri: CONFIG.DREAM_PREDICTION_URL
               }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
+              }
             }
           ],
           paddingAll: '12px'
@@ -1298,6 +1351,7 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: `รับออเดอร์เลข ${number} แล้ว (อยู่ในคิวที่ ${queuePosition})`,
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         size: 'mega',
@@ -1395,6 +1449,17 @@ export class FlexMessageBuilder {
                 type: 'uri',
                 label: '🔮 ทำนายฝัน หาเลขเด็ดรอคิว',
                 uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
               }
             }
           ],
