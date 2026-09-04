@@ -14,6 +14,7 @@ import { OrderQueue, OrderTask, OrderItem } from './queue/order-queue';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { FlexMessageBuilder } from './line/flex-message';
 import { OperatingHoursGuard } from './guard/operating-hours';
+import { DreamEngine } from './dream/dream-engine';
 
 const app = express();
 
@@ -514,9 +515,18 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       // คำสั่งทำนายฝัน / เลขเด็ด AI
-      const isDreamCmd = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*)$/i.test(userText);
+      const isDreamCmd = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*|แปลฝัน.*)$/i.test(userText);
       if (isDreamCmd) {
-        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        const analysis = DreamEngine.analyzeDreamPrompt(userText);
+        if (analysis.hasDreamContent) {
+          console.log(`[DREAM IN-CHAT] ทำนายฝันข้อความ: "${analysis.cleanedText}" จาก ${userId}`);
+          const prediction = DreamEngine.predictDream(analysis.cleanedText);
+          const flexMsg = FlexMessageBuilder.buildDreamPredictionMessage(prediction);
+          await lineHandler.reply(replyToken, [flexMsg]);
+        } else {
+          console.log(`[DREAM IN-CHAT] ส่งการ์ดแนะนำทำนายฝัน AI ให้ ${userId}`);
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildDreamPromptGuidanceMessage()]);
+        }
         continue;
       }
 

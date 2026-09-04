@@ -88,9 +88,42 @@
         <a href="#" class="btn btn-outline btn-our-shop" style="border-color: var(--color-emerald); color: var(--color-emerald-light);">
           <i class="fas fa-store"></i> ร้านค้าของเรา
         </a>
+
+        <!-- Mobile Hamburger Toggle -->
+        <button id="btn-hamburger" class="btn-hamburger" title="เปิดเมนูนำทาง" aria-label="เปิดเมนูนำทาง">
+          <i class="fas fa-bars"></i>
+        </button>
       </div>
     </div>
   </nav>
+
+  <!-- Mobile Navigation Drawer -->
+  <div id="mobile-drawer" class="mobile-drawer">
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <div class="drawer-brand">
+          <div class="logo-icon" style="width: 34px; height: 34px; font-size: 0.9rem;">N3</div>
+          <span style="font-weight: 700; color: #fff; font-size: 1rem;">เมนูนำทาง GLO N3</span>
+        </div>
+        <button id="btn-close-drawer" class="btn-close-drawer" aria-label="ปิดเมนู">&times;</button>
+      </div>
+      <ul class="drawer-links">
+        <li><a href="#hero" class="drawer-link"><i class="fas fa-home"></i> หน้าแรก</a></li>
+        <li><a href="#ai-dream" class="drawer-link"><i class="fas fa-brain"></i> AI ทำนายฝัน N3</a></li>
+        <li><a href="#tarot-horoscope" class="drawer-link"><i class="fas fa-hat-wizard"></i> ไพ่ยิปซี 3D เสี่ยงทาย</a></li>
+        <li><a href="#results-stats" class="drawer-link"><i class="fas fa-chart-line"></i> สถิติ &amp; สุ่มเลข</a></li>
+        <li><a href="#poster-studio" class="drawer-link"><i class="fas fa-palette"></i> สตูดิโอโปสเตอร์</a></li>
+        <li><a href="#calculator" class="drawer-link"><i class="fas fa-calculator"></i> คำนวณเงินรางวัล</a></li>
+        <li><a href="#guide" class="drawer-link"><i class="fas fa-book-open"></i> วิธีสั่งซื้อสลาก</a></li>
+      </ul>
+      <div class="drawer-footer">
+        <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-gold btn-block" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;">
+          <i class="fab fa-line" style="font-size: 1.2rem;"></i> สั่งซื้อสลากผ่าน LINE
+        </a>
+      </div>
+    </div>
+  </div>
 
   <!-- GLO Compliance & Trust Bar -->
   <div class="compliance-bar">
@@ -290,12 +323,15 @@
               <button type="button" class="tag-btn" data-tag="งู">🐍 ฝันเห็นงู / พญานาค</button>
               <button type="button" class="tag-btn" data-tag="พระ">☸️ ฝันเห็นพระ / โบสถ์</button>
               <button type="button" class="tag-btn" data-tag="ปลา">🐟 ฝันว่าจับปลา</button>
+              <button type="button" class="tag-btn" data-tag="เต่า">🐢 ฝันเห็นเต่า</button>
+              <button type="button" class="tag-btn" data-tag="ฟันหัก">🦷 ฝันว่าฟันหัก</button>
               <button type="button" class="tag-btn" data-tag="น้ำท่วม">🌊 ฝันเห็นน้ำท่วม / ทะเล</button>
               <button type="button" class="tag-btn" data-tag="ไฟไหม้">🔥 ฝันเห็นไฟไหม้</button>
               <button type="button" class="tag-btn" data-tag="ศพ">⚰️ ฝันเห็นคนตาย / ศพ</button>
-              <button type="button" class="tag-btn" data-tag="อุ้มเด็ก">👶 ฝันว่าอุ้มเด็ก</button>
+              <button type="button" class="tag-btn" data-tag="คลอดลูก">👶 ฝันว่าคลอดลูก / ตั้งครรภ์</button>
               <button type="button" class="tag-btn" data-tag="รถยนต์">🚗 ฝันเห็นรถ / ทะเบียนรถ</button>
               <button type="button" class="tag-btn" data-tag="เงิน">💰 ฝันว่าได้เงิน / ทอง</button>
+              <button type="button" class="tag-btn" data-tag="จระเข้">🐊 ฝันเห็นจระเข้</button>
             </div>
 
             <div style="text-align: center;">
@@ -366,29 +402,76 @@
               </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+            <!-- Lucky Packages Quick Presets -->
+            <div class="dream-packages-section">
+              <div class="packages-header">
+                <i class="fas fa-bolt" style="color: var(--color-gold);"></i> <strong>เลือกแพ็กเกจสั่งซื้อด่วน (แตะเพื่อสั่งซื้อใน LINE ทันที):</strong>
+              </div>
+              <div class="packages-grid">
+                <button type="button" class="pkg-card" id="pkg-btn-direct" data-type="direct">
+                  <div class="pkg-badge">3 ตัวตรง</div>
+                  <div class="pkg-title">🎯 ซื้อ 3 ตัวตรง</div>
+                  <div class="pkg-desc" id="pkg-desc-direct">เลข <span class="num-highlight">789</span> (1 ใบ)</div>
+                  <div class="pkg-price">20 บาท</div>
+                </button>
+                <button type="button" class="pkg-card featured" id="pkg-btn-combo" data-type="combo">
+                  <div class="pkg-badge badge-gold">🔥 โอกาสถูกสูง</div>
+                  <div class="pkg-title">🔄 3 ตรง + ทุกโต๊ด</div>
+                  <div class="pkg-desc" id="pkg-desc-combo">ตรง 1 + โต๊ด <span class="num-highlight">...</span></div>
+                  <div class="pkg-price" id="pkg-price-combo">60 บาท</div>
+                </button>
+                <button type="button" class="pkg-card" id="pkg-btn-two" data-type="two">
+                  <div class="pkg-badge">2 ตัวท้าย</div>
+                  <div class="pkg-title">✌️ ซื้อ 2 ตัวตรง</div>
+                  <div class="pkg-desc" id="pkg-desc-two">เลข <span class="num-highlight">89</span> (1 ใบ)</div>
+                  <div class="pkg-price">20 บาท</div>
+                </button>
+              </div>
+            </div>
+
+            <!-- In-Device Paotang 3-Step Guide -->
+            <div class="paotang-mini-guide">
+              <div class="guide-title"><i class="fas fa-shield-alt" style="color: #00a3e0;"></i> ข้อสำคัญ: จ่ายผ่านแอป "เป๋าตัง" เท่านั้น (ใบละ 20 บ. ไม่สามารถใช้แอปธนาคารทั่วไปสแกนได้):</div>
+              <div class="guide-steps">
+                <div class="guide-step">
+                  <span class="step-num">1</span>
+                  <span>แตะปุ่มสั่งซื้อเพื่อส่งข้อความเข้าห้องแชท LINE</span>
+                </div>
+                <div class="guide-step">
+                  <span class="step-num">2</span>
+                  <span>รับภาพ QR Code ใน LINE แล้วกด <strong>"บันทึกรูปลงเครื่อง"</strong></span>
+                </div>
+                <div class="guide-step">
+                  <span class="step-num">3</span>
+                  <span>เปิดแอป <strong>"เป๋าตัง"</strong> เข้าเมนูสแกน -> แตะไอคอนรูปภาพเพื่อชำระเงิน</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
               <div style="font-size: 0.9rem; color: var(--text-secondary);">
                 ดรรชนีความแม่นยำ AI: <strong id="res-confidence" style="color: var(--color-gold);">98.5%</strong>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--color-emerald-light);">
+                <i class="fas fa-check-double"></i> สลากดิจิทัลแท้ 100% ถูกรางวัลเงินโอนเข้าเป๋าตังอัตโนมัติ
               </div>
             </div>
 
             <div class="result-actions">
-              <!-- Social Share Card Action Button -->
+              <!-- Primary 1-Tap LINE Order Action -->
+              <a href="https://line.me/R/oaMessage/@586xxhlx/?text=%E0%B8%AA%E0%B8%B1%E0%B9%88%E0%B8%87%E0%B8%8B%E0%B8%B7%E0%B9%89%E0%B8%AD%20789%201%20%E0%B9%83%E0%B8%9A" target="_blank" class="btn btn-gold btn-order-prominent" id="btn-order-dream-line">
+                <i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลข 3 ตัวตรงนี้ผ่าน LINE (20 บ.)</span>
+              </a>
+
+              <!-- Secondary Actions -->
               <button id="btn-share-card" class="btn btn-emerald">
-                <i class="fas fa-camera"></i> บันทึกการ์ดคำทำนาย (Share Card)
+                <i class="fas fa-camera"></i> บันทึกการ์ดคำทำนาย
               </button>
-              <!-- Direct Shop Action Button -->
-              <a href="#" class="btn btn-outline btn-our-shop" style="border-color: var(--color-emerald); color: var(--color-emerald-light);">
-                <i class="fas fa-shopping-bag"></i> ไปร้านค้าของเรา
-              </a>
-              <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-gold" id="btn-order-dream-line">
-                <i class="fab fa-line"></i> แชทสั่งซื้อเลขนี้ใน LINE
-              </a>
               <button id="btn-copy-num" class="btn btn-outline">
-                <i class="fas fa-copy"></i> คัดลอกเฉพาะเลข
+                <i class="fas fa-copy"></i> คัดลอกเลข
               </button>
               <button id="btn-reset-dream" class="btn btn-outline">
-                <i class="fas fa-redo"></i> ทำนายฝันเรื่องใหม่
+                <i class="fas fa-redo"></i> ทำนายใหม่
               </button>
             </div>
           </div>
@@ -1090,6 +1173,9 @@
       <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝัน
     </a>
   </div>
+
+  <!-- Global Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <!-- Application Scripts -->
   <script src="js/sound-effects.js"></script>
