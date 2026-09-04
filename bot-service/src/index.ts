@@ -42,7 +42,7 @@ app.get('/download-qr/:filename', (req: Request, res: Response) => {
 });
 
 // เริ่มต้นระบบหลัก
-const quotaManager = new QuotaManager();
+const quotaManager = QuotaManager.getInstance();
 const orderQueue = new OrderQueue();
 const lineHandler = new LineReplyHandler();
 const securityGuard = new SecurityGuard();
@@ -69,6 +69,32 @@ async function ensureBrowser(): Promise<{ context: BrowserContext; page: Page }>
   context = res.context;
   page = res.page;
   securityGuard.attachToPage(page);
+
+  // ผูกตัวดักฟังการนำทางหน้าเว็บ เพื่อซิงค์โควต้าสดอัตโนมัติเมื่อเข้าสู่หน้า Landing (Requirement 1a)
+  if (!(page as any).__quotaNavListenerAttached) {
+    (page as any).__quotaNavListenerAttached = true;
+    page.on('framenavigated', async (frame) => {
+      try {
+        if (frame === page?.mainFrame()) {
+          const rawUrl = frame.url();
+          const clean = rawUrl.replace(/\/+$/, '');
+          if (clean.includes('/landing') || clean === 'https://n3.glolotteryshop.com') {
+            setTimeout(async () => {
+              try {
+                if (page && !page.isClosed() && !orderQueue.isBusy()) {
+                  const curr = page.url().replace(/\/+$/, '');
+                  if (curr.includes('/landing') || curr === 'https://n3.glolotteryshop.com') {
+                    await quotaManager.syncQuotaFromLivePortal(page, false);
+                  }
+                }
+              } catch {}
+            }, 1200);
+          }
+        }
+      } catch {}
+    });
+  }
+
   return { context, page };
 }
 
@@ -110,10 +136,15 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
 
     const success = await N3Auth.waitForAdminScan(currentPage, currentContext);
     if (success) {
+      await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
+      const liveQuota = quotaManager.getStatus();
       await lineHandler.pushToAdmin([
-        { type: 'text', text: '✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉' }
+        {
+          type: 'text',
+          text: `✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉\n\n📊 โควต้าคงเหลือจริง: ${liveQuota.remainingQuota.toLocaleString()} / ${liveQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveQuota.usedQuota.toLocaleString()} ใบ)`
+        }
       ]);
-      console.log('[BROWSER READY] ล็อกอินสำเร็จ หน้าต่าง Chrome พร้อมรับคำสั่งซื้อทันที');
+      console.log(`[BROWSER READY] ล็อกอินสำเร็จ โควต้าจริง ${liveQuota.remainingQuota}/${liveQuota.maxQuota} ใบ หน้าต่าง Chrome พร้อมรับคำสั่งซื้อทันที`);
     } else {
       // หากหมดเวลาหรือไม่สำเร็จ ให้ปิดหน้าต่างเบราว์เซอร์
       await PersistentBrowserManager.close();
@@ -196,7 +227,21 @@ orderQueue.setWorker(async (task: OrderTask) => {
     if (result.success && result.qrImageUrl) {
       const actualQty = result.totalQuantity || totalQty;
       const actualPrice = result.totalPrice || task.totalPrice || actualQty * 20;
-      quotaManager.deductQuota(actualQty);
+
+      // จัดการอัปเดตโควต้า: หากผลการสั่งซื้อซิงค์จากหน้าเว็บสำเร็จแล้ว ไม่ต้องหักลบซ้ำซ้อน
+      if (result.syncedQuota) {
+        console.log(`[ORDER QUOTA] ซิงค์ยอดโควต้าสดจาก GLO สำเร็จ: คงเหลือ ${result.syncedQuota.remainingQuota.toLocaleString()} / ${result.syncedQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${result.syncedQuota.usedQuota.toLocaleString()} ใบ)`);
+      } else {
+        // หากยังไม่ได้ซิงค์จาก executeOrder ให้ลองซิงค์สดอีกครั้ง
+        const liveSynced = await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => null);
+        if (liveSynced) {
+          console.log(`[ORDER QUOTA] ซิงค์ยอดโควต้าสดจาก GLO สำเร็จ: คงเหลือ ${liveSynced.remainingQuota.toLocaleString()} / ${liveSynced.maxQuota.toLocaleString()} ใบ`);
+        } else {
+          // Fallback: หากไม่สามารถซิงค์สดได้ ให้หักลบตามจำนวนออเดอร์เพื่อป้องกันการสั่งเกิน
+          quotaManager.deductQuota(actualQty);
+          console.log(`[ORDER QUOTA] สำรอง: หักลบโควต้า ${actualQty} ใบ (คงเหลือ ${quotaManager.getStatus().remainingQuota.toLocaleString()} ใบ)`);
+        }
+      }
 
       const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, currentPublicBaseUrl);
       const qrFileName = result.qrImageUrl.split(/[\/\\]/).pop() || '';
@@ -262,7 +307,7 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
   }
 
   // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป
-  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน)$/i.test(clean) || /^(?:login|signin|help|myid)\b/i.test(clean)) {
+  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
     return null;
   }
 
@@ -409,6 +454,55 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
+      // คำสั่งตรวจสอบสถานะและโควต้าคงเหลือจริง (status, quota, โควต้า, เช็คโควต้า, เช็คสถานะ)
+      const isStatusQuotaCmd = /^(?:status|quota|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ)$/i.test(userText);
+      if (isStatusQuotaCmd) {
+        const qStatus = quotaManager.getStatus();
+        const salesStatus = OperatingHoursGuard.checkSalesStatus();
+        const syncTime = qStatus.syncedAt
+          ? new Date(qStatus.syncedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.'
+          : 'ตามระบบเริ่มต้น';
+        const statusReply = `📊 สถานะโควต้าสลาก N3 (ร้านธนกิจนำโชค)\n\n` +
+          `🎫 โควต้าคงเหลือ: ${qStatus.remainingQuota.toLocaleString()} / ${qStatus.maxQuota.toLocaleString()} ใบ\n` +
+          `🛒 ยอดขายแล้ว: ${qStatus.usedQuota.toLocaleString()} ใบ\n` +
+          `📅 งวดประจำวันที่: ${qStatus.round}\n` +
+          `⏱️ ซิงค์ระบบจริง: ${syncTime}\n` +
+          `🏪 สถานะร้านค้า: ${salesStatus.isOpen ? '🟢 เปิดจำหน่ายตามปกติ' : '🔴 นอกเวลาทำการ'}`;
+
+        await lineHandler.reply(replyToken, [{ type: 'text', text: statusReply }]);
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: บังคับซิงค์โควต้าสดจากหน้าเว็บ GLO N3 ทันที (sync, sync quota, ซิงค์โควต้า)
+      const isSyncCmd = /^(?:sync|sync\s*quota|ซิงค์|ซิงค์โควต้า)$/i.test(userText);
+      if (isSyncCmd) {
+        if (isAdmin) {
+          try {
+            const { page: p } = await ensureBrowser();
+            const synced = await quotaManager.syncQuotaFromLivePortal(p, true);
+            if (synced) {
+              await lineHandler.reply(replyToken, [{
+                type: 'text',
+                text: `✅ ซิงค์โควต้าสดจากเว็บ GLO N3 สำเร็จเรียบร้อยครับ!\n\n• โควต้าคงเหลือจริง: ${synced.remainingQuota.toLocaleString()} / ${synced.maxQuota.toLocaleString()} ใบ\n• ขายแล้ว: ${synced.usedQuota.toLocaleString()} ใบ`
+              }]);
+            } else {
+              await lineHandler.reply(replyToken, [{
+                type: 'text',
+                text: `⚠️ ไม่สามารถซิงค์โควต้าได้ กรุณาตรวจสอบสถานะการล็อกอินเว็บ N3 (พิมพ์ qr เพื่อล็อกอินใหม่)`
+              }]);
+            }
+          } catch (e: any) {
+            await lineHandler.reply(replyToken, [{
+              type: 'text',
+              text: `❌ เกิดข้อผิดพลาดขณะซิงค์โควต้า: ${e?.message}`
+            }]);
+          }
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
+        }
+        continue;
+      }
+
       // 1. ตรวจสอบคำสั่งล็อกอิน Admin (ครอบคลุม Q, q, qr, QR, login, ล็อกอิน ทุกรูปแบบ)
       const isAdminLoginCmd = /^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|ล็อกอิน|คิว|ขอคิว|ขอ\s*qr)$/i.test(userText);
       if (isAdminLoginCmd) {
@@ -502,8 +596,29 @@ app.post('/admin/login-qr', requireAdminAuth, async (_req: Request, res: Respons
   res.json({ success: true, message: 'กำลังส่งภาพ QR Login เข้า LINE แอดมิน' });
 });
 
-app.get('/admin/quota', requireAdminAuth, (_req: Request, res: Response) => {
+app.get('/admin/quota', requireAdminAuth, async (req: Request, res: Response) => {
+  if (req.query.sync === 'true') {
+    try {
+      const { page: p } = await ensureBrowser();
+      const synced = await quotaManager.syncQuotaFromLivePortal(p, true);
+      res.json({ success: true, quota: quotaManager.getStatus(), liveSynced: synced !== null });
+      return;
+    } catch (e: any) {
+      res.status(500).json({ error: e.message, quota: quotaManager.getStatus() });
+      return;
+    }
+  }
   res.json(quotaManager.getStatus());
+});
+
+app.post('/admin/quota/sync', requireAdminAuth, async (_req: Request, res: Response) => {
+  try {
+    const { page: p } = await ensureBrowser();
+    const synced = await quotaManager.syncQuotaFromLivePortal(p, true);
+    res.json({ success: true, quota: quotaManager.getStatus(), liveSynced: synced !== null });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message, quota: quotaManager.getStatus() });
+  }
 });
 
 app.get('/status', (_req: Request, res: Response) => {
@@ -632,12 +747,42 @@ function startServerWithPort(targetPort: number) {
   server.listen(targetPort, async () => {
     console.log(`====================================================`);
     console.log(`[SERVICE] N3 Order Bot is RUNNING at: http://localhost:${targetPort}`);
-    console.log(`[QUOTA]   Quota Remaining: ${quotaManager.getStatus().remainingQuota} / 2,000 tickets`);
+    const qStatus = quotaManager.getStatus();
+    console.log(`[QUOTA]   Quota Remaining: ${qStatus.remainingQuota.toLocaleString()} / ${qStatus.maxQuota.toLocaleString()} tickets (Used: ${qStatus.usedQuota} tickets)`);
     const status = OperatingHoursGuard.checkSalesStatus();
     console.log(`[SALES]   Status: ${status.isOpen ? 'OPEN' : 'CLOSED'} (${status.currentHoursText})`);
     console.log(`[ADMIN]   Admin User ID: ${CONFIG.ADMIN_LINE_USER_ID || '(Not Set)'}`);
     console.log(`[DREAM]   Dream Prediction URL: ${CONFIG.DREAM_PREDICTION_URL}`);
     console.log(`====================================================`);
+
+    // Background Quota Sync: หากเบราว์เซอร์เปิดทำงานอยู่แล้ว ให้ซิงค์โควต้าสดเริ่มต้น
+    setTimeout(async () => {
+      try {
+        const activePage = PersistentBrowserManager.getActivePage();
+        if (activePage && !activePage.isClosed()) {
+          const valid = await N3Auth.isSessionValid(activePage);
+          if (valid) {
+            console.log('[QUOTA SYNC] ตรวจพบเบราว์เซอร์พร้อมใช้งาน เริ่มต้นซิงค์โควต้าสดจากหน้าเว็บ GLO N3...');
+            await quotaManager.syncQuotaFromLivePortal(activePage, false);
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    // รอบ Background Sync ทุก 5 นาทีเมื่อเบราว์เซอร์เปิดอยู่ (Active) และไม่ได้กำลังประมวลผลออเดอร์
+    const quotaSyncTimer = setInterval(async () => {
+      try {
+        if (orderQueue.isBusy()) return;
+        const activePage = PersistentBrowserManager.getActivePage();
+        if (activePage && !activePage.isClosed()) {
+          const u = activePage.url();
+          if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login')) {
+            await quotaManager.syncQuotaFromLivePortal(activePage, false);
+          }
+        }
+      } catch {}
+    }, 5 * 60 * 1000);
+    quotaSyncTimer.unref();
 
     // ส่งแจ้งเตือน Admin เมื่อเปิดบอท (หากไม่ได้เปิดผ่าน n3-engine ที่แจ้งเตือนพร้อม URL Tunnel แล้ว)
     if (process.env.ENGINE_NOTIFIES_START !== 'true') {

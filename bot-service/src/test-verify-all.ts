@@ -3,7 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl } from './index';
 import { FlexMessageBuilder } from './line/flex-message';
-import { QuotaManager } from './quota/quota-manager';
+import { QuotaManager, parseQuotaFromPortalText } from './quota/quota-manager';
+import { syncQuotaFromLivePortal as syncQuotaAutomation } from './automation/quota-manager';
+import { N3OrderService, syncQuotaFromLivePortal as syncQuotaOrder } from './automation/n3-order';
 import { OrderItem } from './queue/order-queue';
 import { CONFIG } from './config';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
@@ -645,6 +647,250 @@ function runTests() {
     // Verify CONFIG admin user IDs match
     assert.strictEqual(CONFIG.LINE_ADMIN_USER_ID, CONFIG.ADMIN_LINE_USER_ID);
   });
+
+  // TEST SUITE 11: Live Quota Extraction & GLO N3 Portal Web Sync Verification
+  test('Live Quota: Banner text extraction "📣 คุณขายสลากฯ ได้อีก 1,968 ใบ"', () => {
+    const raw = '📣 คุณขายสลากฯ ได้อีก 1,968 ใบ';
+    const extracted = parseQuotaFromPortalText(raw);
+    assert(extracted !== null, 'Should parse banner quota text');
+    assert.strictEqual(extracted.remainingQuota, 1968);
+    assert.strictEqual(extracted.maxQuota, 2000);
+    assert.strictEqual(extracted.usedQuota, 32);
+  });
+
+  test('Live Quota: Banner text without emoji or paiyannoi "คุณขายสลาก ได้อีก 1968 ใบ"', () => {
+    const raw = 'คุณขายสลาก ได้อีก 1968 ใบ';
+    const extracted = parseQuotaFromPortalText(raw);
+    assert(extracted !== null);
+    assert.strictEqual(extracted.remainingQuota, 1968);
+    assert.strictEqual(extracted.usedQuota, 32);
+    assert.strictEqual(extracted.maxQuota, 2000);
+  });
+
+  test('Live Quota: Shop sales card progress text "32 / 2,000 ใบ"', () => {
+    const raw = '32 / 2,000 ใบ';
+    const extracted = parseQuotaFromPortalText(raw);
+    assert(extracted !== null, 'Should parse sold/max card text');
+    assert.strictEqual(extracted.usedQuota, 32);
+    assert.strictEqual(extracted.maxQuota, 2000);
+    assert.strictEqual(extracted.remainingQuota, 1968);
+  });
+
+  test('Live Quota: Card remaining text "เหลืออีก 1,968 ใบ"', () => {
+    const raw = 'เหลืออีก 1,968 ใบ';
+    const extracted = parseQuotaFromPortalText(raw);
+    assert(extracted !== null);
+    assert.strictEqual(extracted.remainingQuota, 1968);
+    assert.strictEqual(extracted.usedQuota, 32);
+    assert.strictEqual(extracted.maxQuota, 2000);
+  });
+
+  test('Live Quota: Complete GLO N3 dealer landing page card & banner simulation', () => {
+    const portalPageText = `
+      📣 คุณขายสลากฯ ได้อีก 1,968 ใบ
+      จุดจำหน่ายสลากฯ
+      ยอดขายร้านค้า
+      ธนกิจนำโชค
+      32 / 2,000 ใบ
+      เหลืออีก 1,968 ใบ
+      รอดำเนินการ 0 ใบ
+    `;
+    const extracted = parseQuotaFromPortalText(portalPageText);
+    assert(extracted !== null, 'Should parse full landing page text');
+    assert.strictEqual(extracted.remainingQuota, 1968);
+    assert.strictEqual(extracted.usedQuota, 32);
+    assert.strictEqual(extracted.maxQuota, 2000);
+  });
+
+  test('Live Quota: HTML tags and multiline whitespace tolerance in DOM', () => {
+    const htmlSnippet = '<div class="banner"><span>📣 คุณขายสลากฯ&nbsp;&nbsp;ได้อีก</span> <strong>1,968</strong> ใบ</div>';
+    const extracted = parseQuotaFromPortalText(htmlSnippet);
+    assert(extracted !== null);
+    assert.strictEqual(extracted.remainingQuota, 1968);
+    assert.strictEqual(extracted.usedQuota, 32);
+    assert.strictEqual(extracted.maxQuota, 2000);
+  });
+
+  test('Live Quota: Boundary values (Sold Out / 0 Remaining and 0 Sold / 2,000 Remaining)', () => {
+    // 0 remaining
+    const soldOutBanner = '📣 คุณขายสลากฯ ได้อีก 0 ใบ';
+    const r1 = parseQuotaFromPortalText(soldOutBanner);
+    assert(r1 !== null);
+    assert.strictEqual(r1.remainingQuota, 0);
+    assert.strictEqual(r1.usedQuota, 2000);
+    assert.strictEqual(r1.maxQuota, 2000);
+
+    // 0 sold
+    const fullQuota = '0 / 2,000 ใบ';
+    const r2 = parseQuotaFromPortalText(fullQuota);
+    assert(r2 !== null);
+    assert.strictEqual(r2.remainingQuota, 2000);
+    assert.strictEqual(r2.usedQuota, 0);
+    assert.strictEqual(r2.maxQuota, 2000);
+
+    // 2,000 sold / 0 remaining
+    const allSold = '2,000 / 2,000 ใบ';
+    const r3 = parseQuotaFromPortalText(allSold);
+    assert(r3 !== null);
+    assert.strictEqual(r3.remainingQuota, 0);
+    assert.strictEqual(r3.usedQuota, 2000);
+    assert.strictEqual(r3.maxQuota, 2000);
+  });
+
+  test('Live Quota: Non-quota and empty text returns null', () => {
+    assert.strictEqual(parseQuotaFromPortalText(''), null);
+    assert.strictEqual(parseQuotaFromPortalText('เข้าสู่ระบบเป๋าตัง'), null);
+    assert.strictEqual(parseQuotaFromPortalText('ยินดีต้อนรับสู่ร้านค้า'), null);
+    assert.strictEqual(parseQuotaFromPortalText(null as any), null);
+    assert.strictEqual(parseQuotaFromPortalText(undefined as any), null);
+  });
+
+  test('Live Quota: Quota enforcement reflects live synced values and rejects accurately', () => {
+    const qm = new QuotaManager();
+    // Verify initial state matches synced values from quota.json
+    const initialStatus = qm.getStatus();
+    assert.strictEqual(initialStatus.maxQuota, 2000);
+    assert.strictEqual(initialStatus.remainingQuota, 1968);
+    assert.strictEqual(initialStatus.usedQuota, 32);
+    assert.strictEqual(initialStatus.remainingQuota + initialStatus.usedQuota, initialStatus.maxQuota);
+
+    // Test order fulfillment under live quota:
+    // 1. Order within remaining quota (e.g. 10 tickets) -> Allowed
+    const check1 = qm.canFulfill(10);
+    assert.strictEqual(check1.allowed, true);
+    assert.strictEqual(check1.remaining, 1968);
+
+    // 2. Order exceeding remaining quota (e.g. 1969 tickets) -> Rejected
+    const checkOver = qm.canFulfill(1969);
+    assert.strictEqual(checkOver.allowed, false);
+    assert.strictEqual(checkOver.remaining, 1968);
+    assert(checkOver.reason?.includes('สลากเหลือไม่พอ'));
+
+    // 3. Test sold out scenario
+    qm.updateLiveQuota(2000, 0, 2000);
+    const checkSoldOut = qm.canFulfill(1);
+    assert.strictEqual(checkSoldOut.allowed, false);
+    assert.strictEqual(checkSoldOut.remaining, 0);
+    assert(checkSoldOut.reason?.includes('สลากงวดนี้หมดแล้ว'));
+
+    // Reconcile and restore live quota back to 32 sold / 1968 remaining
+    qm.updateLiveQuota(32, 1968, 2000);
+    assert.strictEqual(qm.getStatus().remainingQuota, 1968);
+    assert.strictEqual(qm.getStatus().usedQuota, 32);
+  });
+
+  test('Live Quota: syncQuotaFromLivePortal with mock Page on GLO landing URL', async () => {
+    const mockPage: any = {
+      isClosed: () => false,
+      url: () => 'https://n3.glolotteryshop.com/landing/',
+      evaluate: async () => {
+        return '📣 คุณขายสลากฯ ได้อีก 1,968 ใบ\nยอดขายร้านค้า\n32 / 2,000 ใบ\nเหลืออีก 1,968 ใบ';
+      },
+      goto: async () => {},
+      waitForTimeout: async () => {}
+    };
+
+    const qm = new QuotaManager();
+    const result = await qm.syncQuotaFromLivePortal(mockPage);
+    assert(result !== null);
+    assert.strictEqual(result.remainingQuota, 1968);
+    assert.strictEqual(result.usedQuota, 32);
+    assert.strictEqual(result.maxQuota, 2000);
+
+    // Verify automation re-exports and N3OrderService parity
+    const autoResult = await syncQuotaAutomation(mockPage);
+    assert(autoResult !== null);
+    assert.strictEqual(autoResult.remainingQuota, 1968);
+
+    const orderResult = await N3OrderService.syncQuotaFromLivePortal(mockPage);
+    assert(orderResult !== null);
+    assert.strictEqual(orderResult.remainingQuota, 1968);
+  });
+
+  test('Live Quota: Colon-delimited labels (e.g. คุณขายสลากฯ ได้อีก: 1,968 ใบ and ยอดขาย: 32 / 2,000 ใบ)', () => {
+    const t1 = parseQuotaFromPortalText('คุณขายสลากฯ ได้อีก: 1,968 ใบ');
+    assert(t1 !== null);
+    assert.strictEqual(t1.remainingQuota, 1968);
+    assert.strictEqual(t1.usedQuota, 32);
+
+    const t2 = parseQuotaFromPortalText('เหลืออีก: 1,968 ใบ');
+    assert(t2 !== null);
+    assert.strictEqual(t2.remainingQuota, 1968);
+
+    const t3 = parseQuotaFromPortalText('ยอดขายร้านค้า: 32 / 2,000 ใบ');
+    assert(t3 !== null);
+    assert.strictEqual(t3.usedQuota, 32);
+    assert.strictEqual(t3.maxQuota, 2000);
+    assert.strictEqual(t3.remainingQuota, 1968);
+  });
+
+  test('Live Quota: Thai numerals normalization (๑,๙๖๘ ใบ and ๓๒ / ๒,๐๐๐ ใบ)', () => {
+    const thaiBanner = '📣 คุณขายสลากฯ ได้อีก ๑,๙๖๘ ใบ';
+    const r1 = parseQuotaFromPortalText(thaiBanner);
+    assert(r1 !== null, 'Should parse Thai numerals in banner');
+    assert.strictEqual(r1.remainingQuota, 1968);
+    assert.strictEqual(r1.usedQuota, 32);
+    assert.strictEqual(r1.maxQuota, 2000);
+
+    const thaiCard = 'ยอดขาย ๓๒ / ๒,๐๐๐ ใบ';
+    const r2 = parseQuotaFromPortalText(thaiCard);
+    assert(r2 !== null, 'Should parse Thai numerals in card');
+    assert.strictEqual(r2.usedQuota, 32);
+    assert.strictEqual(r2.maxQuota, 2000);
+    assert.strictEqual(r2.remainingQuota, 1968);
+  });
+
+  test('Live Quota: Variations with "คงเหลือ" and "เหลือ" without "อีก"', () => {
+    const r1 = parseQuotaFromPortalText('คงเหลือ 1,968 ใบ');
+    assert(r1 !== null);
+    assert.strictEqual(r1.remainingQuota, 1968);
+
+    const r2 = parseQuotaFromPortalText('เหลือ 1,968 ใบ');
+    assert(r2 !== null);
+    assert.strictEqual(r2.remainingQuota, 1968);
+  });
+
+  test('Live Quota: refreshFromDisk guarantees multi-instance cache coherence', () => {
+    const qm1 = new QuotaManager();
+    const qm2 = new QuotaManager();
+
+    // qm1 updates quota
+    qm1.updateLiveQuota(32, 1968, 2000);
+    assert.strictEqual(qm1.getStatus().remainingQuota, 1968);
+
+    // qm2 reads and reflects latest disk data via refreshFromDisk
+    const status2 = qm2.getStatus();
+    assert.strictEqual(status2.remainingQuota, 1968);
+    assert.strictEqual(status2.usedQuota, 32);
+
+    // Verify singleton returns shared instance
+    const singleton1 = QuotaManager.getInstance();
+    const singleton2 = QuotaManager.getInstance();
+    assert.strictEqual(singleton1, singleton2);
+  });
+
+  test('Live Quota: Post-order reconciliation prevents double deductions and handles fallback', () => {
+    const qm = new QuotaManager();
+    qm.updateLiveQuota(32, 1968, 2000);
+
+    // Scenario A: Live sync succeeds -> uses live values directly, no deduction needed
+    const syncedResult = { remainingQuota: 1966, usedQuota: 34, maxQuota: 2000 };
+    // If syncedQuota is provided, quota remains as synced
+    qm.updateLiveQuota(syncedResult.usedQuota, syncedResult.remainingQuota, syncedResult.maxQuota);
+    assert.strictEqual(qm.getStatus().remainingQuota, 1966);
+    assert.strictEqual(qm.getStatus().usedQuota, 34);
+
+    // Scenario B: Live sync fails (null) -> fallback to deductQuota(2)
+    qm.deductQuota(2);
+    assert.strictEqual(qm.getStatus().remainingQuota, 1964);
+    assert.strictEqual(qm.getStatus().usedQuota, 36);
+
+    // Restore back to real state (32 used / 1968 remaining)
+    qm.updateLiveQuota(32, 1968, 2000);
+    assert.strictEqual(qm.getStatus().remainingQuota, 1968);
+    assert.strictEqual(qm.getStatus().usedQuota, 32);
+  });
+
 
 
   console.log(`\n====================================================`);
