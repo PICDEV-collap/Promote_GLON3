@@ -2,6 +2,7 @@ import { messagingApi } from '@line/bot-sdk';
 import { CONFIG } from '../config';
 import { OperatingHoursStatus } from '../guard/operating-hours';
 import { OrderItem } from '../queue/order-queue';
+import { DreamPredictionResult } from '../dream/dream-engine';
 
 export class FlexMessageBuilder {
   /**
@@ -1468,4 +1469,573 @@ export class FlexMessageBuilder {
       }
     };
   }
+
+  /**
+   * 8. การ์ดผลวิเคราะห์และทำนายฝัน AI พร้อมปุ่มสั่งซื้อสลาก N3 1-Click
+   */
+  public static buildDreamPredictionMessage(pred: DreamPredictionResult): messagingApi.FlexMessage {
+    const directNum = pred.n3Direct || '789';
+    const todNums = pred.allTods && pred.allTods.length > 0
+      ? pred.allTods
+      : (pred.n3Tod ? pred.n3Tod.split(',').map(s => s.trim()) : []);
+    const twoDigit = pred.n2Digit || directNum.slice(-2);
+
+    // คำนวณแพ็กเกจ 3 ตรง + ทุกโต๊ด
+    const allComboNums = [directNum, ...todNums.filter(n => n !== directNum)];
+    const comboCount = allComboNums.length;
+    const comboPrice = comboCount * 20;
+    const comboOrderText = `สั่งซื้อ ` + allComboNums.map(n => `${n} 1`).join(', ');
+
+    const webFullUrl = `${CONFIG.DREAM_PREDICTION_URL}?dream=${encodeURIComponent(pred.dreamText || '')}`;
+
+    return {
+      type: 'flex',
+      altText: `🔮 ทำนายฝัน AI: "${pred.dreamText}" -> เลขเด็ด 3 ตรง ${directNum} (ใบละ 20 บ. เป๋าตัง)`,
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: `🎯 ซื้อ ${directNum} 1 ใบ`,
+              text: `สั่งซื้อ ${directNum} 1`
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🔄 ซื้อ 3ตรง+ทุกโต๊ด',
+              text: comboOrderText
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: `✌️ ซื้อ ${twoDigit} 1 ใบ`,
+              text: `สั่งซื้อ ${twoDigit} 1`
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🔮 ทำนายฝันอีก',
+              text: 'ทำนายฝัน'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🏠 เมนูหลัก',
+              text: 'เมนู'
+            }
+          }
+        ]
+      },
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#2d1152',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🔮 AI ทำนายฝัน & เลขเด็ด N3',
+                  weight: 'bold',
+                  color: '#e0aaff',
+                  size: 'xs',
+                  flex: 8
+                },
+                {
+                  type: 'text',
+                  text: `${pred.confidence}`,
+                  weight: 'bold',
+                  color: '#4ade80',
+                  size: 'xs',
+                  align: 'end',
+                  flex: 4
+                }
+              ]
+            },
+            {
+              type: 'text',
+              text: `"${pred.dreamText}"`,
+              weight: 'bold',
+              size: 'md',
+              color: '#ffffff',
+              margin: 'sm',
+              wrap: true
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'xs',
+              contents: [
+                {
+                  type: 'text',
+                  text: `🌟 ${pred.element || 'ธาตุสิริมงคล'}`,
+                  size: 'xxs',
+                  color: '#ffd166',
+                  flex: 1
+                }
+              ]
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '16px',
+          contents: [
+            // ไฮไลต์ 3 ตัวตรง (เต็ง)
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#fffbeb',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              borderWidth: '1px',
+              borderColor: '#fde68a',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🎯 เลขเด่น 3 ตัวตรง (ลุ้นสามตรง & แจ็กพอต)',
+                  size: 'xxs',
+                  weight: 'bold',
+                  color: '#b45309',
+                  align: 'center'
+                },
+                {
+                  type: 'text',
+                  text: `${directNum}`,
+                  size: '3xl',
+                  weight: 'bold',
+                  color: '#d97706',
+                  align: 'center',
+                  margin: 'xs'
+                },
+                {
+                  type: 'text',
+                  text: 'รางวัลสามตรง / รับสิทธิสุ่มแจ็กพอต N3',
+                  size: 'xxs',
+                  color: '#92400e',
+                  align: 'center'
+                }
+              ]
+            },
+            // กล่องสองช่อง: 3 ตัวโต๊ด & 2 ตัวท้าย
+            {
+              type: 'box',
+              layout: 'horizontal',
+              spacing: 'md',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  backgroundColor: '#f3e8ff',
+                  cornerRadius: '8px',
+                  paddingAll: '8px',
+                  flex: 6,
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '🔄 3 ตัวโต๊ด',
+                      size: 'xxs',
+                      weight: 'bold',
+                      color: '#6b21a8'
+                    },
+                    {
+                      type: 'text',
+                      text: `${pred.n3Tod || 'ไม่มี'}`,
+                      size: 'xs',
+                      weight: 'bold',
+                      color: '#7e22ce',
+                      margin: 'xs',
+                      wrap: true
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  backgroundColor: '#ecfdf5',
+                  cornerRadius: '8px',
+                  paddingAll: '8px',
+                  flex: 4,
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '✌️ 2 ตัวท้าย',
+                      size: 'xxs',
+                      weight: 'bold',
+                      color: '#065f46'
+                    },
+                    {
+                      type: 'text',
+                      text: `${twoDigit}`,
+                      size: 'xl',
+                      weight: 'bold',
+                      color: '#047857',
+                      margin: 'xs',
+                      align: 'center'
+                    }
+                  ]
+                }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            // ความหมายตามศาสตร์โบราณ
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: '📖 คำทำนายตามตำราโบราณ:',
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#1e293b'
+                },
+                {
+                  type: 'text',
+                  text: `${pred.meaning}`,
+                  size: 'xxs',
+                  color: '#475569',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            // เคล็ดมงคลเสริมดวง
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'sm',
+              contents: [
+                {
+                  type: 'text',
+                  text: '✨ เคล็ดมงคลเปิดทรัพย์:',
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#1e293b'
+                },
+                {
+                  type: 'text',
+                  text: `${pred.blessing}`,
+                  size: 'xxs',
+                  color: '#475569',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            // กลอนมงคล
+            ...(pred.poem ? [{
+              type: 'box' as const,
+              layout: 'vertical' as const,
+              margin: 'sm' as const,
+              backgroundColor: '#f8fafc',
+              cornerRadius: '6px',
+              paddingAll: '8px',
+              contents: [
+                {
+                  type: 'text' as const,
+                  text: `${pred.poem}`,
+                  size: 'xxs' as const,
+                  color: '#64748b',
+                  wrap: true,
+                  align: 'center' as const
+                }
+              ]
+            }] : []),
+            // ป้ายเตือนเป๋าตัง 20 บาท
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#fff3cd',
+              cornerRadius: '6px',
+              paddingAll: '8px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '👛 สลาก N3 ใบละ 20 บาท | ชำระผ่านแอปเป๋าตังเท่านั้น',
+                  size: 'xxs',
+                  weight: 'bold',
+                  color: '#856404',
+                  align: 'center'
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          paddingAll: '12px',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#d4af37',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: `🎯 ซื้อ 3 ตรง (${directNum}) 20บ.`,
+                text: `สั่งซื้อ ${directNum} 1`
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#7e22ce',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: `🔄 ซื้อ 3ตรง+ทุกโต๊ด (${comboCount}ใบ ${comboPrice}บ.)`,
+                text: comboOrderText
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#059669',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: `✌️ ซื้อ 2 ตัวท้าย (${twoDigit}) 20บ.`,
+                text: `สั่งซื้อ ${twoDigit} 1`
+              }
+            },
+            {
+              type: 'button',
+              style: 'link',
+              color: '#0056b3',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔮 เปิดเว็บทำนายฝัน AI ฉบับเต็ม',
+                uri: webFullUrl
+              }
+            },
+            {
+              type: 'button',
+              style: 'link',
+              color: '#666666',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * 8.1 การ์ดแนะนำการใช้งานทำนายฝัน AI (เมื่อลูกค้าพิมพ์ "ทำนายฝัน" โดยยังไม่ระบุความฝัน)
+   */
+  public static buildDreamPromptGuidanceMessage(): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: '🔮 บริการทำนายฝัน & คำนวณเลขเด็ด N3 ด้วยระบบ AI',
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🐍 ฝันเห็นงู 2 ตัว',
+              text: 'ฝันเห็นงู 2 ตัว'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🐟 ฝันจับปลาตัวใหญ่',
+              text: 'ฝันว่าจับปลาตัวใหญ่'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🚗 ฝันรถชน 954',
+              text: 'ฝันเห็นรถชน ทะเบียน 954'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🐢 ฝันเห็นเต่า',
+              text: 'ฝันเห็นเต่า'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🏠 เมนูหลัก',
+              text: 'เมนู'
+            }
+          }
+        ]
+      },
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#2d1152',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'text',
+              text: '🔮 AI ทำนายฝัน & คำนวณเลขเด็ด N3',
+              weight: 'bold',
+              color: '#e0aaff',
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: 'วิเคราะห์นิมิตมงคล 45+ หมวดหมู่แม่นยำ',
+              size: 'xxs',
+              color: '#d8b4fe',
+              margin: 'xs'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'text',
+              text: '💬 พิมพ์ความฝันของท่านในแชทนี้ได้ทันที!',
+              weight: 'bold',
+              size: 'sm',
+              color: '#1e293b'
+            },
+            {
+              type: 'text',
+              text: 'ระบบ AI จะวิเคราะห์ธาตุสิริมงคล แปลงสัญลักษณ์เป็นชุดตัวเลข 3 ตัวตรง, 3 ตัวโต๊ด และ 2 ตัวท้าย พร้อมปุ่มกดสั่งซื้อสลาก N3 ทันที',
+              size: 'xs',
+              color: '#555555',
+              margin: 'xs',
+              wrap: true
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#f8fafc',
+              cornerRadius: '8px',
+              paddingAll: '10px',
+              margin: 'md',
+              spacing: 'xs',
+              contents: [
+                {
+                  type: 'text',
+                  text: 'ตัวอย่างข้อความที่สามารถพิมพ์ได้:',
+                  size: 'xxs',
+                  weight: 'bold',
+                  color: '#334155'
+                },
+                {
+                  type: 'text',
+                  text: '• "ฝันเห็นงู 2 ตัว"',
+                  size: 'xxs',
+                  color: '#64748b'
+                },
+                {
+                  type: 'text',
+                  text: '• "ฝันว่าจับปลาตัวใหญ่"',
+                  size: 'xxs',
+                  color: '#64748b'
+                },
+                {
+                  type: 'text',
+                  text: '• "ฝันเห็นพระพุทธรูปทองคำ"',
+                  size: 'xxs',
+                  color: '#64748b'
+                },
+                {
+                  type: 'text',
+                  text: '• "ฝันเห็นรถชน ทะเบียน 954"',
+                  size: 'xxs',
+                  color: '#64748b'
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#fff3cd',
+              cornerRadius: '6px',
+              paddingAll: '8px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '👛 สลาก N3 ใบละ 20 บาท | ชำระผ่านแอปเป๋าตังเท่านั้น',
+                  size: 'xxs',
+                  weight: 'bold',
+                  color: '#856404',
+                  align: 'center'
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          paddingAll: '12px',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#7e22ce',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔮 เปิดเว็บทำนายฝัน AI ฉบับเต็ม',
+                uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
 }
+

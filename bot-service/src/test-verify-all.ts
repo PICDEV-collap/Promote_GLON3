@@ -9,6 +9,7 @@ import { N3OrderService, syncQuotaFromLivePortal as syncQuotaOrder } from './aut
 import { OrderItem } from './queue/order-queue';
 import { CONFIG } from './config';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
+import { DreamEngine } from './dream/dream-engine';
 
 function runTests() {
   console.log('====================================================');
@@ -1052,11 +1053,111 @@ function runTests() {
     assert.strictEqual(isOrderGuideRegex.test('ซื้อสลาก'), true);
     assert.strictEqual(isOrderGuideRegex.test('เลือกเลข'), true);
 
-    const isDreamRegex = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*)$/i;
+    const isDreamRegex = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*|แปลฝัน.*)$/i;
     assert.strictEqual(isDreamRegex.test('ทำนายฝัน'), true);
     assert.strictEqual(isDreamRegex.test('ทำนายฝันเห็นพญานาค'), true);
     assert.strictEqual(isDreamRegex.test('เลขเด็ดงวดนี้'), true);
     assert.strictEqual(isDreamRegex.test('334=5'), false);
+  });
+
+  // TEST SUITE 16: AI Dream Engine & In-Chat Prediction
+  test('DreamEngine: analyzeDreamPrompt separates generic requests from actual dreams', () => {
+    const generic1 = DreamEngine.analyzeDreamPrompt('ทำนายฝัน');
+    assert.strictEqual(generic1.hasDreamContent, false);
+    assert.strictEqual(generic1.isGenericRequest, true);
+
+    const generic2 = DreamEngine.analyzeDreamPrompt('เลขเด็ด AI');
+    assert.strictEqual(generic2.hasDreamContent, false);
+
+    const specific1 = DreamEngine.analyzeDreamPrompt('ฝันเห็นงู 2 ตัว');
+    assert.strictEqual(specific1.hasDreamContent, true);
+    assert.strictEqual(specific1.cleanedText, 'ฝันเห็นงู 2 ตัว');
+
+    const specific2 = DreamEngine.analyzeDreamPrompt('ช่วยทำนายฝันให้หน่อย ฝันว่าขับรถชน ทะเบียน 954');
+    assert.strictEqual(specific2.hasDreamContent, true);
+    assert(specific2.cleanedText.includes('954'));
+  });
+
+  test('DreamEngine: predictDream accurately calculates lucky numbers, meaning, and poems', () => {
+    // 1. Explicit count test
+    const pred1 = DreamEngine.predictDream('ฝันเห็นงู 2 ตัว');
+    assert.strictEqual(pred1.n3Direct.startsWith('2'), true, 'Anchor count digit should be 2');
+    assert(pred1.element.includes('ธาตุน้ำ') || pred1.element.length > 0);
+    assert(pred1.meaning.length > 10);
+    assert(pred1.blessing.length > 10);
+    assert(pred1.poem.includes(pred1.n3Direct));
+
+    // 2. Explicit direct number test
+    const pred2 = DreamEngine.predictDream('ฝันว่าขับรถชน ทะเบียน 954');
+    assert.strictEqual(pred2.n3Direct, '954', 'Explicit 3-digit number 954 should be anchor');
+    assert.strictEqual(pred2.n2Digit, '54', '2-digit should be 54');
+    assert(pred2.allTods.length >= 2, 'Should generate tods');
+
+    // 3. Folk category test (เต่า)
+    const pred3 = DreamEngine.predictDream('ฝันเห็นเต่าตัวใหญ่');
+    assert.strictEqual(pred3.n3Direct.length, 3);
+    assert.strictEqual(pred3.n2Digit.length, 2);
+    assert(pred3.confidence.includes('%'));
+  });
+
+  test('FlexMessageBuilder: buildDreamPredictionMessage generates valid LINE Flex Message', () => {
+    const pred = DreamEngine.predictDream('ฝันเห็นพญานาค 9 เศียร');
+    const flex = FlexMessageBuilder.buildDreamPredictionMessage(pred);
+
+    assert.strictEqual(flex.type, 'flex');
+    assert(flex.altText.includes('ทำนายฝัน AI'));
+    assert(flex.altText.includes(pred.n3Direct));
+    assert(flex.altText.includes('เป๋าตัง'));
+
+    // Check quickReply items and limits
+    assert(flex.quickReply && flex.quickReply.items);
+    assert(flex.quickReply.items.length >= 3);
+    for (const item of flex.quickReply.items) {
+      if (item.action && (item.action as any).label) {
+        assert((item.action as any).label.length <= 20, `Quick reply label must be <= 20 chars: ${(item.action as any).label}`);
+      }
+    }
+
+    // Check bubble contents
+    const bubble = flex.contents as any;
+    assert.strictEqual(bubble.type, 'bubble');
+    assert(bubble.header);
+    assert(bubble.body);
+    assert(bubble.footer);
+
+    // Verify footer buttons: 3ตรง, 3ตรง+ทุกโต๊ด, 2ตัวท้าย, เว็บทำนายฝัน, เมนูหลัก
+    const footerButtons = bubble.footer.contents;
+    assert.strictEqual(footerButtons.length, 5);
+    for (const btn of footerButtons) {
+      if (btn.action && btn.action.label) {
+        assert(btn.action.label.length <= 40, `Button label must be <= 40 chars: ${btn.action.label}`);
+      }
+    }
+
+    // Check Paotang alert in body
+    const bodyStr = JSON.stringify(bubble.body);
+    assert(bodyStr.includes('เป๋าตัง'));
+    assert(bodyStr.includes('ใบละ 20 บาท'));
+  });
+
+  test('FlexMessageBuilder: buildDreamPromptGuidanceMessage generates valid guidance card', () => {
+    const guidance = FlexMessageBuilder.buildDreamPromptGuidanceMessage();
+
+    assert.strictEqual(guidance.type, 'flex');
+    assert(guidance.altText.includes('ทำนายฝัน'));
+
+    assert(guidance.quickReply && guidance.quickReply.items);
+    for (const item of guidance.quickReply.items) {
+      if (item.action && (item.action as any).label) {
+        assert((item.action as any).label.length <= 20, `Quick reply label must be <= 20 chars: ${(item.action as any).label}`);
+      }
+    }
+
+    const bubble = guidance.contents as any;
+    assert.strictEqual(bubble.type, 'bubble');
+    const bodyStr = JSON.stringify(bubble.body);
+    assert(bodyStr.includes('เป๋าตัง'));
+    assert(bodyStr.includes('ฝันเห็นงู 2 ตัว'));
   });
 
   console.log(`\n====================================================`);

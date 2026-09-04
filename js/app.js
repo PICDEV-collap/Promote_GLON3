@@ -83,6 +83,53 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Mobile Hamburger Drawer Controller
+  const btnHamburger = document.getElementById('btn-hamburger');
+  const mobileDrawer = document.getElementById('mobile-drawer');
+  const btnCloseDrawer = document.getElementById('btn-close-drawer');
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
+  const drawerLinks = document.querySelectorAll('.drawer-link');
+
+  function openMobileDrawer() {
+    try { SoundEngine.playClick(); } catch (e) {}
+    if (mobileDrawer) {
+      mobileDrawer.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeMobileDrawer() {
+    if (mobileDrawer) {
+      mobileDrawer.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  }
+
+  if (btnHamburger) btnHamburger.addEventListener('click', openMobileDrawer);
+  if (btnCloseDrawer) btnCloseDrawer.addEventListener('click', closeMobileDrawer);
+  if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeMobileDrawer);
+  drawerLinks.forEach(link => link.addEventListener('click', closeMobileDrawer));
+
+  // Handle URL Query Parameters (e.g. ?dream=งู or ?num=789)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const dreamParam = urlParams.get('dream');
+    if (dreamParam) {
+      const dreamInputEl = document.getElementById('dream-input');
+      const dreamFormEl = document.getElementById('dream-form');
+      if (dreamInputEl) {
+        dreamInputEl.value = decodeURIComponent(dreamParam);
+        const dreamSection = document.getElementById('ai-dream');
+        if (dreamSection) dreamSection.scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => {
+          if (dreamFormEl) dreamFormEl.dispatchEvent(new Event('submit'));
+        }, 700);
+      }
+    }
+  } catch (err) {
+    console.warn('URL params parsing error:', err);
+  }
+
   // Sound Toggle Listener
   const btnSound = document.getElementById('btn-sound');
   const soundIcon = document.getElementById('sound-icon');
@@ -711,6 +758,85 @@ document.addEventListener('DOMContentLoaded', function () {
     if (elBlessing) elBlessing.innerText = pred.blessing;
     if (elPoemBox && pred.poem) elPoemBox.innerText = pred.poem;
 
+    // 1. Setup Lucky Package UI Presets
+    const pkgDescDirect = document.getElementById('pkg-desc-direct');
+    const pkgDescCombo = document.getElementById('pkg-desc-combo');
+    const pkgPriceCombo = document.getElementById('pkg-price-combo');
+    const pkgDescTwo = document.getElementById('pkg-desc-two');
+
+    if (pkgDescDirect) pkgDescDirect.innerHTML = `เลข <span class="num-highlight">${pred.n3Direct}</span> (1 ใบ)`;
+    
+    // คำนวณรายการโต๊ด
+    const todsList = pred.allTods || (pred.n3Tod && pred.n3Tod !== 'ไม่มี (เลขตอง)' ? pred.n3Tod.split(',').map(s => s.trim()) : []);
+    const comboPrice = (1 + todsList.length) * 20;
+    if (pkgDescCombo) {
+      if (todsList.length > 0) {
+        pkgDescCombo.innerHTML = `ตรง 1 ใบ + โต๊ด <span class="num-highlight">${todsList.slice(0, 2).join(', ')}${todsList.length > 2 ? '...' : ''}</span> (${todsList.length} ใบ)`;
+      } else {
+        pkgDescCombo.innerHTML = `ตรง <span class="num-highlight">${pred.n3Direct}</span> (เลขตองไม่มีโต๊ด)`;
+      }
+    }
+    if (pkgPriceCombo) pkgPriceCombo.innerText = `${comboPrice} บาท`;
+    if (pkgDescTwo) pkgDescTwo.innerHTML = `เลข <span class="num-highlight">${pred.n2Digit}</span> (1 ใบ)`;
+
+    // 2. Setup Primary LINE Order Button (1-Click Deep Link)
+    const btnOrderLine = document.getElementById('btn-order-dream-line');
+    if (btnOrderLine) {
+      const defaultOrderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+      btnOrderLine.href = `https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(defaultOrderMsg)}`;
+      btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลข 3 ตัวตรง (${pred.n3Direct}) ผ่าน LINE (20 บ.)</span>`;
+      btnOrderLine.onclick = () => {
+        copyToClipboard(defaultOrderMsg);
+        showToast(`คัดลอกคำสั่งซื้อ "${defaultOrderMsg}" แล้ว! กำลังเปิด LINE...`);
+      };
+    }
+
+    // 3. Setup Package Click Handlers
+    const pkgBtnDirect = document.getElementById('pkg-btn-direct');
+    const pkgBtnCombo = document.getElementById('pkg-btn-combo');
+    const pkgBtnTwo = document.getElementById('pkg-btn-two');
+
+    if (pkgBtnDirect) {
+      pkgBtnDirect.onclick = () => {
+        const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+        copyToClipboard(msg);
+        showToast(`เลือก 3 ตัวตรง: คัดลอก "${msg}" แล้ว กำลังเปิด LINE!`);
+        window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
+      };
+    }
+
+    if (pkgBtnCombo) {
+      pkgBtnCombo.onclick = () => {
+        const orderItems = [`${pred.n3Direct} 1`];
+        todsList.forEach(t => orderItems.push(`${t} 1`));
+        const msg = `สั่งซื้อ ${orderItems.join(', ')}`;
+        copyToClipboard(msg);
+        showToast(`เลือก 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว กำลังเปิด LINE!`);
+        window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
+      };
+    }
+
+    if (pkgBtnTwo) {
+      pkgBtnTwo.onclick = () => {
+        const msg = `สั่งซื้อ ${pred.n2Digit} 1 ใบ`;
+        copyToClipboard(msg);
+        showToast(`เลือก 2 ตัวตรง: คัดลอก "${msg}" แล้ว กำลังเปิด LINE!`);
+        window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
+      };
+    }
+
+    // 4. Update Floating Mobile Bottom Bar Action
+    const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
+    if (mobileLineBtn) {
+      const mobileMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+      mobileLineBtn.href = `https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(mobileMsg)}`;
+      mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
+      mobileLineBtn.onclick = () => {
+        copyToClipboard(mobileMsg);
+        showToast(`คัดลอกคำสั่งซื้อ "${mobileMsg}" แล้ว!`);
+      };
+    }
+
     try { SoundEngine.playRevealFanfare(); } catch (err) {}
     showToast('ทำนายฝันและคำนวณเลข N3 สำเร็จแล้ว!');
   }
@@ -1120,16 +1246,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = `<i class="fas fa-check-circle" style="color: var(--color-emerald)"></i> <span>${message}</span>`;
+    toast.className = 'toast success';
+    toast.innerHTML = `<i class="fas fa-check-circle toast-icon"></i> <span class="toast-text">${message}</span>`;
 
     toastContainer.appendChild(toast);
 
+    // Trigger transition
+    setTimeout(() => toast.classList.add('show'), 10);
+
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(100%)';
-      toast.style.transition = 'all 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 350);
     }, 3500);
   }
 
