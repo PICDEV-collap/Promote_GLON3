@@ -93,7 +93,10 @@ document.addEventListener('DOMContentLoaded', function () {
   function openMobileDrawer() {
     try { SoundEngine.playClick(); } catch (e) {}
     if (mobileDrawer) {
-      mobileDrawer.classList.add('active');
+      mobileDrawer.style.display = 'block';
+      requestAnimationFrame(() => {
+        mobileDrawer.classList.add('active');
+      });
       document.body.style.overflow = 'hidden';
     }
   }
@@ -102,6 +105,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (mobileDrawer) {
       mobileDrawer.classList.remove('active');
       document.body.style.overflow = '';
+      setTimeout(() => {
+        if (!mobileDrawer.classList.contains('active')) {
+          mobileDrawer.style.display = 'none';
+        }
+      }, 300);
     }
   }
 
@@ -777,17 +785,17 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
     if (pkgPriceCombo) pkgPriceCombo.innerText = `${comboPrice} บาท`;
-    if (pkgDescTwo) pkgDescTwo.innerHTML = `เลข <span class="num-highlight">${pred.n2Digit}</span> (1 ใบ)`;
+    if (pkgDescTwo) pkgDescTwo.innerHTML = `สลากท้าย <span class="num-highlight">${pred.n2Digit}</span> (1 ใบ)`;
 
     // 2. Setup Primary LINE Order Button (1-Click Deep Link)
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
       const defaultOrderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
       btnOrderLine.href = `https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(defaultOrderMsg)}`;
-      btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลข 3 ตัวตรง (${pred.n3Direct}) ผ่าน LINE (20 บ.)</span>`;
+      btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
       btnOrderLine.onclick = () => {
         copyToClipboard(defaultOrderMsg);
-        showToast(`คัดลอกคำสั่งซื้อ "${defaultOrderMsg}" แล้ว! กำลังเปิด LINE...`);
+        showToast(`📋 คัดลอกคำสั่งซื้อ "${defaultOrderMsg}" แล้ว! กำลังเปิด LINE...`);
       };
     }
 
@@ -800,27 +808,27 @@ document.addEventListener('DOMContentLoaded', function () {
       pkgBtnDirect.onclick = () => {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
         copyToClipboard(msg);
-        showToast(`เลือก 3 ตัวตรง: คัดลอก "${msg}" แล้ว กำลังเปิด LINE!`);
+        showToast(`🎯 3 ตัวตรง: คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
         window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
     if (pkgBtnCombo) {
       pkgBtnCombo.onclick = () => {
-        const orderItems = [`${pred.n3Direct} 1`];
-        todsList.forEach(t => orderItems.push(`${t} 1`));
+        const orderItems = [`${pred.n3Direct} 1 ใบ`];
+        todsList.forEach(t => orderItems.push(`${t} 1 ใบ`));
         const msg = `สั่งซื้อ ${orderItems.join(', ')}`;
         copyToClipboard(msg);
-        showToast(`เลือก 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว กำลังเปิด LINE!`);
+        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว! กำลังเปิด LINE...`);
         window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
     if (pkgBtnTwo) {
       pkgBtnTwo.onclick = () => {
-        const msg = `สั่งซื้อ ${pred.n2Digit} 1 ใบ`;
+        const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
         copyToClipboard(msg);
-        showToast(`เลือก 2 ตัวตรง: คัดลอก "${msg}" แล้ว กำลังเปิด LINE!`);
+        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
         window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
       };
     }
@@ -1231,8 +1239,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnCopyNum) {
     btnCopyNum.addEventListener('click', () => {
       if (currentPrediction && currentPrediction.n3Direct) {
-        copyToClipboard(currentPrediction.n3Direct);
-        showToast(`คัดลอกเลขเด็ด 3 ตัวตรง (${currentPrediction.n3Direct}) เรียบร้อยแล้ว!`);
+        const orderText = `สั่งซื้อ ${currentPrediction.n3Direct} 1 ใบ`;
+        copyToClipboard(orderText);
+        showToast(`📋 คัดลอกคำสั่งซื้อ "${orderText}" เรียบร้อยแล้ว! นำไปส่งใน LINE ได้ทันที`);
       }
     });
   }
