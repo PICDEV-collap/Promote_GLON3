@@ -18,6 +18,75 @@ import { DreamEngine } from './dream/dream-engine';
 
 const app = express();
 
+// ปิดการเปิดเผยเทคโนโลยีเซิร์ฟเวอร์
+app.disable('x-powered-by');
+
+// -------------------------------------------------------------------------
+// 0. ระบบความปลอดภัย (Security Controls & Hardening)
+// -------------------------------------------------------------------------
+
+// In-Memory Sliding-Window Rate Limiter
+class InMemoryRateLimiter {
+  private requests: Map<string, number[]> = new Map();
+
+  public check(key: string, limit: number, windowMs: number): boolean {
+    const now = Date.now();
+    const timestamps = this.requests.get(key) || [];
+    const valid = timestamps.filter(t => now - t < windowMs);
+    if (valid.length >= limit) {
+      return false; // เกินอัตราคำขอ
+    }
+    valid.push(now);
+    this.requests.set(key, valid);
+
+    // เคลียร์ความจำเมื่อมีคีย์มากเกินไป
+    if (this.requests.size > 2000) {
+      for (const [k, v] of this.requests.entries()) {
+        if (v.length === 0 || now - v[v.length - 1] > windowMs * 2) {
+          this.requests.delete(k);
+        }
+      }
+    }
+    return true;
+  }
+}
+
+const rateLimiter = new InMemoryRateLimiter();
+
+// Security Headers Middleware (ป้องกัน Clickjacking, MIME Sniffing, XSS)
+app.use((_req: Request, res: Response, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Sensitive Path & Traversal Blocker (ป้องกันการเข้าถึง .env, .git, .log, data/, browser_profile)
+app.use((req: Request, res: Response, next) => {
+  const rawUrl = req.url || '';
+  const decodedUrl = decodeURIComponent(rawUrl).toLowerCase();
+
+  if (
+    decodedUrl.includes('..') ||
+    decodedUrl.includes('/.env') ||
+    decodedUrl.includes('/.git') ||
+    decodedUrl.includes('browser_profile') ||
+    decodedUrl.includes('storagestate') ||
+    decodedUrl.includes('quota.json') ||
+    decodedUrl.includes('bot.pid') ||
+    decodedUrl.includes('.log') ||
+    decodedUrl.includes('webhook-url') ||
+    decodedUrl.includes('/node_modules') ||
+    decodedUrl.includes('/package.json') ||
+    decodedUrl.includes('/tsconfig.json')
+  ) {
+    console.warn(`[SECURITY BLOCKED] ปฏิเสธคำขอเข้าถึง Sensitive Path: ${req.method} ${rawUrl}`);
+    res.status(403).send('Forbidden');
+    return;
+  }
+  next();
+});
+
 // ดักจับ rawBody สำหรับตรวจสอบ LINE Webhook Signature
 app.use(express.json({
   verify: (req: any, _res, buf) => {
@@ -25,30 +94,53 @@ app.use(express.json({
   }
 }));
 
-// เสิร์ฟรูปภาพ QR Code ผ่าน Static Route
-app.use('/qrcodes', express.static(CONFIG.QR_OUTPUT_DIR));
+// -------------------------------------------------------------------------
+// Static Asset Whitelist (จำกัดสิทธิ์เฉพาะโฟลเดอร์สาธารณะที่ปลอดภัยเท่านั้น)
+// -------------------------------------------------------------------------
+app.use('/qrcodes', express.static(CONFIG.QR_OUTPUT_DIR, { dotfiles: 'ignore', index: false }));
+app.use('/public', express.static(path.join(__dirname, '../../public'), { dotfiles: 'ignore', index: false }));
+app.use('/public', express.static(path.join(__dirname, '../public'), { dotfiles: 'ignore', index: false }));
+app.use('/css', express.static(path.join(__dirname, '../../css'), { dotfiles: 'ignore', index: false }));
+app.use('/js', express.static(path.join(__dirname, '../../js'), { dotfiles: 'ignore', index: false }));
+app.use('/images', express.static(path.join(__dirname, '../../images'), { dotfiles: 'ignore', index: false }));
+app.use('/logos', express.static(path.join(__dirname, '../../logos'), { dotfiles: 'ignore', index: false }));
+app.use('/icons', express.static(path.join(__dirname, '../../icons'), { dotfiles: 'ignore', index: false }));
 
-// เสิร์ฟหน้าเว็บสั่งซื้อ / LIFF / Static Files
-app.use('/public', express.static(path.join(__dirname, '../public')));
-app.use(express.static(path.join(__dirname, '../public')));
-app.use(express.static(path.join(__dirname, '../../public')));
-app.use(express.static(path.join(__dirname, '../../')));
+// Routes สำหรับหน้าเว็บสาธารณะ
+app.get(['/', '/index.html'], (_req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../../index.html'));
+});
 
-// Endpoint เปิดตารางสั่งซื้อสลาก N3
-app.get('/order', (_req: Request, res: Response) => {
+app.get(['/order', '/order.html'], (_req: Request, res: Response) => {
+  const rootOrderPath = path.join(__dirname, '../../order.html');
   const localOrderPath = path.join(__dirname, '../public/order.html');
-  if (fs.existsSync(localOrderPath)) {
+  if (fs.existsSync(rootOrderPath)) {
+    res.sendFile(rootOrderPath);
+  } else if (fs.existsSync(localOrderPath)) {
     res.sendFile(localOrderPath);
   } else {
     res.redirect(CONFIG.ORDER_FORM_URL);
   }
 });
 
-// Endpoint บังคับดาวน์โหลดไฟล์รูปภาพ QR Code โดยตรง (Force Download)
-app.get('/download-qr/:filename', (req: Request, res: Response) => {
+// Endpoint บังคับดาวน์โหลดไฟล์รูปภาพ QR Code โดยตรง (Force Download) พร้อมระบบตรวจสอบและ Rate Limit
+app.get('/download-qr/:filename', (req: Request, res: Response): void => {
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
+  if (!rateLimiter.check(`download:${ip}`, 30, 60000)) {
+    res.status(429).send('คำขอดาวน์โหลดถี่เกินไป กรุณารอ 1 นาที');
+    return;
+  }
+
   const rawParam = req.params.filename;
   const paramStr = Array.isArray(rawParam) ? rawParam[0] : (rawParam || '');
   const filename = path.basename(paramStr);
+
+  // ตรวจสอบความถูกต้องของชื่อไฟล์ ต้องเป็นรูปภาพ PNG เฉพาะของระบบสลาก N3 เท่านั้น
+  if (!/^payment-[\w.-]+\.png$/i.test(filename) && !/^[\w.-]+\.png$/i.test(filename)) {
+    res.status(400).send('รูปแบบชื่อไฟล์ไม่ถูกต้อง');
+    return;
+  }
+
   const filePath = path.join(CONFIG.QR_OUTPUT_DIR, filename);
   if (fs.existsSync(filePath)) {
     res.setHeader('Content-Type', 'image/png');
@@ -424,13 +516,22 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
  * LINE Webhook Endpoint
  */
 app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
+
+  // 0. Rate Limiting ป้องกัน DoS / Flooding บน Webhook
+  if (!rateLimiter.check(`webhook:${ip}`, 120, 60000)) {
+    console.warn(`[SECURITY RATE LIMIT] ปฏิเสธ Webhook จาก IP ${ip}: เกินอัตราคำขอที่กำหนด (120 req/min)`);
+    res.status(429).send('Too Many Requests');
+    return;
+  }
+
   const signature = req.headers['x-line-signature'] as string;
   const rawBody = (req as any).rawBody;
 
-  // 1. ตรวจสอบความถูกต้องของ LINE Webhook Signature ป้องกันการปลอมแปลง Request
-  if (CONFIG.LINE_CHANNEL_SECRET && signature && rawBody) {
-    if (!validateSignature(rawBody, CONFIG.LINE_CHANNEL_SECRET, signature)) {
-      console.warn('[SECURITY BLOCKED] ปฏิเสธ Webhook: ลายเซ็นดิจิทัล x-line-signature ไม่ถูกต้อง!');
+  // 1. ตรวจสอบความถูกต้องของ LINE Webhook Signature ป้องกันการปลอมแปลง Request 100%
+  if (CONFIG.LINE_CHANNEL_SECRET) {
+    if (!signature || !rawBody || !validateSignature(rawBody, CONFIG.LINE_CHANNEL_SECRET, signature)) {
+      console.warn(`[SECURITY BLOCKED] ปฏิเสธ Webhook จาก IP ${ip}: ไม่มีลายเซ็น หรือ ลายเซ็น x-line-signature ไม่ถูกต้อง!`);
       res.status(403).send('Invalid Signature');
       return;
     }
@@ -438,17 +539,13 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
   res.status(200).send('OK');
 
-  // 2. ป้องกัน Host Header Injection: อนุญาตเฉพาะโดเมน Cloudflare Tunnel หรือบริการที่ปลอดภัย
+  // 2. ป้องกัน Host Header Injection: อัปเดต Memory Base URL เฉพาะเมื่อจำเป็น โดยไม่เขียนทับไฟล์ระบบ
   const host = (req.headers['x-forwarded-host'] || req.headers.host) as string;
   const proto = (req.headers['x-forwarded-proto'] || 'https') as string;
   if (host && typeof host === 'string') {
     const lowerHost = host.toLowerCase();
-    if (lowerHost.endsWith('.trycloudflare.com') || lowerHost.includes('ngrok') || lowerHost.includes('loca.lt')) {
+    if (lowerHost.endsWith('.trycloudflare.com') && !currentPublicBaseUrl.includes('.trycloudflare.com')) {
       currentPublicBaseUrl = `${proto}://${host}`;
-      try {
-        const rootUrlFile = path.resolve(__dirname, '../../webhook-url.txt');
-        fs.writeFileSync(rootUrlFile, `${currentPublicBaseUrl}/webhook`, 'utf-8');
-      } catch {}
     }
   }
 
