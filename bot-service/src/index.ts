@@ -436,6 +436,37 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
   const events = req.body?.events || [];
   for (const event of events) {
+    // 0. ตรวจจับการเพิ่มเพื่อนใหม่ (Follow Event) -> ส่งการ์ดต้อนรับ แนะนำร้าน และสอนวิธีสั่งซื้อทันที
+    if (event.type === 'follow') {
+      const replyToken: string = event.replyToken;
+      const followerId: string = event.source?.userId || 'anonymous';
+      console.log(`[NEW FOLLOWER] 🎉 มีลูกค้าใหม่เพิ่มเพื่อน: ${followerId}`);
+
+      try {
+        const welcomeMsg = FlexMessageBuilder.buildWelcomeMessage();
+        if (replyToken) {
+          await lineHandler.reply(replyToken, [welcomeMsg]);
+        }
+      } catch (err) {
+        console.error('[FOLLOW ERROR] ไม่สามารถส่งข้อความต้อนรับได้:', err);
+      }
+
+      // แจ้งเตือนแอดมินว่ามีผู้ติดตามใหม่
+      try {
+        const adminId = CONFIG.LINE_ADMIN_USER_ID || CONFIG.ADMIN_LINE_USER_ID;
+        if (adminId && followerId !== adminId) {
+          await lineHandler.pushToAdmin([
+            {
+              type: 'text',
+              text: `🎉 [แจ้งเตือนแอดมิน] มีลูกค้าใหม่เพิ่มเพื่อนร้านสลาก N3 ธนกิจนำโชค!\n\n• User ID: ${followerId}\n• เวลา: ${new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })} น.`
+            }
+          ]);
+        }
+      } catch (e) {}
+
+      continue;
+    }
+
     if (event.type === 'message' && event.message.type === 'text') {
       const userText: string = event.message.text.trim();
       const replyToken: string = event.replyToken;
@@ -451,6 +482,20 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         await lineHandler.reply(replyToken, [
           { type: 'text', text: `👤 LINE User ID ของคุณคือ:\n${userId}\n\nสถานะ: ${isAdmin ? '✅ แอดมิน (Admin)' : 'ลูกค้าทั่วไป'}` }
         ]);
+        continue;
+      }
+
+      // คำสั่งทักทาย / เริ่มต้นใช้งาน (สวัสดี, หวัดดี, hello, hi, เริ่ม, แนะนำตัว) -> ส่งการ์ดต้อนรับชุดใหญ่
+      const isGreeting = /^(?:สวัสดี|หวัดดี|ดีครับ|ดีค่ะ|สวัสดียามเช้า|อรุณสวัสดิ์|hello|hi|hey|start|เริ่ม|เริ่มต้น|แนะนำตัว|ยินดีต้อนรับ)$/i.test(userText);
+      if (isGreeting) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildWelcomeMessage()]);
+        continue;
+      }
+
+      // คำสั่งขอวิธีสั่งซื้อ / ช่วยเหลือ
+      const isHelpCmd = /^(?:help|วิธี|วิธีซื้อ|วิธีสั่ง|วิธีสั่งซื้อ|สั่งยังไง|ซื้อยังไง|ช่วยด้วย)$/i.test(userText);
+      if (isHelpCmd) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
         continue;
       }
 

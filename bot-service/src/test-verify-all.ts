@@ -747,6 +747,7 @@ function runTests() {
 
   test('Live Quota: Quota enforcement reflects live synced values and rejects accurately', () => {
     const qm = new QuotaManager();
+    qm.updateLiveQuota(32, 1968, 2000);
     // Verify initial state matches synced values from quota.json
     const initialStatus = qm.getStatus();
     assert.strictEqual(initialStatus.maxQuota, 2000);
@@ -889,6 +890,48 @@ function runTests() {
     qm.updateLiveQuota(32, 1968, 2000);
     assert.strictEqual(qm.getStatus().remainingQuota, 1968);
     assert.strictEqual(qm.getStatus().usedQuota, 32);
+  });
+
+  // TEST SUITE 12: Welcome Card on Follow & Quick Reply Enhancement
+  test('Welcome Card: buildWelcomeMessage produces valid structure with Quick Replies', () => {
+    const welcome = FlexMessageBuilder.buildWelcomeMessage();
+    assert.strictEqual(welcome.type, 'flex');
+    assert(welcome.altText.includes('ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค'));
+    assert(welcome.quickReply, 'Must include quickReply buttons');
+    assert(welcome.quickReply?.items && welcome.quickReply.items.length >= 3, 'Must have at least 3 quick reply buttons');
+    
+    // Check quick reply labels
+    const labels = welcome.quickReply?.items.map((it: any) => it.action.label);
+    assert(labels?.includes('🛒 ตัวอย่างสั่งซื้อ'));
+    assert(labels?.includes('📊 เช็คโควต้าสลาก'));
+    assert(labels?.includes('🔮 ทำนายฝัน AI'));
+    assert(labels?.includes('❓ วิธีสั่งซื้อ'));
+
+    // Check header and store branding
+    const bubble: any = welcome.contents;
+    assert.strictEqual(bubble.type, 'bubble');
+    const headerTexts = JSON.stringify(bubble.header);
+    assert(headerTexts.includes('ร้านสลาก N3 ธนกิจนำโชค'));
+
+    // Check body contains the 4 prize descriptions and ordering guide
+    const bodyTexts = JSON.stringify(bubble.body);
+    assert(bodyTexts.includes('สามตรง'), 'Must explain 3-straight prize');
+    assert(bodyTexts.includes('สามสลับหลัก'), 'Must explain 3-permuted prize');
+    assert(bodyTexts.includes('สองตรง'), 'Must explain 2-straight prize');
+    assert(bodyTexts.includes('รางวัลพิเศษ'), 'Must explain jackpot special prize');
+    assert(bodyTexts.includes('06:00 - 23:00 น.'), 'Must mention operating hours');
+
+    // Check footer buttons
+    const footerTexts = JSON.stringify(bubble.footer);
+    assert(footerTexts.includes('ทำนายฝัน หาเลขเด็ด AI'));
+    assert(footerTexts.includes('ทดลองสั่งซื้อ'));
+  });
+
+  test('HowToOrder Card: buildHowToOrderMessage includes Quick Reply buttons', () => {
+    const howTo = FlexMessageBuilder.buildHowToOrderMessage();
+    assert.strictEqual(howTo.type, 'flex');
+    assert(howTo.quickReply, 'HowToOrder must include quickReply');
+    assert(howTo.quickReply?.items && howTo.quickReply.items.length >= 3);
   });
 
 

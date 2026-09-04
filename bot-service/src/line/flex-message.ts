@@ -231,6 +231,42 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: 'ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค - วิธีพิมพ์สั่งซื้อ',
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🛒 ตัวอย่างสั่งซื้อ',
+              text: '334 2, 447 2'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '📊 เช็คโควต้าสลาก',
+              text: 'เช็คโควต้า'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'uri',
+              label: '🔮 ทำนายฝัน AI',
+              uri: CONFIG.DREAM_PREDICTION_URL
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '❓ วิธีสั่งซื้อ',
+              text: 'วิธีสั่งซื้อ'
+            }
+          }
+        ]
+      },
       contents: {
         type: 'bubble',
         header: {
@@ -338,6 +374,202 @@ export class FlexMessageBuilder {
                 type: 'uri',
                 label: '🔮 ทำนายฝัน หาเลขเด็ด N3',
                 uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            }
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+  }
+
+  /**
+   * 2.1 การ์ดต้อนรับลูกค้าใหม่เมื่อเพิ่มเพื่อน (Welcome Card on Follow)
+   */
+  public static buildWelcomeMessage(): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: '🎉 ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค!',
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🛒 ตัวอย่างสั่งซื้อ',
+              text: '334 2, 447 2'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '📊 เช็คโควต้าสลาก',
+              text: 'เช็คโควต้า'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'uri',
+              label: '🔮 ทำนายฝัน AI',
+              uri: CONFIG.DREAM_PREDICTION_URL
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '❓ วิธีสั่งซื้อ',
+              text: 'วิธีสั่งซื้อ'
+            }
+          }
+        ]
+      },
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '🎉 ยินดีต้อนรับสู่',
+              weight: 'bold',
+              color: '#d4af37',
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: 'ร้านสลาก N3 ธนกิจนำโชค',
+              weight: 'bold',
+              size: 'lg',
+              color: '#ffffff'
+            },
+            {
+              type: 'text',
+              text: 'ตัวแทนจำหน่ายสลากกินแบ่งรัฐบาลตัวเลขสามหลัก (N3)',
+              size: 'xxs',
+              color: '#a0b2c6',
+              margin: 'xs'
+            }
+          ],
+          backgroundColor: '#0c1b33',
+          paddingAll: '16px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '✨ สลาก N3 ใบละ 20 บาท ถูกกฎหมาย 100%',
+              weight: 'bold',
+              size: 'sm',
+              color: '#0056b3'
+            },
+            {
+              type: 'text',
+              text: 'ลุ้นได้ถึง 4 รางวัลใหญ่ใน 1 ใบ ออกรางวัลทุกวันที่ 1 และ 16:',
+              size: 'xs',
+              color: '#555555',
+              margin: 'xs'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              spacing: 'xs',
+              backgroundColor: '#f8f9fa',
+              paddingAll: '10px',
+              cornerRadius: 'md',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '🥇 สามตรง:', size: 'xxs', weight: 'bold', color: '#b8860b', flex: 3 },
+                    { type: 'text', text: 'ตรงเลข ตรงหลัก', size: 'xxs', color: '#444444', flex: 7 }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '🥈 สามสลับหลัก:', size: 'xxs', weight: 'bold', color: '#708090', flex: 3 },
+                    { type: 'text', text: 'ตรงเลข สลับตำแหน่ง (โต๊ด)', size: 'xxs', color: '#444444', flex: 7 }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '🥉 สองตรง:', size: 'xxs', weight: 'bold', color: '#cd7f32', flex: 3 },
+                    { type: 'text', text: 'ตรงเลขท้าย 2 ตัว ตรงหลัก', size: 'xxs', color: '#444444', flex: 7 }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '🎁 รางวัลพิเศษ:', size: 'xxs', weight: 'bold', color: '#d9534f', flex: 3 },
+                    { type: 'text', text: 'แจ็กพอตสุ่มจากผู้ถูกรางวัลสามตรง', size: 'xxs', color: '#444444', flex: 7 }
+                  ]
+                }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            {
+              type: 'text',
+              text: '🛒 วิธีการสั่งซื้อสลากง่ายๆ:',
+              weight: 'bold',
+              size: 'xs',
+              color: '#333333',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: 'ท่านสามารถพิมพ์เลขที่ต้องการในแชทนี้ได้ทันที เช่น:\n• สั่งเลขเดียว: 123 2 (ได้ 2 ใบ)\n• สั่งหลายเลข: 334 2, 447 3\n• สั่งเท่ากัน: 111 222 อย่างละ 2 ใบ',
+              size: 'xxs',
+              color: '#666666',
+              wrap: true,
+              margin: 'xs'
+            },
+            {
+              type: 'text',
+              text: '⏰ เวลาจำหน่าย: 06:00 - 23:00 น. (วันหวยออกปิด 14:00 น.)',
+              size: 'xxs',
+              color: '#888888',
+              margin: 'md'
+            }
+          ],
+          paddingAll: '16px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#d4af37',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔮 ทำนายฝัน หาเลขเด็ด AI',
+                uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#0056b3',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🛒 ทดลองสั่งซื้อ (ตัวอย่าง 334 2 ใบ)',
+                text: '334 2'
               }
             }
           ],
