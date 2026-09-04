@@ -1115,11 +1115,18 @@ function runTests() {
     assert.strictEqual(isOrderGuideRegex.test('123 2'), false);
     assert.strictEqual(isOrderGuideRegex.test('สั่งซื้อ 123 2 ใบ'), false);
 
-    const isDreamRegex = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*|แปลฝัน.*)$/i;
+    const isDreamRegex = /^(?:(?:เมื่อคืน(?:นี้)?|เมื่อวาน(?:นี้)?|เมื่อกี้|เมื่อเช้า)?\s*(?:ผม|หนู|ฉัน|เรา|เค้า)?\s*ฝัน.*|ทำนายฝัน.*|ทำนายความฝัน.*|ทำนาย.*|เลขเด็ด.*|หาเลข.*|ขอเลข.*|แปลฝัน.*|แปลความฝัน.*|ช่วยทำนาย.*|ช่วยแปล.*|ช่วยดู.*|ความฝัน.*)$/i;
     assert.strictEqual(isDreamRegex.test('ทำนายฝัน'), true);
     assert.strictEqual(isDreamRegex.test('ทำนายฝันเห็นพญานาค'), true);
     assert.strictEqual(isDreamRegex.test('เลขเด็ดงวดนี้'), true);
+    assert.strictEqual(isDreamRegex.test('เมื่อคืนฝันเห็นงู'), true);
+    assert.strictEqual(isDreamRegex.test('เมื่อวานฝันว่าได้ทอง'), true);
+    assert.strictEqual(isDreamRegex.test('ผมฝันว่าขับรถชน'), true);
+    assert.strictEqual(isDreamRegex.test('หนูฝันว่าเห็นพญานาค'), true);
+    assert.strictEqual(isDreamRegex.test('ขอเลขเด็ดหน่อยครับ'), true);
+    assert.strictEqual(isDreamRegex.test('ช่วยแปลความฝันหน่อย'), true);
     assert.strictEqual(isDreamRegex.test('334=5'), false);
+    assert.strictEqual(isDreamRegex.test('สั่งซื้อ 123 2 ใบ'), false);
   });
 
   // TEST SUITE 16: AI Dream Engine & In-Chat Prediction
@@ -1131,6 +1138,35 @@ function runTests() {
     const generic2 = DreamEngine.analyzeDreamPrompt('เลขเด็ด AI');
     assert.strictEqual(generic2.hasDreamContent, false);
 
+    // Polite particles without dream content should trigger guidance
+    const genericPolite1 = DreamEngine.analyzeDreamPrompt('ทำนายฝันหน่อย');
+    assert.strictEqual(genericPolite1.hasDreamContent, false, 'ทำนายฝันหน่อย should trigger guidance');
+    assert.strictEqual(genericPolite1.isGenericRequest, true);
+
+    const genericPolite2 = DreamEngine.analyzeDreamPrompt('ทำนายฝันครับ');
+    assert.strictEqual(genericPolite2.hasDreamContent, false, 'ทำนายฝันครับ should trigger guidance');
+    assert.strictEqual(genericPolite2.isGenericRequest, true);
+
+    const genericPolite3 = DreamEngine.analyzeDreamPrompt('ทำนายฝันค่ะ');
+    assert.strictEqual(genericPolite3.hasDreamContent, false);
+    assert.strictEqual(genericPolite3.isGenericRequest, true);
+
+    const genericPolite4 = DreamEngine.analyzeDreamPrompt('ช่วยทำนายฝันหน่อยครับ');
+    assert.strictEqual(genericPolite4.hasDreamContent, false);
+    assert.strictEqual(genericPolite4.isGenericRequest, true);
+
+    // Additional edge cases: pure polite particles, openers without substance, and requests for numbers
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ฝันครับ').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ฝันค่ะ').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ฝันหน่อย').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ความฝันครับ').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ช่วยแปลความฝันหน่อย').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ขอเลขเด็ดหน่อยครับ').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('เมื่อคืนฝัน').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('เมื่อคืนฝันครับ').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('เมื่อวานฝันว่า').hasDreamContent, false);
+    assert.strictEqual(DreamEngine.analyzeDreamPrompt('ผมฝันครับ').hasDreamContent, false);
+
     const specific1 = DreamEngine.analyzeDreamPrompt('ฝันเห็นงู 2 ตัว');
     assert.strictEqual(specific1.hasDreamContent, true);
     assert.strictEqual(specific1.cleanedText, 'ฝันเห็นงู 2 ตัว');
@@ -1138,6 +1174,14 @@ function runTests() {
     const specific2 = DreamEngine.analyzeDreamPrompt('ช่วยทำนายฝันให้หน่อย ฝันว่าขับรถชน ทะเบียน 954');
     assert.strictEqual(specific2.hasDreamContent, true);
     assert(specific2.cleanedText.includes('954'));
+
+    const specific3 = DreamEngine.analyzeDreamPrompt('ทำนายฝันหน่อย ฝันเห็นงู 2 ตัวครับ');
+    assert.strictEqual(specific3.hasDreamContent, true);
+    assert.strictEqual(specific3.cleanedText, 'ฝันเห็นงู 2 ตัว');
+
+    const specific4 = DreamEngine.analyzeDreamPrompt('เมื่อคืนฝันเห็นงู 2 ตัวครับ');
+    assert.strictEqual(specific4.hasDreamContent, true);
+    assert.strictEqual(specific4.cleanedText, 'เมื่อคืนฝันเห็นงู 2 ตัว');
   });
 
   test('DreamEngine: predictDream accurately calculates lucky numbers, meaning, and poems', () => {
@@ -1154,6 +1198,16 @@ function runTests() {
     assert.strictEqual(pred2.n3Direct, '954', 'Explicit 3-digit number 954 should be anchor');
     assert.strictEqual(pred2.n2Digit, '54', '2-digit should be 54');
     assert(pred2.allTods.length >= 2, 'Should generate tods');
+
+    // 2.1 3-digit priority over 2-digit test (e.g. 25 and 954)
+    const predPriority = DreamEngine.predictDream('ฝันเห็น 25 ทะเบียน 954');
+    assert.strictEqual(predPriority.n3Direct, '954', 'Explicit 3-digit number 954 should take priority as anchor over 2-digit 25');
+    assert.strictEqual(predPriority.n2Digit, '25', 'Explicit 2-digit number 25 should be preserved as 2-digit');
+
+    // 2.2 Thai numerals support test (e.g. ๒๕ and ๙๕๔)
+    const predThai = DreamEngine.predictDream('ฝันเห็น ๒๕ ทะเบียน ๙๕๔');
+    assert.strictEqual(predThai.n3Direct, '954', 'Thai numeral ๙๕๔ should be normalized to 954 as anchor');
+    assert.strictEqual(predThai.n2Digit, '25', 'Thai numeral ๒๕ should be normalized to 25');
 
     // 3. Folk category test (เต่า)
     const pred3 = DreamEngine.predictDream('ฝันเห็นเต่าตัวใหญ่');
@@ -1310,6 +1364,15 @@ function runTests() {
     const appContent = fs.readFileSync(appJsPath, 'utf-8');
     assert(appContent.includes('modal-order-table'), 'app.js must handle modal-order-table');
     assert(!appContent.includes('?text='), 'app.js must not use non-standard ?text=');
+  });
+
+  test('Vercel Config: public/order.html is removed to prevent 404 shadow and vercel.json has outputDirectory .', () => {
+    const pubOrderPath = path.resolve(__dirname, '../../public/order.html');
+    assert(!fs.existsSync(pubOrderPath), 'public/order.html must be removed from repository');
+    const vercelJsonPath = path.resolve(__dirname, '../../vercel.json');
+    const vercelConfig = JSON.parse(fs.readFileSync(vercelJsonPath, 'utf-8'));
+    assert.strictEqual(vercelConfig.outputDirectory, '.', 'outputDirectory must be .');
+    assert.strictEqual(vercelConfig.cleanUrls, true, 'cleanUrls must be true');
   });
 
   console.log(`\n====================================================`);

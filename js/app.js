@@ -787,11 +787,19 @@ document.addEventListener('DOMContentLoaded', function () {
     if (pkgPriceCombo) pkgPriceCombo.innerText = `${comboPrice} บาท`;
     if (pkgDescTwo) pkgDescTwo.innerHTML = `สลากท้าย <span class="num-highlight">${pred.n2Digit}</span> (1 ใบ)`;
 
+    // Resolve dynamic LINE OA ID from AgentSystem
+    const currentAgentLine = (window.AgentSystem && typeof window.AgentSystem.getAgentInfo === 'function')
+      ? window.AgentSystem.getAgentInfo().line
+      : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
+    const rawLine = currentAgentLine || '@586xxhlx';
+    const formattedLine = rawLine.startsWith('@') ? rawLine : '@' + rawLine;
+    const dynamicLineOaId = encodeURIComponent(formattedLine);
+
     // 2. Setup Primary LINE Order Button (1-Click Deep Link)
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
       const defaultOrderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      btnOrderLine.href = `https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(defaultOrderMsg)}`;
+      btnOrderLine.href = `https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(defaultOrderMsg)}`;
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
       btnOrderLine.onclick = () => {
         copyToClipboard(defaultOrderMsg);
@@ -809,7 +817,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
         copyToClipboard(msg);
         showToast(`🎯 3 ตัวตรง: คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
@@ -820,7 +828,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const msg = `สั่งซื้อ ${orderItems.join(', ')}`;
         copyToClipboard(msg);
         showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
@@ -829,7 +837,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
         copyToClipboard(msg);
         showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
@@ -837,7 +845,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
     if (mobileLineBtn) {
       const mobileMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      mobileLineBtn.href = `https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(mobileMsg)}`;
+      mobileLineBtn.href = `https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(mobileMsg)}`;
       mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
       mobileLineBtn.onclick = () => {
         copyToClipboard(mobileMsg);
@@ -1623,7 +1631,12 @@ document.addEventListener('DOMContentLoaded', function () {
       copyToClipboard(cmd);
       showToast(`📋 ส่งคำสั่งซื้อ "${cmd}" เข้าสู่ LINE...`);
 
-      const encodedId = encodeURIComponent('@586xxhlx');
+      const agentLineModal = (window.AgentSystem && typeof window.AgentSystem.getAgentInfo === 'function')
+        ? window.AgentSystem.getAgentInfo().line
+        : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
+      const rawModalLine = agentLineModal || '@586xxhlx';
+      const formattedModalLine = rawModalLine.startsWith('@') ? rawModalLine : '@' + rawModalLine;
+      const encodedId = encodeURIComponent(formattedModalLine);
       const lineUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodeURIComponent(cmd)}`;
       if (modalOrderTable) modalOrderTable.classList.remove('active');
 
