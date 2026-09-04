@@ -1,22 +1,23 @@
 @echo off
-title Create N3 Bot Desktop Shortcuts - สร้างทางลัดบน Desktop
+title Create N3 Bot Desktop Shortcuts
 chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ===================================================================
-echo     สร้างทางลัด (Shortcuts) สำหรับบอทสลาก N3 บนหน้าจอ Desktop
+echo     Create Desktop Shortcuts for N3 Lottery Bot
 echo ===================================================================
 echo.
-echo กำลังสร้างทางลัด...
+echo Creating shortcuts...
 
-cscript //nologo scripts\create-desktop-shortcuts.vbs
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\create-desktop-shortcuts.ps1"
 
 echo.
 echo ===================================================================
-echo     ✅ สร้างทางลัดบน Desktop สำเร็จเรียบร้อยแล้ว:
-echo       1. 🚀 เปิดบอท N3 (ซ่อนหน้าต่าง).lnk
-echo       2. 🛑 ปิดบอท N3 (STOP-BOT).lnk
-echo       3. ⚙️ N3-MANAGER แผงควบคุม.lnk
+echo     Shortcuts created on Desktop successfully:
+echo       1. START-N3-BOT-SILENT.lnk
+echo       2. STOP-N3-BOT.lnk
+echo       3. N3-MANAGER.lnk
+echo       4. START-N3-BOT.lnk
 echo ===================================================================
 echo.
 timeout /t 3 >nul 2>&1

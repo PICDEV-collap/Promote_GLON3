@@ -1,9 +1,12 @@
 import assert from 'assert';
-import { parseOrderMessage } from './index';
+import fs from 'fs';
+import path from 'path';
+import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl } from './index';
 import { FlexMessageBuilder } from './line/flex-message';
 import { QuotaManager } from './quota/quota-manager';
 import { OrderItem } from './queue/order-queue';
 import { CONFIG } from './config';
+import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 
 function runTests() {
   console.log('====================================================');
@@ -454,6 +457,173 @@ function runTests() {
     assert.strictEqual(clipX, 582);
     assert.strictEqual(clipY, 192);
     assert.strictEqual(clipSize, 276);
+  });
+
+  // TEST SUITE 9: Bot Lifecycle Notifications (Start, Stop, Crash, Thai Time)
+  test('Lifecycle: getThaiTime returns formatted Thai time with น.', () => {
+    const timeStr = getThaiTime();
+    assert(typeof timeStr === 'string');
+    assert(timeStr.endsWith('น.'));
+    assert(/\d{1,2}:\d{2}\s*น\./.test(timeStr), `Time format unexpected: ${timeStr}`);
+  });
+
+  test('Lifecycle: notifyBotStarted builds expected start notification message', async () => {
+    const handler = new LineReplyHandler();
+    const testWebhook = 'https://n3-demo.trycloudflare.com/webhook';
+    let pushedMessage = '';
+    // Intercept pushToAdmin to verify payload
+    handler.pushToAdmin = async (msgs: any[]) => {
+      pushedMessage = msgs[0]?.text || '';
+      return true;
+    };
+
+    const res = await handler.notifyBotStarted(testWebhook);
+    assert.strictEqual(res, true);
+    assert(pushedMessage.includes('🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว'));
+    assert(pushedMessage.includes('พร้อมรับออเดอร์ตลอด 24 ชม.'));
+    assert(pushedMessage.includes(`(Webhook: ${testWebhook})`));
+  });
+
+  test('Lifecycle: notifyBotStopped builds expected emergency stop notification message', async () => {
+    const handler = new LineReplyHandler();
+    let pushedMessage = '';
+    handler.pushToAdmin = async (msgs: any[]) => {
+      pushedMessage = msgs[0]?.text || '';
+      return true;
+    };
+
+    const timeStr = '06:35 น.';
+    const res = await handler.notifyBotStopped(timeStr, 'Process terminated');
+    assert.strictEqual(res, true);
+    assert(pushedMessage.includes('⚠️ [แจ้งเตือนด่วน] บอทสลาก N3 หยุดทำงานแล้ว (Bot Service Stopped)'));
+    assert(pushedMessage.includes(`เมื่อเวลา ${timeStr}`));
+    assert(pushedMessage.includes('กรุณาตรวจสอบหรือเปิดบอทใหม่'));
+    assert(pushedMessage.includes('Process terminated'));
+  });
+
+  test('Lifecycle: notifyBotStoppedByAdmin builds exact admin stop message', async () => {
+    const handler = new LineReplyHandler();
+    let pushedMessage = '';
+    handler.pushToAdmin = async (msgs: any[]) => {
+      pushedMessage = msgs[0]?.text || '';
+      return true;
+    };
+
+    const res = await handler.notifyBotStoppedByAdmin();
+    assert.strictEqual(res, true);
+    assert.strictEqual(pushedMessage, '🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว');
+  });
+
+  test('Lifecycle: isStopIntentional detects intentional flag and handles cleanup', () => {
+    const rootStopFile = path.resolve(__dirname, '../../.stop_intentional');
+    // Ensure clean state
+    if (fs.existsSync(rootStopFile)) fs.unlinkSync(rootStopFile);
+    assert.strictEqual(isStopIntentional(), false);
+
+    // Create flag file
+    fs.writeFileSync(rootStopFile, Date.now().toString(), 'utf-8');
+    assert.strictEqual(isStopIntentional(), true);
+
+    // Cleanup
+    fs.unlinkSync(rootStopFile);
+    assert.strictEqual(isStopIntentional(), false);
+  });
+
+  test('Lifecycle: getStoredWebhookUrl retrieves URL or default fallback', () => {
+    const rootUrlFile = path.resolve(__dirname, '../../webhook-url.txt');
+    const originalContent = fs.existsSync(rootUrlFile) ? fs.readFileSync(rootUrlFile, 'utf-8') : null;
+
+    try {
+      fs.writeFileSync(rootUrlFile, 'https://test-tunnel.trycloudflare.com/webhook', 'utf-8');
+      const retrieved = getStoredWebhookUrl();
+      assert.strictEqual(retrieved, 'https://test-tunnel.trycloudflare.com/webhook');
+    } finally {
+      if (originalContent !== null) {
+        fs.writeFileSync(rootUrlFile, originalContent, 'utf-8');
+      } else if (fs.existsSync(rootUrlFile)) {
+        fs.unlinkSync(rootUrlFile);
+      }
+    }
+  });
+
+  // TEST SUITE 10: Desktop Launcher & Background Runner Integrity
+  test('Launcher: START-BOT-HIDDEN.vbs and scripts/show-popup.ps1 exist and configured properly', () => {
+    const vbsPath = path.resolve(__dirname, '../../START-BOT-HIDDEN.vbs');
+    const ps1Path = path.resolve(__dirname, '../../scripts/show-popup.ps1');
+    const shortcutPs1Path = path.resolve(__dirname, '../../scripts/create-desktop-shortcuts.ps1');
+
+    assert(fs.existsSync(vbsPath), 'START-BOT-HIDDEN.vbs must exist');
+    assert(fs.existsSync(ps1Path), 'scripts/show-popup.ps1 must exist');
+    assert(fs.existsSync(shortcutPs1Path), 'scripts/create-desktop-shortcuts.ps1 must exist');
+
+    // Verify UTF-8 BOM on PowerShell scripts for Windows PowerShell 5.1 compatibility
+    const ps1Buf = fs.readFileSync(ps1Path);
+    assert.strictEqual(ps1Buf[0], 0xEF, 'scripts/show-popup.ps1 must have UTF-8 BOM byte 1');
+    assert.strictEqual(ps1Buf[1], 0xBB, 'scripts/show-popup.ps1 must have UTF-8 BOM byte 2');
+    assert.strictEqual(ps1Buf[2], 0xBF, 'scripts/show-popup.ps1 must have UTF-8 BOM byte 3');
+
+    const scBuf = fs.readFileSync(shortcutPs1Path);
+    assert.strictEqual(scBuf[0], 0xEF, 'scripts/create-desktop-shortcuts.ps1 must have UTF-8 BOM byte 1');
+    assert.strictEqual(scBuf[1], 0xBB, 'scripts/create-desktop-shortcuts.ps1 must have UTF-8 BOM byte 2');
+    assert.strictEqual(scBuf[2], 0xBF, 'scripts/create-desktop-shortcuts.ps1 must have UTF-8 BOM byte 3');
+
+    const vbsContent = fs.readFileSync(vbsPath, 'utf-8');
+    assert(vbsContent.includes('n3-engine.js bg'), 'VBS must invoke n3-engine.js bg');
+    assert(vbsContent.includes('show-popup.ps1'), 'VBS must call show-popup.ps1');
+
+    const ps1Content = fs.readFileSync(ps1Path, 'utf-8');
+    assert(ps1Content.includes('webhook-url.txt'), 'show-popup.ps1 must read webhook-url.txt');
+    assert(ps1Content.includes('บอทสลาก N3 ธนกิจนำโชค'), 'show-popup.ps1 must contain Thai notification title');
+  });
+
+  test('Launcher: n3-engine.js spawns detached background process with shell: true', () => {
+    const enginePath = path.resolve(__dirname, '../../scripts/n3-engine.js');
+    assert(fs.existsSync(enginePath), 'scripts/n3-engine.js must exist');
+    const engineContent = fs.readFileSync(enginePath, 'utf-8');
+
+    assert(engineContent.includes('shell: true'), 'n3-engine.js must spawn with shell: true on Windows');
+    assert(engineContent.includes('detached: true'), 'n3-engine.js must spawn detached');
+    assert(engineContent.includes('windowsHide: true'), 'n3-engine.js must specify windowsHide: true');
+    assert(engineContent.includes('sendLineAdminAlert'), 'n3-engine.js must implement sendLineAdminAlert');
+    assert(engineContent.includes('setupEngineLifecycle'), 'n3-engine.js must have setupEngineLifecycle');
+    assert(engineContent.includes('notifyBotStopped'), 'n3-engine.js must have notifyBotStopped');
+    assert(engineContent.includes('notifyBotStarted'), 'n3-engine.js must have notifyBotStarted');
+    assert(engineContent.includes('notifyBotStoppedByAdmin'), 'n3-engine.js must have notifyBotStoppedByAdmin');
+    assert(engineContent.includes('ENGINE_NOTIFIES_START'), 'n3-engine.js must pass ENGINE_NOTIFIES_START');
+  });
+
+  test('Launcher: START-BOT.bat starts both bot and Cloudflare tunnel via n3-engine.js', () => {
+    const startBatPath = path.resolve(__dirname, '../../START-BOT.bat');
+    assert(fs.existsSync(startBatPath), 'START-BOT.bat must exist');
+    const startBatContent = fs.readFileSync(startBatPath, 'utf-8');
+    assert(startBatContent.includes('n3-engine.js start'), 'START-BOT.bat must run n3-engine.js start to start bot and tunnel');
+  });
+
+  test('Launcher: create-desktop-shortcuts.vbs delegates to create-desktop-shortcuts.ps1', () => {
+    const vbsShortcutsPath = path.resolve(__dirname, '../../scripts/create-desktop-shortcuts.vbs');
+    assert(fs.existsSync(vbsShortcutsPath), 'create-desktop-shortcuts.vbs must exist');
+    const vbsShortcutsContent = fs.readFileSync(vbsShortcutsPath, 'utf-8');
+    assert(vbsShortcutsContent.includes('create-desktop-shortcuts.ps1'), 'VBS shortcuts must delegate to PowerShell to prevent mojibake');
+  });
+
+  test('Index: index.ts lifecycle, watchdog, and initial public URL integrity', () => {
+    const indexPath = path.resolve(__dirname, 'index.ts');
+    assert(fs.existsSync(indexPath), 'index.ts must exist');
+    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+
+    // Verify beforeExit notifies without requiring code !== 0
+    assert(indexContent.includes("process.on('beforeExit'"), 'index.ts must listen to beforeExit');
+    assert(!indexContent.includes('code !== 0 && !isStopIntentional()'), 'beforeExit must NOT require code !== 0');
+
+    // Verify server close and error handling
+    assert(indexContent.includes("server.on('close'"), 'index.ts must listen to server close event');
+
+    // Verify watchdog is present
+    assert(indexContent.includes('tasklist'), 'index.ts must include tunnel watchdog using tasklist');
+    assert(indexContent.includes('cloudflared.exe'), 'index.ts watchdog must monitor cloudflared.exe');
+
+    // Verify CONFIG admin user IDs match
+    assert.strictEqual(CONFIG.LINE_ADMIN_USER_ID, CONFIG.ADMIN_LINE_USER_ID);
   });
 
 

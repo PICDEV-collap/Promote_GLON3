@@ -11,6 +11,13 @@ strScriptPath = WScript.ScriptFullName
 strScriptsDir = FSO.GetParentFolderName(strScriptPath)
 strRootDir = FSO.GetParentFolderName(strScriptsDir)
 
+' รันผ่าน PowerShell create-desktop-shortcuts.ps1 เพื่อภาษาไทยคมชัด 100% ไร้ปัญหา Mojibake
+strPs1Path = strScriptsDir & "\create-desktop-shortcuts.ps1"
+If FSO.FileExists(strPs1Path) Then
+    WshShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File """ & strPs1Path & """", 0, True
+    WScript.Quit 0
+End If
+
 ' 1. ทางลัด: เปิดบอทแบบซ่อนหน้าต่าง
 Set sc1 = WshShell.CreateShortcut(strDesktop & "\START-N3-BOT-SILENT.lnk")
 sc1.TargetPath = "wscript.exe"

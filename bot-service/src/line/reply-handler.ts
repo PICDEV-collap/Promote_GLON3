@@ -1,6 +1,21 @@
 import { messagingApi } from '@line/bot-sdk';
 import { CONFIG } from '../config';
 
+export function getThaiTime(date: Date = new Date()): string {
+  try {
+    return date.toLocaleTimeString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }) + ' น.';
+  } catch {
+    const h = String((date.getUTCHours() + 7) % 24).padStart(2, '0');
+    const m = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${h}:${m} น.`;
+  }
+}
+
 export class LineReplyHandler {
   private client: messagingApi.MessagingApiClient | null = null;
 
@@ -56,6 +71,34 @@ export class LineReplyHandler {
       console.error('[ADMIN PUSH ERROR] ไม่สามารถส่งแจ้งเตือนแอดมินได้:', error);
       return false;
     }
+  }
+
+  /**
+   * แจ้งเตือนเมื่อบอทเปิดใช้งาน (On Start)
+   */
+  public async notifyBotStarted(webhookUrl: string): Promise<boolean> {
+    const text = `🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`;
+    return this.pushToAdmin([{ type: 'text', text }]);
+  }
+
+  /**
+   * แจ้งเตือนด่วนเมื่อบอทหยุดทำงาน / แครช (On Stop / Shutdown / Crash)
+   */
+  public async notifyBotStopped(timeStr?: string, reason?: string): Promise<boolean> {
+    const time = timeStr || getThaiTime();
+    let text = `⚠️ [แจ้งเตือนด่วน] บอทสลาก N3 หยุดทำงานแล้ว (Bot Service Stopped) เมื่อเวลา ${time} กรุณาตรวจสอบหรือเปิดบอทใหม่`;
+    if (reason) {
+      text += `\n(สาเหตุ: ${reason})`;
+    }
+    return this.pushToAdmin([{ type: 'text', text }]);
+  }
+
+  /**
+   * แจ้งเตือนเมื่อแอดมินสั่งหยุดบอทเองอย่างถูกต้อง
+   */
+  public async notifyBotStoppedByAdmin(): Promise<boolean> {
+    const text = `🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว`;
+    return this.pushToAdmin([{ type: 'text', text }]);
   }
 
   /**
