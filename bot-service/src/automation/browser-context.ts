@@ -128,6 +128,23 @@ export class PersistentBrowserManager {
     });
   }
 
+  public static isBrowserOpen(): boolean {
+    return !!(this.context && this.page && !this.page.isClosed());
+  }
+
+  public static getActivePage(): Page | null {
+    if (this.context) {
+      try {
+        const pages = this.context.pages();
+        const activePage = pages.find(p => !p.isClosed());
+        return activePage || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
   public static async close(): Promise<void> {
     if (this.context) {
       try {
@@ -139,3 +156,4 @@ export class PersistentBrowserManager {
     }
   }
 }
+

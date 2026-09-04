@@ -30,5 +30,7 @@ bot-service/dist/
 bot.log
 tunnel.log
 services.pid
+bot.pid
+webhook-url.txt
 cf-log.txt
 Webhook

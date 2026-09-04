@@ -300,9 +300,12 @@ function checkStatus() {
   if (fs.existsSync(quotaPath)) {
     try {
       const qData = JSON.parse(fs.readFileSync(quotaPath, 'utf-8'));
-      const remaining = qData.maxQuota - qData.usedQuota;
+      const remaining = qData.remainingQuota !== undefined ? qData.remainingQuota : (qData.maxQuota - qData.usedQuota);
       console.log(`[QUOTA]    Remaining Quota: \x1b[36m${remaining.toLocaleString()} / ${qData.maxQuota.toLocaleString()} tickets\x1b[0m (Used: ${qData.usedQuota} tickets)`);
-      console.log(`[ROUND]    Current Draw Round: ${qData.currentRoundId || '-'}`);
+      console.log(`[ROUND]    Current Draw Round: ${qData.round || qData.currentRoundId || '-'}`);
+      if (qData.syncedAt) {
+        console.log(`[SYNC]     Live Portal Synced: \x1b[32m${new Date(qData.syncedAt).toLocaleString('th-TH')}\x1b[0m`);
+      }
     } catch (e) {}
   } else {
     console.log('[QUOTA]    Default Quota: 2,000 tickets');
@@ -754,7 +757,8 @@ function showMainMenu() {
   if (fs.existsSync(quotaPath)) {
     try {
       const q = JSON.parse(fs.readFileSync(quotaPath, 'utf-8'));
-      quotaText = `${(q.maxQuota - q.usedQuota).toLocaleString()} / ${q.maxQuota.toLocaleString()} ใบ`;
+      const rem = q.remainingQuota !== undefined ? q.remainingQuota : (q.maxQuota - q.usedQuota);
+      quotaText = `${rem.toLocaleString()} / ${q.maxQuota.toLocaleString()} ใบ`;
     } catch {}
   }
 

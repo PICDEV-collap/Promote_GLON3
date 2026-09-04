@@ -26,6 +26,7 @@ export class N3OrderService {
     fulfilledItems?: OrderItem[];
     totalQuantity?: number;
     totalPrice?: number;
+    syncedQuota?: { remainingQuota: number; usedQuota: number; maxQuota: number } | null;
   }> {
     try {
       const items: OrderItem[] = Array.isArray(lotteryNumberOrItems)
@@ -489,7 +490,15 @@ export class N3OrderService {
       const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
       if (await backHomeBtn.isVisible().catch(() => false)) {
         await backHomeBtn.click().catch(() => {});
+        await page.waitForURL(u => {
+          const s = u.toString().replace(/\/+$/, '');
+          return s.includes('/landing') || s === 'https://n3.glolotteryshop.com';
+        }, { timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(600);
       }
+
+      // 9. ซิงค์โควต้าคงเหลือจริงจากหน้าเว็บ GLO N3 Portal อัตโนมัติ
+      const syncedQuota = await N3OrderService.syncQuotaFromLivePortal(page, false).catch(() => null);
 
       const totalQty = fulfilledItems.reduce((sum, it) => sum + it.quantity, 0);
       const totalPrice = totalQty * 20;
@@ -500,7 +509,8 @@ export class N3OrderService {
         fulfilledItems,
         outOfStockItems,
         totalQuantity: totalQty,
-        totalPrice
+        totalPrice,
+        syncedQuota
       };
 
     } catch (err: any) {
@@ -525,4 +535,29 @@ export class N3OrderService {
       };
     }
   }
+
+  /**
+   * ซิงค์โควต้าสดจากหน้าเว็บ GLO N3 Portal (เช่น https://n3.glolotteryshop.com/landing/)
+   */
+  public static async syncQuotaFromLivePortal(
+    page: Page,
+    navigateIfNeeded: boolean = true
+  ): Promise<{ remainingQuota: number; usedQuota: number; maxQuota: number } | null> {
+    try {
+      const { QuotaManager } = await import('../quota/quota-manager');
+      const qm = QuotaManager.getInstance();
+      return await qm.syncQuotaFromLivePortal(page, navigateIfNeeded);
+    } catch (e: any) {
+      console.warn('[N3 ORDER] syncQuotaFromLivePortal เกิดข้อผิดพลาด:', e?.message);
+      return null;
+    }
+  }
 }
+
+export async function syncQuotaFromLivePortal(
+  page: Page,
+  navigateIfNeeded: boolean = true
+): Promise<{ remainingQuota: number; usedQuota: number; maxQuota: number } | null> {
+  return N3OrderService.syncQuotaFromLivePortal(page, navigateIfNeeded);
+}
+
