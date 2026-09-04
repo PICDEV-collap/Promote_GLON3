@@ -638,6 +638,29 @@ function runTests() {
     assert(vbsShortcutsContent.includes('create-desktop-shortcuts.ps1'), 'VBS shortcuts must delegate to PowerShell to prevent mojibake');
   });
 
+  test('Tunnel Management: n3-engine.js supports isTunnelAlive, keepTunnel, and tunnel reuse', () => {
+    const enginePath = path.resolve(__dirname, '../../scripts/n3-engine.js');
+    assert(fs.existsSync(enginePath), 'n3-engine.js must exist');
+    const engineContent = fs.readFileSync(enginePath, 'utf-8');
+    assert(engineContent.includes('isTunnelAlive'), 'n3-engine.js must implement isTunnelAlive');
+    assert(engineContent.includes('keepTunnel'), 'n3-engine.js must implement keepTunnel in killLingering');
+    assert(engineContent.includes('restartBotOnly'), 'n3-engine.js must implement restartBotOnly');
+    assert(engineContent.includes('updateAndRestart'), 'n3-engine.js must implement updateAndRestart');
+    assert(engineContent.includes('tunnelAlreadyRunning'), 'n3-engine.js must check if tunnel is already running to reuse it');
+  });
+
+  test('Launcher: RESTART-BOT.bat and UPDATE-BOT.bat exist and call n3-engine.js properly', () => {
+    const restartBatPath = path.resolve(__dirname, '../../RESTART-BOT.bat');
+    assert(fs.existsSync(restartBatPath), 'RESTART-BOT.bat must exist');
+    const restartContent = fs.readFileSync(restartBatPath, 'utf-8');
+    assert(restartContent.includes('restart-bot'), 'RESTART-BOT.bat must invoke restart-bot');
+
+    const updateBatPath = path.resolve(__dirname, '../../UPDATE-BOT.bat');
+    assert(fs.existsSync(updateBatPath), 'UPDATE-BOT.bat must exist');
+    const updateContent = fs.readFileSync(updateBatPath, 'utf-8');
+    assert(updateContent.includes('update'), 'UPDATE-BOT.bat must invoke update');
+  });
+
   test('Index: index.ts lifecycle, watchdog, and initial public URL integrity', () => {
     const indexPath = path.resolve(__dirname, 'index.ts');
     assert(fs.existsSync(indexPath), 'index.ts must exist');
