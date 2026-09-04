@@ -11,7 +11,7 @@
     "test:headless": "ts-node src/automation/test-headless-config.ts",
     "test:login": "ts-node src/automation/test-login.ts",
     "test:quota": "ts-node src/quota/test-quota.ts",
-    "shortcuts": "cscript //nologo ../scripts/create-desktop-shortcuts.vbs"
+    "shortcuts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ../scripts/create-desktop-shortcuts.ps1"
   },
   "dependencies": {
     "@line/bot-sdk": "^9.6.0",

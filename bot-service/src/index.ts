@@ -11,7 +11,7 @@ import { N3OrderService } from './automation/n3-order';
 import { PersistentBrowserManager } from './automation/browser-context';
 import { QuotaManager } from './quota/quota-manager';
 import { OrderQueue, OrderTask, OrderItem } from './queue/order-queue';
-import { LineReplyHandler } from './line/reply-handler';
+import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { FlexMessageBuilder } from './line/flex-message';
 import { OperatingHoursGuard } from './guard/operating-hours';
 
@@ -51,6 +51,14 @@ let context: BrowserContext | null = null;
 let page: Page | null = null;
 let isLoggingIn: boolean = false;
 let currentPublicBaseUrl: string = CONFIG.BASE_URL;
+
+// กำหนด currentPublicBaseUrl จาก webhook-url.txt ล่วงหน้าหากมีอยู่แล้ว
+try {
+  const initialWebhook = getStoredWebhookUrl();
+  if (initialWebhook && initialWebhook.startsWith('http') && !initialWebhook.includes('localhost')) {
+    currentPublicBaseUrl = initialWebhook.replace(/\/webhook\/?$/, '');
+  }
+} catch {}
 
 /**
  * ฟังก์ชันเปิดเบราว์เซอร์เฉพาะเมื่อมีงานเข้ามาจริง (On-Demand) ไม่เปิดค้างทิ้งไว้เบื้องหลัง
@@ -374,6 +382,10 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
     const lowerHost = host.toLowerCase();
     if (lowerHost.endsWith('.trycloudflare.com') || lowerHost.includes('ngrok') || lowerHost.includes('loca.lt')) {
       currentPublicBaseUrl = `${proto}://${host}`;
+      try {
+        const rootUrlFile = path.resolve(__dirname, '../../webhook-url.txt');
+        fs.writeFileSync(rootUrlFile, `${currentPublicBaseUrl}/webhook`, 'utf-8');
+      } catch {}
     }
   }
 
@@ -503,10 +515,121 @@ app.get('/status', (_req: Request, res: Response) => {
   });
 });
 
+let hasNotifiedShutdown = false;
+
+/**
+ * ตรวจสอบว่าแอดมินเป็นผู้สั่งหยุดบอทอย่างตั้งใจหรือไม่ (ผ่าน STOP-BOT.bat หรือ N3-MANAGER)
+ */
+export function isStopIntentional(): boolean {
+  const rootStopFile = path.resolve(__dirname, '../../.stop_intentional');
+  const botStopFile = path.resolve(__dirname, '../.stop_intentional');
+  try {
+    if (fs.existsSync(rootStopFile)) {
+      const stats = fs.statSync(rootStopFile);
+      if (Date.now() - stats.mtimeMs < 60000) return true;
+    }
+    if (fs.existsSync(botStopFile)) {
+      const stats = fs.statSync(botStopFile);
+      if (Date.now() - stats.mtimeMs < 60000) return true;
+    }
+  } catch {}
+  return false;
+}
+
+/**
+ * ดึง Webhook URL ล่าสุดจากไฟล์ webhook-url.txt
+ */
+export function getStoredWebhookUrl(): string {
+  const rootUrlFile = path.resolve(__dirname, '../../webhook-url.txt');
+  const botUrlFile = path.resolve(__dirname, '../webhook-url.txt');
+  try {
+    if (fs.existsSync(rootUrlFile)) {
+      const u = fs.readFileSync(rootUrlFile, 'utf-8').trim();
+      if (u) return u;
+    }
+    if (fs.existsSync(botUrlFile)) {
+      const u = fs.readFileSync(botUrlFile, 'utf-8').trim();
+      if (u) return u;
+    }
+  } catch {}
+  return `${CONFIG.BASE_URL}/webhook`;
+}
+
+/**
+ * ติดตั้ง Event Listeners สำหรับดักจับการหยุดทำงานและแครชของบอท
+ */
+export function setupLifecycleHandlers(): void {
+  // 1. ดักจับ Uncaught Exception (แครชร้ายแรง)
+  process.on('uncaughtException', async (err: Error) => {
+    console.error('[FATAL CRASH] Uncaught Exception:', err);
+    if (!hasNotifiedShutdown && !isStopIntentional()) {
+      hasNotifiedShutdown = true;
+      const timeStr = getThaiTime();
+      try {
+        await Promise.race([
+          lineHandler.notifyBotStopped(timeStr, err.message || 'Uncaught Exception'),
+          new Promise(r => setTimeout(r, 6000))
+        ]);
+      } catch (e) {
+        console.error('[ALERT ERROR]', e);
+      }
+    }
+    process.exit(1);
+  });
+
+  // 2. ดักจับ Unhandled Rejection
+  process.on('unhandledRejection', (reason: any) => {
+    console.error('[UNHANDLED REJECTION]', reason);
+  });
+
+  // 3. ดักจับ SIGINT และ SIGTERM (การสั่งปิดโปรเซส)
+  const handleSignal = async (signal: string) => {
+    console.log(`[SHUTDOWN] ได้รับสัญญาณ ${signal}`);
+    if (!hasNotifiedShutdown) {
+      hasNotifiedShutdown = true;
+      const intentional = isStopIntentional();
+      if (!intentional) {
+        const timeStr = getThaiTime();
+        try {
+          await Promise.race([
+            lineHandler.notifyBotStopped(timeStr, `ได้รับสัญญาณ ${signal}`),
+            new Promise(r => setTimeout(r, 6000))
+          ]);
+        } catch (e) {
+          console.error('[ALERT ERROR]', e);
+        }
+      }
+    }
+    try {
+      await PersistentBrowserManager.close().catch(() => {});
+    } catch {}
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => handleSignal('SIGINT'));
+  process.on('SIGTERM', () => handleSignal('SIGTERM'));
+
+  // 4. ดักจับ beforeExit (กรณี Event Loop ว่างลงหรือเซิร์ฟเวอร์หยุดทำงาน)
+  process.on('beforeExit', async (_code) => {
+    if (!hasNotifiedShutdown && !isStopIntentional()) {
+      hasNotifiedShutdown = true;
+      const timeStr = getThaiTime();
+      try {
+        await Promise.race([
+          lineHandler.notifyBotStopped(timeStr),
+          new Promise(r => setTimeout(r, 6000))
+        ]);
+      } catch (e) {
+        console.error('[ALERT ERROR]', e);
+      }
+    }
+  });
+}
+
 function startServerWithPort(targetPort: number) {
   const server = http.createServer(app);
 
-  server.listen(targetPort, () => {
+  server.listen(targetPort, async () => {
     console.log(`====================================================`);
     console.log(`[SERVICE] N3 Order Bot is RUNNING at: http://localhost:${targetPort}`);
     console.log(`[QUOTA]   Quota Remaining: ${quotaManager.getStatus().remainingQuota} / 2,000 tickets`);
@@ -515,17 +638,80 @@ function startServerWithPort(targetPort: number) {
     console.log(`[ADMIN]   Admin User ID: ${CONFIG.ADMIN_LINE_USER_ID || '(Not Set)'}`);
     console.log(`[DREAM]   Dream Prediction URL: ${CONFIG.DREAM_PREDICTION_URL}`);
     console.log(`====================================================`);
+
+    // ส่งแจ้งเตือน Admin เมื่อเปิดบอท (หากไม่ได้เปิดผ่าน n3-engine ที่แจ้งเตือนพร้อม URL Tunnel แล้ว)
+    if (process.env.ENGINE_NOTIFIES_START !== 'true') {
+      const webhookUrl = getStoredWebhookUrl();
+      try {
+        await lineHandler.notifyBotStarted(webhookUrl);
+      } catch (err) {
+        console.error('[START NOTIFY ERROR]', err);
+      }
+    }
+
+    // Tunnel Watchdog: ตรวจสอบความพร้อมของ Cloudflare Tunnel เป็นระยะเพื่อป้องกันกรณีบอทหยุดเงียบ
+    const isTunnelExpected = process.env.ENGINE_NOTIFIES_START === 'true' || fs.existsSync(path.resolve(__dirname, '../../webhook-url.txt'));
+    if (isTunnelExpected) {
+      let hasAlertedTunnelDown = false;
+      const watchdog = setInterval(() => {
+        if (isStopIntentional()) {
+          clearInterval(watchdog);
+          return;
+        }
+        import('child_process').then(({ exec }) => {
+          exec('tasklist /FI "IMAGENAME eq cloudflared.exe" /NH', (err, stdout) => {
+            if (!err && stdout) {
+              const isTunnelAlive = stdout.toLowerCase().includes('cloudflared.exe');
+              if (!isTunnelAlive && !hasAlertedTunnelDown && !isStopIntentional()) {
+                hasAlertedTunnelDown = true;
+                console.warn('[WATCHDOG ALERT] ไม่พบโปรเซส cloudflared.exe กำลังแจ้งเตือนแอดมิน...');
+                const timeStr = getThaiTime();
+                lineHandler.pushToAdmin([{
+                  type: 'text',
+                  text: `⚠️ [แจ้งเตือนด่วน] Cloudflare Tunnel ของบอทสลาก N3 หยุดทำงานแล้ว (Tunnel Process Down) เมื่อเวลา ${timeStr} กรุณาเปิดบอทใหม่เพื่อรับออเดอร์`
+                }]).catch(() => {});
+              } else if (isTunnelAlive && hasAlertedTunnelDown) {
+                hasAlertedTunnelDown = false;
+                console.log('[WATCHDOG RECOVERED] Cloudflare Tunnel กลับมาทำงานตามปกติแล้ว');
+              }
+            }
+          });
+        }).catch(() => {});
+      }, 60000);
+      watchdog.unref();
+    }
   });
 
-  server.on('error', (err: any) => {
+  server.on('close', async () => {
+    console.log('[SERVER CLOSED] HTTP server has closed');
+    if (!hasNotifiedShutdown && !isStopIntentional()) {
+      hasNotifiedShutdown = true;
+      const timeStr = getThaiTime();
+      try {
+        await lineHandler.notifyBotStopped(timeStr, 'Port 3333 closed');
+      } catch (e) {}
+    }
+  });
+
+  server.on('error', async (err: any) => {
     if (err.code === 'EADDRINUSE') {
       console.warn(`[PORT WARNING] พอร์ต ${targetPort} ไม่ว่าง กำลังสลับพอร์ต...`);
       startServerWithPort(targetPort + 1);
+    } else {
+      console.error('[SERVER ERROR]', err);
+      if (!hasNotifiedShutdown && !isStopIntentional()) {
+        hasNotifiedShutdown = true;
+        const timeStr = getThaiTime();
+        try {
+          await lineHandler.notifyBotStopped(timeStr, err.message || 'Server error');
+        } catch (e) {}
+      }
     }
   });
 }
 
 if (require.main === module) {
+  setupLifecycleHandlers();
   startServerWithPort(CONFIG.PORT);
 }
 

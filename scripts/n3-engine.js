@@ -2,11 +2,170 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const readline = require('readline');
 const fs = require('fs');
+const https = require('https');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const BOT_DIR = path.join(ROOT_DIR, 'bot-service');
 const QR_DIR = path.join(ROOT_DIR, 'public', 'qrcodes');
 const mode = process.argv[2] || 'menu';
+
+/**
+ * ดึงการตั้งค่า LINE จาก bot-service/.env
+ */
+function getLineConfig() {
+  const envPath = path.join(BOT_DIR, '.env');
+  let token = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+  let adminId = process.env.ADMIN_LINE_USER_ID || process.env.LINE_ADMIN_USER_ID || '';
+  if (fs.existsSync(envPath)) {
+    try {
+      const envContent = fs.readFileSync(envPath, 'utf-8');
+      for (const line of envContent.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const k = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim();
+        if (k === 'LINE_CHANNEL_ACCESS_TOKEN' && !token) token = val;
+        if ((k === 'ADMIN_LINE_USER_ID' || k === 'LINE_ADMIN_USER_ID') && !adminId) adminId = val;
+      }
+    } catch {}
+  }
+  return { token, adminId };
+}
+
+/**
+ * ส่งแจ้งเตือน Push Message ไปยัง LINE Admin
+ */
+function sendLineAdminAlert(messageText) {
+  return new Promise((resolve) => {
+    const { token, adminId } = getLineConfig();
+    if (!token || !adminId) {
+      console.log('[ADMIN SIMULATE ALERT] (No token/adminId):', messageText);
+      return resolve(true);
+    }
+    const payload = JSON.stringify({
+      to: adminId,
+      messages: [{ type: 'text', text: messageText }]
+    });
+    const req = https.request('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'Content-Length': Buffer.byteLength(payload)
+      },
+      timeout: 10000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log('[LINE ALERT SUCCESS] ส่งแจ้งเตือนแอดมินสำเร็จ');
+          resolve(true);
+        } else {
+          console.error(`[LINE ALERT ERROR] HTTP ${res.statusCode}: ${data}`);
+          resolve(false);
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.error('[LINE ALERT ERROR]', err.message);
+      resolve(false);
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      console.warn('[LINE ALERT TIMEOUT]');
+      resolve(false);
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * ดึงเวลาปัจจุบันในรูปแบบภาษาไทย
+ */
+function getThaiTime(date = new Date()) {
+  try {
+    return date.toLocaleTimeString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }) + ' น.';
+  } catch {
+    const h = String((date.getUTCHours() + 7) % 24).padStart(2, '0');
+    const m = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${h}:${m} น.`;
+  }
+}
+
+/**
+ * ตรวจสอบว่าแอดมินเป็นผู้สั่งหยุดบอทอย่างตั้งใจหรือไม่
+ */
+function isStopIntentional() {
+  const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
+  try {
+    if (fs.existsSync(intentionalStopFile)) {
+      const stats = fs.statSync(intentionalStopFile);
+      if (Date.now() - stats.mtimeMs < 60000) return true;
+    }
+  } catch {}
+  return false;
+}
+
+/**
+ * แจ้งเตือนเมื่อบอทเปิดใช้งาน (On Start)
+ */
+function notifyBotStarted(webhookUrl) {
+  return sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
+}
+
+/**
+ * แจ้งเตือนด่วนเมื่อบอทหยุดทำงาน / แครช (On Stop / Shutdown / Crash)
+ */
+function notifyBotStopped(timeStr, reason) {
+  const time = timeStr || getThaiTime();
+  let text = `⚠️ [แจ้งเตือนด่วน] บอทสลาก N3 หยุดทำงานแล้ว (Bot Service Stopped) เมื่อเวลา ${time} กรุณาตรวจสอบหรือเปิดบอทใหม่`;
+  if (reason) {
+    text += `\n(สาเหตุ: ${reason})`;
+  }
+  return sendLineAdminAlert(text);
+}
+
+/**
+ * แจ้งเตือนเมื่อแอดมินสั่งหยุดบอทเองอย่างถูกต้อง
+ */
+function notifyBotStoppedByAdmin() {
+  return sendLineAdminAlert('🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว');
+}
+
+let hasEngineAlerted = false;
+
+function setupEngineLifecycle() {
+  process.on('uncaughtException', async (err) => {
+    console.error('[ENGINE CRASH] Uncaught Exception:', err);
+    if (!hasEngineAlerted && !isStopIntentional() && (mode === 'start' || mode === 'menu')) {
+      hasEngineAlerted = true;
+      const timeStr = getThaiTime();
+      await notifyBotStopped(timeStr, err.message || 'Engine crash');
+    }
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[ENGINE UNHANDLED REJECTION]', reason);
+  });
+
+  process.on('beforeExit', async (_code) => {
+    if (!hasEngineAlerted && !isStopIntentional() && mode === 'start') {
+      hasEngineAlerted = true;
+      const timeStr = getThaiTime();
+      await notifyBotStopped(timeStr, 'Dashboard process ended');
+    }
+  });
+}
 
 /**
  * 1. Kill lingering processes on Port 3333, Cloudflare, and browser_profile
@@ -30,10 +189,10 @@ function killLingering() {
     try {
       const pidData = JSON.parse(fs.readFileSync(pidFile, 'utf-8'));
       if (pidData.botPid) {
-        try { execSync(`taskkill /F /PID ${pidData.botPid}`, { stdio: 'ignore' }); } catch {}
+        try { execSync(`taskkill /F /T /PID ${pidData.botPid}`, { stdio: 'ignore' }); } catch {}
       }
       if (pidData.tunnelPid) {
-        try { execSync(`taskkill /F /PID ${pidData.tunnelPid}`, { stdio: 'ignore' }); } catch {}
+        try { execSync(`taskkill /F /T /PID ${pidData.tunnelPid}`, { stdio: 'ignore' }); } catch {}
       }
       fs.unlinkSync(pidFile);
     } catch {}
@@ -189,9 +348,12 @@ function startDashboard() {
 
   console.log('[3/3] Starting Bot Service (Port 3333) & Cloudflare Tunnel...');
 
+  let isStopping = false;
+
   const bot = spawn('node', ['dist/index.js'], {
     cwd: BOT_DIR,
     shell: true,
+    env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
@@ -206,10 +368,26 @@ function startDashboard() {
     process.stderr.write(data.toString());
   });
 
+  bot.on('exit', async (code, signal) => {
+    if (!isStopping && !isStopIntentional()) {
+      console.warn(`\n[BOT CRASH] Bot process exited unexpectedly (code: ${code}, signal: ${signal})`);
+      const timeStr = getThaiTime();
+      await notifyBotStopped(timeStr, `Bot process exited with code ${code}`);
+    }
+  });
+
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const tunnel = spawn(npxCmd, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333'], {
     shell: true,
     stdio: ['ignore', 'pipe', 'pipe']
+  });
+
+  tunnel.on('exit', async (code, signal) => {
+    if (!isStopping && !isStopIntentional()) {
+      console.warn(`\n[TUNNEL CRASH] Cloudflare tunnel exited unexpectedly (code: ${code}, signal: ${signal})`);
+      const timeStr = getThaiTime();
+      await notifyBotStopped(timeStr, 'Cloudflare tunnel exited');
+    }
   });
 
   let currentWebhookUrl = '';
@@ -219,6 +397,13 @@ function startDashboard() {
     const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
     if (match && !currentWebhookUrl) {
       currentWebhookUrl = match[0] + '/webhook';
+      try {
+        fs.writeFileSync(path.join(ROOT_DIR, 'webhook-url.txt'), currentWebhookUrl, 'utf-8');
+      } catch {}
+
+      // ส่งแจ้งเตือน Admin ผ่าน LINE ทันทีที่เชื่อมต่อ Webhook สำเร็จ
+      notifyBotStarted(currentWebhookUrl);
+
       console.log('\n===============================================================================');
       console.log('       🎉 LINE BOT SERVICE & CLOUDFLARE TUNNEL ARE ONLINE!');
       console.log('===============================================================================');
@@ -234,6 +419,14 @@ function startDashboard() {
     }
   }
 
+  // Fallback: หาก Tunnel ไม่คืน URL ใน 15 วินาที ให้ส่งแจ้งเตือนเปิดบอทพร้อม URL สำรอง
+  setTimeout(() => {
+    if (!currentWebhookUrl && !isStopping) {
+      currentWebhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
+      notifyBotStarted(currentWebhookUrl);
+    }
+  }, 15000);
+
   tunnel.stdout.on('data', handleTunnelOutput);
   tunnel.stderr.on('data', handleTunnelOutput);
 
@@ -242,13 +435,20 @@ function startDashboard() {
     output: process.stdout
   });
 
-  rl.on('line', (line) => {
+  rl.on('line', async (line) => {
     const cmd = line.trim().toLowerCase();
     if (cmd === 'stop' || cmd === 'q' || cmd === 'exit') {
+      isStopping = true;
       console.log('\n[STOPPING] Stopping Bot Service & Cloudflare Tunnel...');
+      const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
+      try { fs.writeFileSync(intentionalStopFile, Date.now().toString(), 'utf-8'); } catch {}
+      await notifyBotStoppedByAdmin();
       try { bot.kill(); } catch (e) {}
       try { tunnel.kill(); } catch (e) {}
       killLingering();
+      setTimeout(() => {
+        try { if (fs.existsSync(intentionalStopFile)) fs.unlinkSync(intentionalStopFile); } catch {}
+      }, 2000);
       console.log('[SUCCESS] Services stopped cleanly.');
       rl.close();
       showMainMenu();
@@ -266,10 +466,19 @@ function startDashboard() {
     }
   });
 
-  const shutdown = () => {
+  const shutdown = async () => {
+    isStopping = true;
+    const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
+    try { fs.writeFileSync(intentionalStopFile, Date.now().toString(), 'utf-8'); } catch {}
+    try {
+      await notifyBotStoppedByAdmin();
+    } catch {}
     try { bot.kill(); } catch (e) {}
     try { tunnel.kill(); } catch (e) {}
     killLingering();
+    setTimeout(() => {
+      try { if (fs.existsSync(intentionalStopFile)) fs.unlinkSync(intentionalStopFile); } catch {}
+    }, 2000);
     process.exit(0);
   };
 
@@ -334,13 +543,20 @@ function waitForKeypress() {
 /**
  * 8. Start Bot Service & LINE Tunnel in Background (Silent / Hidden Mode)
  */
-function startBackground() {
+async function startBackground() {
   console.clear();
   console.log('===============================================================================');
   console.log('     🚀 STARTING N3 BOT SERVICE IN BACKGROUND (SILENT / HIDDEN MODE)');
   console.log('===============================================================================');
   console.log('\n[1/3] Clearing lingering processes and memory...');
   killLingering();
+
+  const urlFile = path.join(ROOT_DIR, 'webhook-url.txt');
+  const tunnelLogPath = path.join(ROOT_DIR, 'tunnel.log');
+  const botLogPath = path.join(ROOT_DIR, 'bot.log');
+
+  try { if (fs.existsSync(urlFile)) fs.unlinkSync(urlFile); } catch {}
+  try { if (fs.existsSync(tunnelLogPath)) fs.unlinkSync(tunnelLogPath); } catch {}
 
   const distPath = path.join(BOT_DIR, 'dist', 'index.js');
   try {
@@ -355,28 +571,30 @@ function startBackground() {
 
   console.log('[3/3] Launching Bot Service and Tunnel in Background...');
 
-  const botLogPath = path.join(ROOT_DIR, 'bot.log');
-  const tunnelLogPath = path.join(ROOT_DIR, 'tunnel.log');
-
   const botOut = fs.openSync(botLogPath, 'a');
   const botErr = fs.openSync(botLogPath, 'a');
 
-  // Launch node dist/index.js detached
+  // Launch node dist/index.js detached on Windows with shell: true
   const bot = spawn('node', ['dist/index.js'], {
     cwd: BOT_DIR,
     detached: true,
+    shell: true,
+    windowsHide: true,
+    env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
     stdio: ['ignore', botOut, botErr]
   });
   bot.unref();
+  try { fs.closeSync(botOut); } catch {}
+  try { fs.closeSync(botErr); } catch {}
 
-  // Launch cloudflared tunnel detached
+  // Launch cloudflared tunnel detached on Windows with shell: true and native --logfile
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const tunnelOut = fs.openSync(tunnelLogPath, 'a');
-  const tunnelErr = fs.openSync(tunnelLogPath, 'a');
-  const tunnel = spawn(npxCmd, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333'], {
+  const tunnel = spawn(npxCmd, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333', '--logfile', tunnelLogPath], {
     cwd: ROOT_DIR,
     detached: true,
-    stdio: ['ignore', tunnelOut, tunnelErr]
+    shell: true,
+    windowsHide: true,
+    stdio: 'ignore'
   });
   tunnel.unref();
 
@@ -386,11 +604,46 @@ function startBackground() {
     fs.writeFileSync(pidFile, JSON.stringify({ botPid: bot.pid, tunnelPid: tunnel.pid, startedAt: new Date().toISOString() }, null, 2));
   } catch {}
 
+  console.log('\n[WAIT] กำลังรอ URL สาธารณะจาก Cloudflare Tunnel...');
+
+  // ดึง URL สาธารณะจาก tunnel.log (รอสูงสุด 15 วินาที)
+  let webhookUrl = '';
+  const startTime = Date.now();
+  while (Date.now() - startTime < 15000) {
+    await new Promise(r => setTimeout(r, 600));
+    if (fs.existsSync(tunnelLogPath)) {
+      try {
+        const content = fs.readFileSync(tunnelLogPath, 'utf-8');
+        const match = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
+        if (match && match.length > 0) {
+          webhookUrl = match[match.length - 1] + '/webhook';
+          fs.writeFileSync(urlFile, webhookUrl, 'utf-8');
+          break;
+        }
+      } catch {}
+    }
+  }
+
+  if (!webhookUrl) {
+    webhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
+  }
+
+  console.log(`\n  >>> LINE WEBHOOK URL ล่าสุด: \x1b[32m\x1b[1m${webhookUrl}\x1b[0m\n`);
+
+  // ส่งแจ้งเตือนเปิดบอทเข้า LINE Admin
+  console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE แอดมิน...');
+  try {
+    await sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
+  } catch (e) {
+    console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนเปิดบอทไม่สำเร็จ:', e.message);
+  }
+
   console.log('\n===============================================================================');
   console.log('   🎉 บอทสลาก N3 เริ่มทำงานในเบื้องหลังเรียบร้อยแล้ว (BACKGROUND RUNNING)');
   console.log('===============================================================================');
   console.log(`  - บอททำงานบนพอร์ต: 3333 (PID: ${bot.pid})`);
   console.log(`  - โหมดเบราว์เซอร์: Headless Chrome (ซ่อนหน้าต่าง 100% ไม่กวนหน้าจอ)`);
+  console.log(`  - LINE Webhook URL: ${webhookUrl}`);
   console.log(`  - บันทึกการทำงาน: bot.log`);
   console.log(`  - บันทึก Tunnel: tunnel.log`);
   console.log('\n  คำแนะนำ:');
@@ -398,33 +651,38 @@ function startBackground() {
   console.log('  2. ตรวจสอบสถานะ / ดู Webhook URL ได้ที่ N3-MANAGER.bat (เมนู [3])');
   console.log('  3. สั่งหยุดบอทได้ที่ N3-MANAGER.bat (เมนู [7]) หรือดับเบิลคลิก STOP-BOT.bat');
   console.log('===============================================================================\n');
-
-  // Check if tunnel log produces URL
-  setTimeout(() => {
-    try {
-      if (fs.existsSync(tunnelLogPath)) {
-        const content = fs.readFileSync(tunnelLogPath, 'utf-8');
-        const match = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
-        if (match && match.length > 0) {
-          const latestUrl = match[match.length - 1] + '/webhook';
-          fs.writeFileSync(path.join(ROOT_DIR, 'webhook-url.txt'), latestUrl, 'utf-8');
-          console.log(`  >>> LINE WEBHOOK URL ล่าสุด: \x1b[32m\x1b[1m${latestUrl}\x1b[0m\n`);
-        }
-      }
-    } catch {}
-  }, 3000);
 }
 
 /**
  * 9. Stop Bot Service & Tunnel
  */
-function stopBot() {
+async function stopBot() {
   console.clear();
   console.log('===============================================================================');
   console.log('              🛑 STOPPING N3 BOT SERVICE & CLOUDFLARE TUNNEL');
   console.log('===============================================================================');
   console.log('\nกำลังหยุดการทำงานของบอท, Cloudflare Tunnel และเบราว์เซอร์...');
+
+  // 1. บันทึก flag ว่าเป็นการหยุดอย่างตั้งใจโดยแอดมิน เพื่อป้องกัน index.ts ส่ง crash alert ซ้ำซ้อน
+  const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
+  try { fs.writeFileSync(intentionalStopFile, Date.now().toString(), 'utf-8'); } catch {}
+
+  // 2. ส่งแจ้งเตือนแอดมินทาง LINE ทันที
+  console.log('[NOTIFY] กำลังส่งแจ้งเตือนการหยุดทำงานไปยัง LINE แอดมิน...');
+  try {
+    await sendLineAdminAlert('🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว');
+  } catch (e) {
+    console.warn('[NOTIFY WARNING] ไม่สามารถส่งแจ้งเตือนแอดมินได้:', e.message);
+  }
+
+  // 3. จัดการปิดโปรเซสที่ค้างอยู่
   killLingering();
+
+  // ล้างไฟล์ flag หลังโปรเซสปิดตัว
+  setTimeout(() => {
+    try { if (fs.existsSync(intentionalStopFile)) fs.unlinkSync(intentionalStopFile); } catch {}
+  }, 2000);
+
   console.log('\n\x1b[32m[SUCCESS] สั่งหยุดการทำงานของบอทและล้างพอร์ต 3333 เรียบร้อยแล้ว\x1b[0m');
   console.log('===============================================================================\n');
 }
@@ -480,7 +738,7 @@ function showMainMenu() {
     output: process.stdout
   });
 
-  rl.question('Please select an option [0-9 or S] (or type bg / stop): ', (choice) => {
+  rl.question('Please select an option [0-9 or S] (or type bg / stop): ', async (choice) => {
     rl.close();
     const c = choice.trim().toLowerCase();
     if (c === '1' || c === 'start') {
@@ -501,12 +759,10 @@ function showMainMenu() {
     } else if (c === '5' || c === 'build') {
       buildProject();
     } else if (c === '6' || c === 'bg' || c === 'silent') {
-      startBackground();
-      setTimeout(() => {
-        waitForKeypress();
-      }, 3500);
+      await startBackground();
+      waitForKeypress();
     } else if (c === '7' || c === 'stop') {
-      stopBot();
+      await stopBot();
       waitForKeypress();
     } else if (c === '8') {
       openFolder(QR_DIR);
@@ -518,10 +774,15 @@ function showMainMenu() {
       console.clear();
       console.log('Creating Desktop Shortcuts...');
       try {
-        execSync('cscript //nologo scripts\\create-desktop-shortcuts.vbs', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\create-desktop-shortcuts.ps1', { cwd: ROOT_DIR, stdio: 'inherit' });
         console.log('\n\x1b[32m[SUCCESS] สร้างไอคอนทางลัดบน Desktop เรียบร้อยแล้ว!\x1b[0m');
       } catch (e) {
-        console.error('[ERROR] ไม่สามารถสร้างทางลัดได้:', e.message);
+        try {
+          execSync('cscript //nologo scripts\\create-desktop-shortcuts.vbs', { cwd: ROOT_DIR, stdio: 'inherit' });
+          console.log('\n\x1b[32m[SUCCESS] สร้างไอคอนทางลัดบน Desktop เรียบร้อยแล้ว!\x1b[0m');
+        } catch (err) {
+          console.error('[ERROR] ไม่สามารถสร้างทางลัดได้:', err.message);
+        }
       }
       waitForKeypress();
     } else if (c === '0') {
@@ -534,21 +795,30 @@ function showMainMenu() {
 }
 
 // Router
-if (mode === 'start') {
-  startDashboard();
-} else if (mode === 'bg' || mode === 'start-bg' || mode === 'silent') {
-  startBackground();
-} else if (mode === 'stop') {
-  stopBot();
-} else if (mode === 'clean') {
-  console.log('Stopping lingering processes and cleaning files...');
-  killLingering();
-  const count = cleanFiles();
-  console.log(`[SUCCESS] Cleaned temporary QR images successfully (${count} files)`);
-} else if (mode === 'status') {
-  checkStatus();
-} else if (mode === 'login') {
-  openLiveBrowser();
-} else {
-  showMainMenu();
+async function main() {
+  setupEngineLifecycle();
+
+  if (mode === 'start') {
+    startDashboard();
+  } else if (mode === 'bg' || mode === 'start-bg' || mode === 'silent') {
+    await startBackground();
+  } else if (mode === 'stop') {
+    await stopBot();
+  } else if (mode === 'clean') {
+    console.log('Stopping lingering processes and cleaning files...');
+    killLingering();
+    const count = cleanFiles();
+    console.log(`[SUCCESS] Cleaned temporary QR images successfully (${count} files)`);
+  } else if (mode === 'status') {
+    checkStatus();
+  } else if (mode === 'login') {
+    openLiveBrowser();
+  } else {
+    showMainMenu();
+  }
 }
+
+main().catch((err) => {
+  console.error('[ERROR]', err);
+  process.exit(1);
+});
