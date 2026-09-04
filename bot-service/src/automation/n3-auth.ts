@@ -10,17 +10,40 @@ export class N3Auth {
   public static async isSessionValid(page: Page): Promise<boolean> {
     try {
       const currentUrl = page.url();
-      // หากอยู่ในหน้าค้นหาสลากหรือหน้าหลักอยู่แล้ว แสดงว่า Session ยังสมบูรณ์ 100%
-      if (currentUrl.includes('/lotto-search/') || currentUrl.includes('/home/') || currentUrl.includes('/lotto-confirm/')) {
-        return true;
+      // หากอยู่ในหน้าค้นหาสลากหรือหน้ายืนยันอยู่แล้ว และไม่ใช่หน้า login หรือ geolocation
+      if (!currentUrl.includes('/login') && !currentUrl.includes('/geolocation')) {
+        if (currentUrl.includes('/lotto-search/') || currentUrl.includes('/lotto-confirm/')) {
+          const hasInputs = await page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]').count().catch(() => 0);
+          if (hasInputs > 0) return true;
+        }
       }
 
       console.log('[N3 AUTH] กำลังตรวจสอบ Session ผ่านหน้าค้นหาสลาก...');
       await page.goto('https://n3.glolotteryshop.com/lotto-search/?position=1', { waitUntil: 'networkidle', timeout: 15000 });
+      
+      // ตรวจสอบหากติดหน้า Geolocation ให้ลองคลิกปุ่มอนุญาต/ยืนยัน
+      if (page.url().includes('/geolocation')) {
+        console.warn('[N3 AUTH] หน้าเว็บติด Geolocation Guard กำลังลองกู้คืนตำแหน่งที่ตั้ง...');
+        const allowBtn = page.locator('button:visible, [role="button"]:visible')
+          .filter({ hasText: /อนุญาต|ยินยอม|เปิดตำแหน่ง|ตกลง|ลองใหม่|ต่อไป/ })
+          .first();
+        if (await allowBtn.isVisible().catch(() => false)) {
+          await allowBtn.click().catch(() => {});
+          await page.waitForTimeout(2000);
+        }
+      }
+
       const newUrl = page.url();
 
-      // หากถูกดีดกลับมาที่หน้า /login แสดงว่ายังไม่ได้ล็อกอินหรือ Session หมดอายุ
-      return !newUrl.includes('/login');
+      // หากถูกดีดกลับมาที่หน้า /login หรือยังคงติดที่ /geolocation แสดงว่าเซสชันไม่พร้อมขาย
+      if (newUrl.includes('/login') || newUrl.includes('/geolocation')) {
+        console.warn(`[N3 AUTH] Session ไม่พร้อมใช้งานหรือติดหน้า Geolocation (URL: ${newUrl})`);
+        return false;
+      }
+
+      // ตรวจสอบว่าหน้าเว็บมีองค์ประกอบของระบบค้นหาหรือหน้าหลัก N3 จริง
+      const isSearchPage = newUrl.includes('/lotto-search') || newUrl.includes('/landing') || newUrl.includes('/home');
+      return isSearchPage;
     } catch {
       return false;
     }
@@ -74,6 +97,32 @@ export class N3Auth {
       }, { timeout: timeoutMs });
 
       console.log(`[N3 AUTH SUCCESS] ล็อกอินสำเร็จ! URL ปัจจุบัน: ${page.url()}`);
+
+      // รอให้หน้าเว็บโหลดสมบูรณ์
+      await page.waitForTimeout(1500);
+
+      // หากอยู่ที่หน้า /home ให้คลิกเข้าสู่ระบบจำหน่ายสลากสามหลัก ("สลากตัวเลข สามหลัก")
+      if (page.url().includes('/home')) {
+        console.log('[N3 AUTH] อยู่ที่หน้า /home กำลังตรวจสอบปุ่ม "สลากตัวเลข สามหลัก" เพื่อเข้าสู่ร้านค้า...');
+        const n3Card = page.locator('text=สลากตัวเลข').or(page.locator('text=สามหลัก')).first();
+        if (await n3Card.isVisible().catch(() => false)) {
+          console.log('[N3 AUTH] พบบล็อก "สลากตัวเลข สามหลัก" กำลังคลิก...');
+          await n3Card.click().catch(() => {});
+          await page.waitForTimeout(2500);
+        }
+      }
+
+      // ตรวจสอบว่าติดหน้า Geolocation หรือไม่
+      if (page.url().includes('/geolocation')) {
+        console.log('[N3 AUTH] พบบล็อก Geolocation กำลังคลิกอนุญาตตำแหน่ง...');
+        const allowBtn = page.locator('button:visible, [role="button"]:visible')
+          .filter({ hasText: /อนุญาต|ยินยอม|เปิดตำแหน่ง|ตกลง|ลองใหม่|ต่อไป/ })
+          .first();
+        if (await allowBtn.isVisible().catch(() => false)) {
+          await allowBtn.click().catch(() => {});
+          await page.waitForTimeout(2000);
+        }
+      }
 
       // บันทึก StorageState (Cookies, LocalStorage) ไว้ใช้ในครั้งถัดไป
       await context.storageState({ path: CONFIG.SESSION_STORAGE_PATH });

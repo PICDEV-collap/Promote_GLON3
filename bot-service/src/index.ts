@@ -375,7 +375,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
         : (task.number || '');
 
       let userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc} กรุณาลองใหม่อีกครั้งครับ`;
-      if (result.outOfStockItems && result.outOfStockItems.length > 0) {
+      if (result.error && (result.error.includes('Session') || result.error.includes('Geolocation') || result.error.includes('พิกัด') || result.error.includes('ไม่พร้อมใช้งาน'))) {
+        userMsg = 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อมเข้าระบบ กรุณารอสักครู่แล้วสั่งซื้อใหม่อีกครั้งครับ 🙏';
+        triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบแจ้ง: ${result.error}`);
+      } else if (result.outOfStockItems && result.outOfStockItems.length > 0) {
         userMsg = `ขออภัยครับ สลากเลข ${result.outOfStockItems.join(', ')} ไม่มีจำหน่ายหรือสลากหมดในระบบแล้วครับ`;
       } else if (result.error && !result.error.includes('Target page') && !result.error.includes('closed') && !result.error.includes('evaluate')) {
         userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc}: ${result.error}`;

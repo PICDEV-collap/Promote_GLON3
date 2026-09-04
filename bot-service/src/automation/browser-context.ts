@@ -65,6 +65,7 @@ export class PersistentBrowserManager {
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
       '--disable-renderer-backgrounding',
+      '--enable-features=Geolocation',
       '--window-size=1440,900',
       '--hide-scrollbars',
       '--mute-audio'
@@ -72,28 +73,32 @@ export class PersistentBrowserManager {
 
     const standardUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+    const launchOpts = {
+      headless,
+      viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: 2,
+      args: browserArgs,
+      userAgent: standardUserAgent,
+      permissions: ['geolocation'],
+      geolocation: { latitude: 13.7563, longitude: 100.5018, accuracy: 10 },
+      timeout: 25000
+    };
+
     try {
       // ใช้ Google Chrome จริงในเครื่อง
       this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
         channel: 'chrome',
-        headless,
-        viewport: { width: 1440, height: 900 },
-        deviceScaleFactor: 2,
-        args: browserArgs,
-        userAgent: standardUserAgent,
-        timeout: 25000
+        ...launchOpts
       });
     } catch {
       // Fallback: ใช้ Chromium ของ Playwright
-      this.context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-        headless,
-        viewport: { width: 1440, height: 900 },
-        deviceScaleFactor: 2,
-        args: browserArgs,
-        userAgent: standardUserAgent,
-        timeout: 25000
-      });
+      this.context = await chromium.launchPersistentContext(USER_DATA_DIR, launchOpts);
     }
+
+    try {
+      await this.context.grantPermissions(['geolocation'], { origin: 'https://n3.glolotteryshop.com' });
+      await this.context.setGeolocation({ latitude: 13.7563, longitude: 100.5018, accuracy: 10 });
+    } catch {}
 
     this.currentHeadless = headless;
 

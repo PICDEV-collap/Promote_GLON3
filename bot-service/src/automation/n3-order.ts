@@ -42,8 +42,24 @@ export class N3OrderService {
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
       await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
-      if (page.url().includes('/login')) {
+      // หากติดหน้า Geolocation ให้ลองคลิกปุ่มอนุญาต/ยืนยัน
+      if (page.url().includes('/geolocation')) {
+        console.warn('[N3 ORDER] หน้าเว็บติด Geolocation Guard กำลังลองยืนยันตำแหน่ง...');
+        const allowBtn = page.locator('button:visible, [role="button"]:visible')
+          .filter({ hasText: /อนุญาต|ยินยอม|เปิดตำแหน่ง|ตกลง|ลองใหม่|ต่อไป/ })
+          .first();
+        if (await allowBtn.isVisible().catch(() => false)) {
+          await allowBtn.click().catch(() => {});
+          await page.waitForTimeout(2000);
+        }
+      }
+
+      const currUrl = page.url();
+      if (currUrl.includes('/login')) {
         return { success: false, error: 'Session หลุด กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+      }
+      if (currUrl.includes('/geolocation')) {
+        return { success: false, error: 'ระบบร้านค้าติดการยืนยันพิกัดตำแหน่ง (Geolocation) กรุณาพิมพ์ qr เพื่อเข้าสู่ระบบใหม่' };
       }
 
       // 1. วนลูปค้นหาและเลือกแต่ละสลากรวมเข้าในตะกร้าเดียวกัน (ไม่รีโหลดหน้าเว็บเพื่อรักษาสลากทั้งหมดในตะกร้า)
@@ -104,6 +120,12 @@ export class N3OrderService {
             await allInputs.nth(2).fill(digits[2]);
           } else if (allCount > 0) {
             await allInputs.first().fill(item.number);
+          } else {
+            console.error(`[N3 ORDER ERROR] ไม่พบช่องกรอกเลขสลากสำหรับเลข ${item.number} (URL: ${page.url()})`);
+            if (page.url().includes('/login') || page.url().includes('/geolocation')) {
+              return { success: false, error: 'Session หลุดหรือติดการยืนยันพิกัดตำแหน่ง กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+            }
+            return { success: false, error: `หน้าค้นหาสลากไม่พร้อมใช้งาน (URL: ${page.url()})` };
           }
         }
 
@@ -189,6 +211,9 @@ export class N3OrderService {
 
         if (!selectedSuccess) {
           console.warn(`[N3 ORDER] ไม่สามารถกดเลือกสลากเลข ${item.number} ได้`);
+          if (page.url().includes('/login') || page.url().includes('/geolocation')) {
+            return { success: false, error: 'Session หลุดหรือติดการยืนยันพิกัดตำแหน่งระหว่างสั่งซื้อ กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+          }
           outOfStockItems.push(item.number);
           continue;
         }
