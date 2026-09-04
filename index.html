@@ -70,6 +70,7 @@
 
       <ul class="nav-links">
         <li><a href="#hero" class="nav-link active">หน้าแรก</a></li>
+        <li><a href="order.html" class="nav-link btn-trigger-order-modal" style="color: var(--color-gold-light); font-weight: 700;"><i class="fas fa-cart-shopping"></i> สั่งซื้อสลาก N3</a></li>
         <li><a href="#ai-dream" class="nav-link">AI ทำนายฝัน</a></li>
         <li><a href="#results-stats" class="nav-link">ตรวจหวย &amp; สถิติ</a></li>
         <li><a href="#guide" class="nav-link">วิธีซื้อสลาก</a></li>
@@ -166,8 +167,8 @@
           </div>
 
           <div style="display: flex; gap: 0.85rem; flex-wrap: wrap;">
-            <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
-              <i class="fab fa-line" style="font-size: 1.2rem;"></i> สั่งซื้อสลากผ่าน LINE
+            <a href="order.html" class="btn btn-emerald btn-trigger-order-modal" style="box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+              <i class="fas fa-table-list" style="font-size: 1.15rem;"></i> 🛒 สั่งซื้อสลาก N3
             </a>
             <a href="#ai-dream" class="btn btn-gold">
               <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝันหาเลข N3
@@ -832,6 +833,84 @@
     </div>
   </section>
 
+  <!-- Modals: Interactive GLO N3 Order Table Modal -->
+  <div id="modal-order-table" class="modal-overlay">
+    <div class="modal-card" style="max-width: 600px; text-align: left;">
+      <button id="modal-order-close" class="modal-close">&times;</button>
+      
+      <div style="text-align: center; margin-bottom: 1rem;">
+        <span class="badge badge-gold" style="font-size: 0.75rem; margin-bottom: 0.35rem;">
+          <i class="fas fa-certificate"></i> ร้านสลาก N3 ธนกิจนำโชค (@586xxhlx)
+        </span>
+        <h3 style="color: #fff; font-size: 1.35rem; margin-bottom: 0.25rem;">
+          🛒 ตารางสั่งซื้อสลาก <span class="text-gradient-gold">GLO N3</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.82rem;">
+          ระบุตัวเลข 3 หลัก และจำนวนใบได้หลายเลขในบิลเดียว (ใบละ 20 บาท)
+        </p>
+      </div>
+
+      <!-- Order Table Container -->
+      <div style="max-height: 280px; overflow-y: auto; margin-bottom: 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.5rem; background: rgba(0,0,0,0.25);">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); text-align: center; font-size: 0.78rem;">
+              <th style="padding: 0.35rem; text-align: left; width: 34%;"># เลข 3 หลัก</th>
+              <th style="padding: 0.35rem; width: 38%;">จำนวน (ใบ)</th>
+              <th style="padding: 0.35rem; width: 18%;">รวมเงิน</th>
+              <th style="padding: 0.35rem; width: 10%;">ลบ</th>
+            </tr>
+          </thead>
+          <tbody id="modal-order-rows">
+            <!-- Rows injected by app.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Toolbar Buttons: Add Row, Random, Toad Permute, Fullscreen -->
+      <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <button type="button" id="btn-modal-add-row" class="btn btn-outline" style="flex: 2; min-width: 140px; border-color: var(--color-gold); color: var(--color-gold-light); font-size: 0.85rem; padding: 0.5rem;">
+          <i class="fas fa-plus-circle"></i> เพิ่มแถว (สั่งหลายเลข)
+        </button>
+        <button type="button" id="btn-modal-rand-row" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem; color: var(--text-secondary);">
+          <i class="fas fa-dice"></i> สุ่มเลข
+        </button>
+        <button type="button" id="btn-modal-permute" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem; color: var(--color-gold-light);" title="กระจายโต๊ด 6 กลับ">
+          <i class="fas fa-sync-alt"></i> กระจายโต๊ด
+        </button>
+        <a href="order.html" target="_blank" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem; color: var(--color-cyan); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.25rem;" title="เปิดตารางแบบเต็มจอ">
+          <i class="fas fa-expand"></i> เต็มจอ
+        </a>
+      </div>
+
+      <!-- Live Summary Card -->
+      <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-gold); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.88rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+          <span style="color: var(--text-secondary);">รวมจำนวนสลาก:</span>
+          <strong id="modal-order-total-qty" style="color: var(--color-gold-light);">1 ใบ</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem; margin-top: 0.4rem;">
+          <span style="font-weight: 700; color: #fff;">ยอดเงินรวม (ใบละ 20 บ.):</span>
+          <div>
+            <strong id="modal-order-total-price" style="font-size: 1.25rem; color: var(--color-emerald-light);">20</strong>
+            <span style="color: var(--color-emerald-light); font-size: 0.85rem;">บาท</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paotang Notice -->
+      <div style="background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #bae6fd; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fas fa-wallet" style="color: #38bdf8; font-size: 1rem;"></i>
+        <span>ชำระเงินผ่านแอป <strong>"เป๋าตัง"</strong> เท่านั้น ระบบจะส่ง QR Code ให้สแกนจ่ายใน LINE ทันที</span>
+      </div>
+
+      <!-- Submit Order Button -->
+      <button type="button" id="btn-modal-submit-order" class="btn btn-emerald" style="width: 100%; padding: 0.85rem; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);">
+        <i class="fab fa-line" style="font-size: 1.3rem;"></i> ส่งคำสั่งซื้อผ่าน LINE ทันที
+      </button>
+    </div>
+  </div>
+
   <!-- Modals: Social Share Card Preview Modal -->
   <div id="modal-share-card" class="modal-overlay">
     <div class="modal-card" style="max-width: 520px;">
@@ -1134,8 +1213,8 @@
 
   <!-- Floating Mobile Quick Action Bar (Mobile-First 1-Tap Ordering) -->
   <div class="mobile-bottom-bar" id="mobile-bottom-bar">
-    <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="mobile-bar-btn mobile-bar-btn-line">
-      <i class="fab fa-line" style="font-size: 1.15rem;"></i> แชทสั่งซื้อ LINE (@586xxhlx)
+    <a href="order.html" class="mobile-bar-btn mobile-bar-btn-line btn-trigger-order-modal">
+      <i class="fas fa-cart-shopping"></i> สั่งซื้อสลาก N3
     </a>
     <a href="#ai-dream" class="mobile-bar-btn mobile-bar-btn-dream">
       <i class="fas fa-wand-magic-sparkles"></i> ทำนายฝัน
@@ -1155,6 +1234,7 @@
       </div>
       <ul class="drawer-links">
         <li><a href="#hero" class="drawer-link"><i class="fas fa-home"></i> หน้าแรก</a></li>
+        <li><a href="order.html" class="drawer-link btn-trigger-order-modal" style="color: var(--color-gold-light); font-weight: 700;"><i class="fas fa-cart-shopping"></i> สั่งซื้อสลาก N3</a></li>
         <li><a href="#ai-dream" class="drawer-link"><i class="fas fa-brain"></i> AI ทำนายฝัน N3</a></li>
         <li><a href="#tarot-horoscope" class="drawer-link"><i class="fas fa-hat-wizard"></i> ไพ่ยิปซี 3D เสี่ยงทาย</a></li>
         <li><a href="#results-stats" class="drawer-link"><i class="fas fa-chart-line"></i> ตรวจหวย &amp; สถิติ</a></li>
@@ -1163,8 +1243,8 @@
         <li><a href="#guide" class="drawer-link"><i class="fas fa-book-open"></i> วิธีสั่งซื้อสลาก</a></li>
       </ul>
       <div class="drawer-footer">
-        <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-gold btn-block" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;">
-          <i class="fab fa-line" style="font-size: 1.2rem;"></i> สั่งซื้อสลากผ่าน LINE
+        <a href="order.html" class="btn btn-gold btn-block btn-trigger-order-modal" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;">
+          <i class="fas fa-table-list" style="font-size: 1.15rem;"></i> 🛒 สั่งซื้อสลาก N3
         </a>
       </div>
     </div>

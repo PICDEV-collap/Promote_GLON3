@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="ตารางสั่งซื้อสลากกินแบ่งรัฐบาล N3 ร้านสลาก N3 ธนกิจนำโชค ระบุตัวเลขและจำนวนใบได้หลายเลขในบิลเดียว ใบละ 20 บาท ชำระเงินผ่านแอปเป๋าตัง">
+  <title>ตารางสั่งซื้อสลาก N3 | ร้านสลาก N3 ธนกิจนำโชค</title>
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- LIFF SDK for LINE In-App Browser Integration -->
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    :root {
+      --font-heading: 'Prompt', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-body: 'Kanit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --bg-dark: #070d18;
+      --bg-card: #0e172a;
+      --bg-card-alt: #131f38;
+      --color-gold: #d4af37;
+      --color-gold-light: #fde68a;
+      --color-gold-dark: #b45309;
+      --color-emerald: #10b981;
+      --color-emerald-light: #6ee7b7;
+      --color-emerald-dark: #059669;
+      --color-red: #ef4444;
+      --color-blue: #0284c7;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-gold: rgba(212, 175, 55, 0.3);
+      --border-emerald: rgba(16, 185, 129, 0.3);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem 0.85rem 2.5rem;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(212, 175, 55, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 85%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 620px;
+    }
+
+    /* Header & Shop Banner */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .btn-back-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+    }
+
+    .btn-back-home:hover {
+      color: var(--color-gold-light);
+      border-color: var(--border-gold);
+    }
+
+    .shop-brand {
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .shop-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(212, 175, 55, 0.12);
+      border: 1px solid var(--border-gold);
+      color: var(--color-gold-light);
+      padding: 0.3rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.5px;
+    }
+
+    .shop-title {
+      font-family: var(--font-heading);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 0.25rem;
+    }
+
+    .shop-title span {
+      color: var(--color-gold-light);
+    }
+
+    .shop-sub {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .shop-line-chip {
+      color: #00c300;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    /* Operating Notice Pill */
+    .operating-pill {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid var(--border-emerald);
+      color: var(--color-emerald-light);
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Main Order Card */
+    .order-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      padding: 1.25rem 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .order-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--color-gold), var(--color-emerald));
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title i {
+      color: var(--color-gold);
+    }
+
+    .ticket-price-tag {
+      background: rgba(212, 175, 55, 0.15);
+      border: 1px solid var(--border-gold);
+      color: var(--color-gold-light);
+      padding: 0.2rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    /* The Order Table Layout */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    .order-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 0.5rem;
+    }
+
+    .order-table th {
+      font-family: var(--font-heading);
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-align: center;
+      padding: 0.35rem 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .order-table th.col-num {
+      text-align: left;
+      width: 32%;
+    }
+
+    .order-table th.col-qty {
+      width: 38%;
+    }
+
+    .order-table th.col-subtotal {
+      width: 20%;
+    }
+
+    .order-table th.col-del {
+      width: 10%;
+    }
+
+    .order-row {
+      background: var(--bg-card-alt);
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+    }
+
+    .order-row td {
+      padding: 0.6rem 0.4rem;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .order-row td:first-child {
+      border-top-left-radius: var(--radius-sm);
+      border-bottom-left-radius: var(--radius-sm);
+      padding-left: 0.6rem;
+      text-align: left;
+    }
+
+    .order-row td:last-child {
+      border-top-right-radius: var(--radius-sm);
+      border-bottom-right-radius: var(--radius-sm);
+      padding-right: 0.6rem;
+    }
+
+    .row-index-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 700;
+      margin-right: 0.35rem;
+    }
+
+    /* Number Input Field */
+    .num-input-wrapper {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .input-ticket-num {
+      width: 86px;
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 3px;
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem 0.3rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-ticket-num:focus {
+      border-color: var(--color-gold);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25);
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .input-ticket-num.valid {
+      border-color: var(--color-emerald);
+      color: var(--color-gold-light);
+    }
+
+    .input-ticket-num.invalid {
+      border-color: var(--color-red) !important;
+      animation: shake 0.3s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-4px); }
+      40%, 80% { transform: translateX(4px); }
+    }
+
+    /* Quantity Stepper */
+    .qty-stepper {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .btn-step {
+      background: transparent;
+      border: none;
+      color: var(--color-gold-light);
+      width: 32px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s ease;
+    }
+
+    .btn-step:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-step:active:not(:disabled) {
+      background: rgba(212, 175, 55, 0.25);
+    }
+
+    .btn-step:disabled {
+      color: var(--text-muted);
+      cursor: not-allowed;
+      opacity: 0.4;
+    }
+
+    .input-qty {
+      width: 44px;
+      text-align: center;
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: transparent;
+      border: none;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+
+    .input-qty::-webkit-outer-spin-button,
+    .input-qty::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    /* Subtotal Cell */
+    .row-subtotal {
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--color-emerald-light);
+      white-space: nowrap;
+    }
+
+    /* Delete Row Button */
+    .btn-del-row {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.95rem;
+      padding: 0.4rem;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease;
+    }
+
+    .btn-del-row:hover:not(:disabled) {
+      color: var(--color-red);
+      background: rgba(239, 68, 68, 0.12);
+    }
+
+    .btn-del-row:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    /* Table Toolbar Actions */
+    .table-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .btn-add-row {
+      flex: 2;
+      min-width: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      background: rgba(212, 175, 55, 0.12);
+      border: 1.5px dashed var(--color-gold);
+      color: var(--color-gold-light);
+      font-family: var(--font-heading);
+      font-size: 0.92rem;
+      font-weight: 700;
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-add-row:hover {
+      background: rgba(212, 175, 55, 0.22);
+      border-style: solid;
+      transform: translateY(-1px);
+    }
+
+    .btn-quick-tool {
+      flex: 1;
+      min-width: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: var(--font-heading);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.65rem 0.5rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-quick-tool:hover {
+      color: #fff;
+      border-color: var(--border-gold);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Order Summary Card */
+    .summary-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-md);
+      padding: 0.95rem 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.35rem;
+    }
+
+    .summary-row.total-row {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #ffffff;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0;
+    }
+
+    .summary-val-gold {
+      color: var(--color-gold-light);
+      font-family: var(--font-heading);
+      font-weight: 700;
+    }
+
+    .summary-val-emerald {
+      color: var(--color-emerald-light);
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 1.35rem;
+    }
+
+    /* Paotang Notice */
+    .paotang-alert {
+      background: rgba(2, 132, 199, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-size: 0.78rem;
+      color: #bae6fd;
+      line-height: 1.35;
+      margin-bottom: 1.25rem;
+    }
+
+    .paotang-alert i {
+      color: #38bdf8;
+      font-size: 1.05rem;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Primary Submit Order Button */
+    .btn-submit-order {
+      width: 100%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+      transition: all 0.25s ease;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-submit-order:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(16, 185, 129, 0.55);
+      background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+    }
+
+    .btn-submit-order:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit-order i {
+      font-size: 1.4rem;
+    }
+
+    /* Feedback Toast */
+    .toast-box {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #0f172a;
+      border: 1px solid var(--border-gold);
+      color: #ffffff;
+      padding: 0.85rem 1.4rem;
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      font-size: 0.9rem;
+      font-family: var(--font-heading);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      z-index: 10000;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    .toast-box.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .toast-box.error {
+      border-color: var(--color-red);
+    }
+
+    .toast-box.success {
+      border-color: var(--color-emerald);
+    }
+
+    /* Modal Confirmation */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 9999;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #0e172a;
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      max-width: 480px;
+      width: 100%;
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      animation: popIn 0.3s ease;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid var(--color-emerald);
+      color: var(--color-emerald-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin: 0 auto 0.85rem;
+    }
+
+    .modal-title {
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-order-preview {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      margin: 1rem 0;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .modal-cmd-text {
+      font-family: monospace;
+      background: #050a14;
+      padding: 0.5rem 0.65rem;
+      border-radius: var(--radius-sm);
+      color: var(--color-gold-light);
+      word-break: break-all;
+      margin-top: 0.5rem;
+      border: 1px dashed var(--border-gold);
+      font-size: 0.82rem;
+    }
+
+    .modal-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+
+    .btn-modal-line {
+      background: #00c300;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 0.85rem;
+      border-radius: var(--radius-md);
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-modal-close {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 0.65rem;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    /* Prize Notice Pills */
+    .prizes-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.4rem;
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .prize-tag {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.25rem;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .prize-tag strong {
+      display: block;
+      color: var(--color-gold-light);
+      font-size: 0.78rem;
+    }
+
+    @media (max-width: 420px) {
+      .input-ticket-num {
+        width: 72px;
+        font-size: 1.15rem;
+        letter-spacing: 2px;
+      }
+      .qty-stepper .btn-step {
+        width: 28px;
+      }
+      .input-qty {
+        width: 36px;
+      }
+      .prizes-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Top Navigation Bar -->
+    <div class="header-bar">
+      <a href="index.html" class="btn-back-home">
+        <i class="fas fa-arrow-left"></i> กลับหน้าแรก
+      </a>
+      <span class="shop-badge">
+        <i class="fas fa-shield-alt"></i> สลากถูกกฎหมาย 100%
+      </span>
+    </div>
+
+    <!-- Shop Identity -->
+    <div class="shop-brand">
+      <h1 class="shop-title">🛒 ตารางสั่งซื้อสลาก <span>N3</span></h1>
+      <div class="shop-sub">
+        <span>ร้านสลาก N3 ธนกิจนำโชค</span>
+        <span>•</span>
+        <span class="shop-line-chip"><i class="fab fa-line"></i> @586xxhlx</span>
+      </div>
+    </div>
+
+    <!-- Operating Hours Banner -->
+    <div class="operating-pill">
+      <div>
+        <i class="fas fa-clock" style="color: var(--color-gold); margin-right: 0.35rem;"></i>
+        <span>เปิดรับคำสั่งซื้ออัตโนมัติ <strong>24 ชั่วโมง</strong></span>
+      </div>
+      <span style="color: var(--color-gold-light); font-weight: 700;">ใบละ 20 บาท</span>
+    </div>
+
+    <!-- Main Order Form Card -->
+    <div class="order-card">
+      <div class="card-header-row">
+        <div class="card-title">
+          <i class="fas fa-table-list"></i>
+          <span>ระบุเลข 3 หลัก &amp; จำนวนใบ</span>
+        </div>
+        <span class="ticket-price-tag">ราคาใบละ 20.-</span>
+      </div>
+
+      <!-- Order Table -->
+      <div class="table-container">
+        <table class="order-table">
+          <thead>
+            <tr>
+              <th class="col-num"># &nbsp;เลข 3 หลัก</th>
+              <th class="col-qty">จำนวน (ใบ)</th>
+              <th class="col-subtotal">รวมเงิน</th>
+              <th class="col-del">ลบ</th>
+            </tr>
+          </thead>
+          <tbody id="order-table-body">
+            <!-- Rows injected dynamically via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Action Toolbar -->
+      <div class="table-actions">
+        <!-- ปุ่มเพิ่มเมื่อต้องการเลขหลายตัว สร้างแถวเพิ่ม -->
+        <button type="button" id="btn-add-row" class="btn-add-row">
+          <i class="fas fa-plus-circle"></i> เพิ่มแถว (สั่งหลายเลข)
+        </button>
+        <button type="button" id="btn-random-pick" class="btn-quick-tool" title="สุ่มเลข 3 ตัวมงคล">
+          <i class="fas fa-dice"></i> สุ่มเลข
+        </button>
+        <button type="button" id="btn-combo-permute" class="btn-quick-tool" title="เพิ่มเลขโต๊ดทุกประตู (6 กลับ)">
+          <i class="fas fa-sync-alt"></i> กระจายโต๊ด
+        </button>
+        <button type="button" id="btn-clear-table" class="btn-quick-tool" title="ล้างตารางทั้งหมด">
+          <i class="fas fa-trash-can"></i> ล้างค่า
+        </button>
+      </div>
+
+      <!-- Live Order Summary -->
+      <div class="summary-card">
+        <div class="summary-row">
+          <span>จำนวนชุดเลขที่เลือก:</span>
+          <span id="summary-items" class="summary-val-gold">1 ชุด</span>
+        </div>
+        <div class="summary-row">
+          <span>จำนวนสลากรวม:</span>
+          <span id="summary-tickets" class="summary-val-gold">1 ใบ</span>
+        </div>
+        <div class="summary-row total-row">
+          <span>ยอดชำระเงินรวม:</span>
+          <div>
+            <span id="summary-total" class="summary-val-emerald">20</span>
+            <span style="font-size: 0.95rem; color: var(--color-emerald-light);">บาท</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paotang Notice Alert -->
+      <div class="paotang-alert">
+        <i class="fas fa-wallet"></i>
+        <div>
+          <strong>ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น:</strong><br>
+          เมื่อกดสั่งซื้อ ระบบบอทจะสร้าง QR Code ส่งให้คุณในแชท LINE เพื่อเปิดสแกนจ่ายผ่านแอปเป๋าตังทันที สลากจะเข้ากระเป๋าดิจิทัลของคุณ 100%
+        </div>
+      </div>
+
+      <!-- ปุ่มสั่งซื้อเพื่อส่งคำสั่ง -->
+      <button type="button" id="btn-submit-order" class="btn-submit-order">
+        <i class="fab fa-line"></i> สั่งซื้อสลาก N3 ทันที (ส่งเข้า LINE)
+      </button>
+
+      <!-- Prize Category Info -->
+      <div class="prizes-grid">
+        <div class="prize-tag">
+          <strong>3 ตรง</strong>
+          ตรงเลขตรงหลัก
+        </div>
+        <div class="prize-tag">
+          <strong>3 สลับหลัก</strong>
+          โต๊ดทุกตำแหน่ง
+        </div>
+        <div class="prize-tag">
+          <strong>2 ตรง</strong>
+          ท้าย 2 ตัวตรง
+        </div>
+        <div class="prize-tag">
+          <strong>แจ็กพอต</strong>
+          รางวัลพิเศษ
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="modal-confirm" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-icon">
+        <i class="fas fa-check"></i>
+      </div>
+      <h3 class="modal-title">พร้อมส่งคำสั่งซื้อสลาก N3</h3>
+      <p style="font-size: 0.85rem; color: var(--text-secondary);">
+        ระบบได้จัดเตรียมคำสั่งซื้อของคุณเรียบร้อยแล้ว แตะปุ่มด้านล่างเพื่อเปิดแอป LINE และส่งคำสั่งได้ทันที
+      </p>
+
+      <div class="modal-order-preview">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+          <span style="color: var(--text-secondary);">รายการสลาก:</span>
+          <strong id="modal-items-text" style="color: #fff;">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+          <span style="color: var(--text-secondary);">รวมจำนวน:</span>
+          <strong id="modal-qty-text" style="color: var(--color-gold-light);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-secondary);">ยอดเงินรวม:</span>
+          <strong id="modal-price-text" style="color: var(--color-emerald-light);">-</strong>
+        </div>
+
+        <div style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-secondary);">
+          ข้อความคำสั่งซื้อที่จะส่งเข้า LINE:
+        </div>
+        <div id="modal-cmd-display" class="modal-cmd-text">สั่งซื้อ ...</div>
+      </div>
+
+      <div class="modal-btns">
+        <a id="btn-modal-open-line" href="#" class="btn-modal-line">
+          <i class="fab fa-line" style="font-size: 1.3rem;"></i> เปิดแอป LINE สั่งซื้อทันที
+        </a>
+        <button type="button" id="btn-modal-copy-cmd" class="btn-quick-tool" style="width: 100%; padding: 0.65rem;">
+          <i class="fas fa-copy"></i> คัดลอกข้อความคำสั่งซื้อ
+        </button>
+        <button type="button" id="btn-modal-close" class="btn-modal-close">
+          แก้ไขตัวเลข
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Box -->
+  <div id="toast-box" class="toast-box">
+    <i class="fas fa-info-circle"></i>
+    <span id="toast-msg">ข้อความ</span>
+  </div>
+
+  <script>
+    // Configuration
+    const CONFIG = {
+      LINE_OA_ID: '@586xxhlx',
+      PRICE_PER_TICKET: 20,
+      MAX_QUANTITY_PER_ROW: 100
+    };
+
+    // State
+    let rowsData = [];
+    let nextRowId = 1;
+
+    // DOM Elements
+    const tableBody = document.getElementById('order-table-body');
+    const btnAddRow = document.getElementById('btn-add-row');
+    const btnRandomPick = document.getElementById('btn-random-pick');
+    const btnComboPermute = document.getElementById('btn-combo-permute');
+    const btnClearTable = document.getElementById('btn-clear-table');
+    const btnSubmitOrder = document.getElementById('btn-submit-order');
+
+    const summaryItems = document.getElementById('summary-items');
+    const summaryTickets = document.getElementById('summary-tickets');
+    const summaryTotal = document.getElementById('summary-total');
+
+    const modalConfirm = document.getElementById('modal-confirm');
+    const modalItemsText = document.getElementById('modal-items-text');
+    const modalQtyText = document.getElementById('modal-qty-text');
+    const modalPriceText = document.getElementById('modal-price-text');
+    const modalCmdDisplay = document.getElementById('modal-cmd-display');
+    const btnModalOpenLine = document.getElementById('btn-modal-open-line');
+    const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
+    const btnModalClose = document.getElementById('btn-modal-close');
+
+    const toastBox = document.getElementById('toast-box');
+    const toastMsg = document.getElementById('toast-msg');
+
+    // Show Toast Notification
+    function showToast(message, type = 'info') {
+      toastMsg.textContent = message;
+      toastBox.className = `toast-box ${type} show`;
+      clearTimeout(toastBox.__timeout);
+      toastBox.__timeout = setTimeout(() => {
+        toastBox.classList.remove('show');
+      }, 3500);
+    }
+
+    // Convert Thai numerals to Arabic digits
+    function toArabicDigits(str) {
+      const thai = '๐๑๒๓๔๕๖๗๘๙';
+      return String(str || '').replace(/[๐-๙]/g, d => thai.indexOf(d));
+    }
+
+    // Create a New Row Data Object
+    function createRow(initialNumber = '', initialQty = 1) {
+      const rowId = nextRowId++;
+      return {
+        id: rowId,
+        number: toArabicDigits(initialNumber).replace(/\D/g, '').slice(0, 3),
+        quantity: Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, parseInt(initialQty, 10) || 1))
+      };
+    }
+
+    // Render All Rows into Table
+    function renderTable() {
+      tableBody.innerHTML = '';
+
+      rowsData.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'order-row';
+        tr.dataset.id = row.id;
+
+        const subtotal = row.quantity * CONFIG.PRICE_PER_TICKET;
+        const isValid = /^\d{3}$/.test(row.number);
+
+        tr.innerHTML = `
+          <td>
+            <div class="num-input-wrapper">
+              <span class="row-index-badge">${index + 1}</span>
+              <input 
+                type="tel" 
+                inputmode="numeric" 
+                pattern="[0-9]{3}" 
+                maxlength="3" 
+                placeholder="000" 
+                class="input-ticket-num ${isValid ? 'valid' : ''}" 
+                value="${row.number}"
+                data-id="${row.id}"
+                autocomplete="off"
+              >
+            </div>
+          </td>
+          <td>
+            <div class="qty-stepper">
+              <button type="button" class="btn-step btn-minus" data-id="${row.id}" ${row.quantity <= 1 ? 'disabled' : ''}>
+                <i class="fas fa-minus"></i>
+              </button>
+              <input 
+                type="number" 
+                min="1" 
+                max="${CONFIG.MAX_QUANTITY_PER_ROW}" 
+                value="${row.quantity}" 
+                class="input-qty" 
+                data-id="${row.id}"
+              >
+              <button type="button" class="btn-step btn-plus" data-id="${row.id}" ${row.quantity >= CONFIG.MAX_QUANTITY_PER_ROW ? 'disabled' : ''}>
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+          </td>
+          <td>
+            <span class="row-subtotal">${subtotal.toLocaleString()} ฿</span>
+          </td>
+          <td>
+            <button type="button" class="btn-del-row" data-id="${row.id}" title="ลบแถวนี้" ${rowsData.length <= 1 ? 'disabled' : ''}>
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </td>
+        `;
+
+        tableBody.appendChild(tr);
+      });
+
+      updateSummary();
+    }
+
+    // Update Summary Values
+    function updateSummary() {
+      const validRows = rowsData.filter(r => /^\d{3}$/.test(r.number));
+      const totalTickets = rowsData.reduce((sum, r) => sum + (parseInt(r.quantity, 10) || 0), 0);
+      const totalPrice = totalTickets * CONFIG.PRICE_PER_TICKET;
+
+      summaryItems.textContent = `${rowsData.length} ชุด (${validRows.length} ถูกต้อง)`;
+      summaryTickets.textContent = `${totalTickets.toLocaleString()} ใบ`;
+      summaryTotal.textContent = totalPrice.toLocaleString();
+    }
+
+    // Add Row Handler
+    function handleAddRow(number = '', qty = 1, shouldFocus = true) {
+      const newRow = createRow(number, qty);
+      rowsData.push(newRow);
+      renderTable();
+
+      if (shouldFocus) {
+        setTimeout(() => {
+          const lastInput = tableBody.querySelector(`.order-row[data-id="${newRow.id}"] .input-ticket-num`);
+          if (lastInput) {
+            lastInput.focus();
+            lastInput.select();
+          }
+        }, 50);
+      }
+    }
+
+    // Event Delegation on Table
+    tableBody.addEventListener('input', (e) => {
+      const target = e.target;
+      const rowId = parseInt(target.dataset.id, 10);
+      const row = rowsData.find(r => r.id === rowId);
+      if (!row) return;
+
+      if (target.classList.contains('input-ticket-num')) {
+        // Enforce digits only and max 3 chars, converting Thai numerals
+        let clean = toArabicDigits(target.value).replace(/\D/g, '').slice(0, 3);
+        target.value = clean;
+        row.number = clean;
+
+        if (/^\d{3}$/.test(clean)) {
+          target.classList.add('valid');
+          target.classList.remove('invalid');
+        } else {
+          target.classList.remove('valid');
+        }
+        updateSummary();
+      }
+
+      if (target.classList.contains('input-qty')) {
+        let raw = toArabicDigits(target.value).replace(/\D/g, '');
+        let val = parseInt(raw, 10);
+        if (!isNaN(val)) {
+          if (val > CONFIG.MAX_QUANTITY_PER_ROW) val = CONFIG.MAX_QUANTITY_PER_ROW;
+          row.quantity = val;
+        } else {
+          row.quantity = 1;
+        }
+        
+        // Update subtotal display and button states in place
+        const tr = target.closest('tr');
+        if (tr) {
+          const subtotalElem = tr.querySelector('.row-subtotal');
+          if (subtotalElem) {
+            subtotalElem.textContent = `${(row.quantity * CONFIG.PRICE_PER_TICKET).toLocaleString()} ฿`;
+          }
+          const btnMinus = tr.querySelector('.btn-minus');
+          const btnPlus = tr.querySelector('.btn-plus');
+          if (btnMinus) btnMinus.disabled = (row.quantity <= 1);
+          if (btnPlus) btnPlus.disabled = (row.quantity >= CONFIG.MAX_QUANTITY_PER_ROW);
+        }
+        updateSummary();
+      }
+    });
+
+    // Blur Handler for Quantity Input
+    tableBody.addEventListener('blur', (e) => {
+      const target = e.target;
+      if (target.classList.contains('input-qty')) {
+        let val = parseInt(toArabicDigits(target.value), 10);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > CONFIG.MAX_QUANTITY_PER_ROW) val = CONFIG.MAX_QUANTITY_PER_ROW;
+        target.value = val;
+        const rowId = parseInt(target.dataset.id, 10);
+        const row = rowsData.find(r => r.id === rowId);
+        if (row) row.quantity = val;
+        updateSummary();
+      }
+    }, true);
+
+    // Keyboard Navigation: Enter advances to next row or appends new row
+    tableBody.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const target = e.target;
+        if (target.classList.contains('input-ticket-num')) {
+          e.preventDefault();
+          const rowId = parseInt(target.dataset.id, 10);
+          const currentIndex = rowsData.findIndex(r => r.id === rowId);
+          if (currentIndex !== -1) {
+            if (currentIndex < rowsData.length - 1) {
+              const nextInput = tableBody.querySelector(`.order-row[data-id="${rowsData[currentIndex + 1].id}"] .input-ticket-num`);
+              if (nextInput) {
+                nextInput.focus();
+                nextInput.select();
+              }
+            } else {
+              // Last row, add a new row
+              handleAddRow('', 1, true);
+            }
+          }
+        }
+      }
+    });
+
+    tableBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+
+      const rowId = parseInt(btn.dataset.id, 10);
+      const row = rowsData.find(r => r.id === rowId);
+      if (!row) return;
+
+      // Decrement Quantity
+      if (btn.classList.contains('btn-minus')) {
+        if (row.quantity > 1) {
+          row.quantity -= 1;
+          renderTable();
+        }
+      }
+
+      // Increment Quantity
+      if (btn.classList.contains('btn-plus')) {
+        if (row.quantity < CONFIG.MAX_QUANTITY_PER_ROW) {
+          row.quantity += 1;
+          renderTable();
+        }
+      }
+
+      // Delete Row
+      if (btn.classList.contains('btn-del-row')) {
+        if (rowsData.length > 1) {
+          rowsData = rowsData.filter(r => r.id !== rowId);
+          renderTable();
+        } else {
+          // If only 1 row, reset it
+          row.number = '';
+          row.quantity = 1;
+          renderTable();
+        }
+      }
+    });
+
+    // Random 3-Digit Generator
+    btnRandomPick.addEventListener('click', () => {
+      const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const emptyRow = rowsData.find(r => !r.number || r.number.length < 3);
+      if (emptyRow) {
+        emptyRow.number = rand;
+        renderTable();
+        showToast(`🎲 สุ่มเลขเด็ด: ${rand}`, 'success');
+      } else {
+        handleAddRow(rand, 1, false);
+        showToast(`🎲 เพิ่มเลขเด็ดสุ่ม: ${rand}`, 'success');
+      }
+    });
+
+    // Permutations (Toad 6-Glub) Helper
+    btnComboPermute.addEventListener('click', () => {
+      const lastFilled = [...rowsData].reverse().find(r => /^\d{3}$/.test(r.number));
+      if (!lastFilled) {
+        showToast('⚠️ กรุณากรอกเลข 3 หลักในตารางก่อนกดกระจายโต๊ด', 'error');
+        return;
+      }
+
+      const digits = lastFilled.number.split('');
+      const perms = new Set();
+      
+      function permute(arr, m = []) {
+        if (arr.length === 0) {
+          perms.add(m.join(''));
+        } else {
+          for (let i = 0; i < arr.length; i++) {
+            const curr = arr.slice();
+            const next = curr.splice(i, 1);
+            permute(curr.slice(), m.concat(next));
+          }
+        }
+      }
+      permute(digits);
+
+      const uniquePerms = Array.from(perms);
+      const existingNums = new Set(rowsData.map(r => r.number));
+      const toAdd = uniquePerms.filter(num => !existingNums.has(num));
+
+      if (toAdd.length === 0) {
+        showToast(`ชุดโต๊ด ${lastFilled.number} (${uniquePerms.length} ประตู) มีอยู่ในตารางครบแล้ว`, 'info');
+        return;
+      }
+
+      toAdd.forEach(num => {
+        rowsData.push(createRow(num, lastFilled.quantity));
+      });
+
+      renderTable();
+      showToast(`🔄 เพิ่มชุดโต๊ด ${toAdd.length} เลขเรียบร้อยแล้ว`, 'success');
+    });
+
+    // Clear Table Handler
+    btnClearTable.addEventListener('click', () => {
+      if (rowsData.length > 1 || (rowsData[0] && rowsData[0].number)) {
+        if (confirm('ต้องการล้างตารางสั่งซื้อทั้งหมดหรือไม่?')) {
+          rowsData = [createRow()];
+          renderTable();
+          showToast('🧹 ล้างตารางเรียบร้อยแล้ว');
+        }
+      }
+    });
+
+    // Add Row Button
+    btnAddRow.addEventListener('click', () => {
+      handleAddRow();
+    });
+
+    // Submit Order Handler
+    btnSubmitOrder.addEventListener('click', () => {
+      // 1. Validation
+      let hasError = false;
+      let firstErrorInput = null;
+
+      rowsData.forEach((row) => {
+        const inputElem = tableBody.querySelector(`.order-row[data-id="${row.id}"] .input-ticket-num`);
+        if (!/^\d{3}$/.test(row.number)) {
+          hasError = true;
+          if (inputElem) {
+            inputElem.classList.add('invalid');
+            if (!firstErrorInput) firstErrorInput = inputElem;
+          }
+        } else {
+          if (inputElem) inputElem.classList.remove('invalid');
+        }
+      });
+
+      if (hasError) {
+        showToast('❌ กรุณากรอกเลข 3 หลัก (000-999) ให้ครบทุกแถว', 'error');
+        if (firstErrorInput) {
+          firstErrorInput.focus();
+          firstErrorInput.select();
+        }
+        return;
+      }
+
+      if (rowsData.length === 0) {
+        showToast('❌ กรุณาระบุรายการสั่งซื้ออย่างน้อย 1 รายการ', 'error');
+        return;
+      }
+
+      // 2. Aggregate Duplicates
+      const itemsMap = new Map();
+      rowsData.forEach(r => {
+        itemsMap.set(r.number, (itemsMap.get(r.number) || 0) + r.quantity);
+      });
+
+      const aggregatedItems = Array.from(itemsMap.entries()).map(([num, qty]) => ({
+        number: num,
+        quantity: qty
+      }));
+
+      // 3. Format Command String
+      const orderSegments = aggregatedItems.map(it => `${it.number} ${it.quantity} ใบ`);
+      const orderCommand = `สั่งซื้อ ${orderSegments.join(', ')}`;
+      const totalTickets = aggregatedItems.reduce((sum, it) => sum + it.quantity, 0);
+      const totalPrice = totalTickets * CONFIG.PRICE_PER_TICKET;
+
+      // 4. Update Modal Preview
+      const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
+      modalItemsText.textContent = previewText;
+      modalQtyText.textContent = `${totalTickets} ใบ`;
+      modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
+      modalCmdDisplay.textContent = orderCommand;
+
+      // Build Deep Link URL (Official LINE scheme: line.me/R/oaMessage/{%40LINE_ID}/?{message})
+      const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID); // '%40586xxhlx'
+      const lineUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodeURIComponent(orderCommand)}`;
+      btnModalOpenLine.href = lineUrl;
+
+      // Copy to clipboard immediately
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(orderCommand).catch(() => {});
+      }
+
+      // 5. Open Confirmation Modal & Automatically Dispatch to LINE
+      modalConfirm.classList.add('active');
+      showToast(`🛒 กำลังเปิด LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
+
+      try {
+        window.location.href = lineUrl;
+      } catch (err) {
+        console.warn('Direct redirection failed, modal fallback is displayed:', err);
+      }
+    });
+
+    // Copy Command from Modal
+    btnModalCopyCmd.addEventListener('click', () => {
+      const text = modalCmdDisplay.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`📋 คัดลอกคำสั่งซื้อ "${text}" แล้ว!`, 'success');
+        }).catch(() => {
+          showToast('คัดลอกไม่สำเร็จ กรุณากดปุ่มเปิดแอป LINE โดยตรง');
+        });
+      }
+    });
+
+    // Close Modal
+    btnModalClose.addEventListener('click', () => {
+      modalConfirm.classList.remove('active');
+    });
+
+    modalConfirm.addEventListener('click', (e) => {
+      if (e.target === modalConfirm) {
+        modalConfirm.classList.remove('active');
+      }
+    });
+
+    // Initialize from URL Query Parameters (e.g. ?n=123&q=2 or ?order=123:2,456:1)
+    function initFromParams() {
+      const params = new URLSearchParams(window.location.search);
+      const singleNum = params.get('n') || params.get('number');
+      const singleQty = params.get('q') || params.get('qty') || 1;
+      const orderList = params.get('order') || params.get('numbers');
+
+      if (orderList) {
+        const parts = orderList.split(/[,;]/);
+        const parsed = [];
+        parts.forEach(p => {
+          const m = p.trim().match(/^(\d{3})(?:[:=xX\-]?(\d+))?$/);
+          if (m) {
+            parsed.push({ number: m[1], qty: parseInt(m[2] || '1', 10) });
+          }
+        });
+
+        if (parsed.length > 0) {
+          rowsData = parsed.map(it => createRow(it.number, it.qty));
+          renderTable();
+          showToast(`นำเข้าชุดตัวเลข ${parsed.length} รายการแล้ว`, 'success');
+          return;
+        }
+      }
+
+      if (singleNum && /^\d{3}$/.test(singleNum.trim())) {
+        rowsData = [createRow(singleNum.trim(), singleQty)];
+        renderTable();
+        showToast(`นำเข้าเลข ${singleNum} (${singleQty} ใบ) แล้ว`, 'success');
+        return;
+      }
+
+      // Default: 1 empty row
+      rowsData = [createRow()];
+      renderTable();
+    }
+
+    // Start Page
+    window.addEventListener('DOMContentLoaded', () => {
+      initFromParams();
+    });
+  </script>
+</body>
+</html>

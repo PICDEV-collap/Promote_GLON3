@@ -23,8 +23,8 @@ export class FlexMessageBuilder {
           type: 'action',
           action: {
             type: 'message',
-            label: '🛒 สั่งซื้อสลาก',
-            text: 'สั่งซื้อ'
+            label: '🛒 สั่งซื้อสลาก N3',
+            text: 'สั่งซื้อสลาก N3'
           }
         },
         {
@@ -448,9 +448,9 @@ export class FlexMessageBuilder {
               color: '#28a745',
               height: 'sm',
               action: {
-                type: 'message',
+                type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                text: 'สั่งซื้อ'
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -655,9 +655,9 @@ export class FlexMessageBuilder {
               color: '#28a745',
               height: 'sm',
               action: {
-                type: 'message',
+                type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                text: 'สั่งซื้อ'
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -789,9 +789,9 @@ export class FlexMessageBuilder {
                   color: '#28a745',
                   height: 'sm',
                   action: {
-                    type: 'message',
+                    type: 'uri',
                     label: '🛒 สั่งซื้อสลาก N3',
-                    text: 'สั่งซื้อ'
+                    uri: CONFIG.ORDER_FORM_URL
                   }
                 },
                 {
@@ -1021,9 +1021,9 @@ export class FlexMessageBuilder {
               color: '#28a745',
               height: 'sm',
               action: {
-                type: 'message',
-                label: '🛒 สั่งซื้อสลาก N3 เลย',
-                text: 'สั่งซื้อ'
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3',
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -1094,10 +1094,70 @@ export class FlexMessageBuilder {
           contents: [
             {
               type: 'text',
-              text: 'ท่านสามารถพิมพ์เลข 3 หลักที่ต้องการลงในแชทนี้ได้ทันที:',
+              text: 'ท่านสามารถเปิดตารางสั่งซื้อ หรือพิมพ์เลข 3 หลักในแชทนี้ได้ทันที:',
               size: 'xs',
               color: '#333333',
               weight: 'bold'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#0c1b33',
+              cornerRadius: 'md',
+              paddingAll: '10px',
+              margin: 'sm',
+              borderWidth: '1px',
+              borderColor: '#d4af37',
+              contents: [
+                {
+                  type: 'text',
+                  text: '📋 ตัวอย่างตารางสั่งซื้อ (สั่งได้หลายเลขในบิลเดียว)',
+                  weight: 'bold',
+                  size: 'xxs',
+                  color: '#fde68a'
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'xs',
+                  contents: [
+                    { type: 'text', text: 'เลข 3 ตัว', size: 'xxs', color: '#aaaaaa', flex: 3 },
+                    { type: 'text', text: 'จำนวน', size: 'xxs', color: '#aaaaaa', flex: 2, align: 'center' },
+                    { type: 'text', text: 'รวมเงิน', size: 'xxs', color: '#aaaaaa', flex: 3, align: 'end' }
+                  ]
+                },
+                { type: 'separator', margin: 'xs', color: '#334155' },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'xs',
+                  contents: [
+                    { type: 'text', text: '🎯 334', size: 'xs', weight: 'bold', color: '#ffffff', flex: 3 },
+                    { type: 'text', text: '2 ใบ', size: 'xs', color: '#ffffff', flex: 2, align: 'center' },
+                    { type: 'text', text: '40 บาท', size: 'xs', weight: 'bold', color: '#10b981', flex: 3, align: 'end' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'xs',
+                  contents: [
+                    { type: 'text', text: '🎯 447', size: 'xs', weight: 'bold', color: '#ffffff', flex: 3 },
+                    { type: 'text', text: '3 ใบ', size: 'xs', color: '#ffffff', flex: 2, align: 'center' },
+                    { type: 'text', text: '60 บาท', size: 'xs', weight: 'bold', color: '#10b981', flex: 3, align: 'end' }
+                  ]
+                },
+                { type: 'separator', margin: 'xs', color: '#334155' },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'xs',
+                  contents: [
+                    { type: 'text', text: 'ยอดรวม (5 ใบ):', size: 'xs', weight: 'bold', color: '#fde68a', flex: 5 },
+                    { type: 'text', text: '100 บาท', size: 'xs', weight: 'bold', color: '#10b981', flex: 5, align: 'end' }
+                  ]
+                }
+              ]
             },
             {
               type: 'box',
@@ -1165,6 +1225,17 @@ export class FlexMessageBuilder {
               color: '#28a745',
               height: 'sm',
               action: {
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3 (เปิดตาราง)',
+                uri: CONFIG.ORDER_FORM_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#0056b3',
+              height: 'sm',
+              action: {
                 type: 'message',
                 label: '🛒 สั่งซื้อตัวอย่าง 334 2 ใบ',
                 text: '334 2'
@@ -1172,8 +1243,8 @@ export class FlexMessageBuilder {
             },
             {
               type: 'button',
-              style: 'primary',
-              color: '#0056b3',
+              style: 'secondary',
+              color: '#555555',
               height: 'sm',
               action: {
                 type: 'message',

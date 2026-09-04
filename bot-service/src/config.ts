@@ -17,6 +17,7 @@ export const CONFIG = {
   
   // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
   DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/',
+  ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3.vercel.app/order.html',
 
   // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก (เฉพาะทางการของกองสลากและเป๋าตังกรุงไทยเท่านั้น)
   ALLOWED_DOMAINS: [
