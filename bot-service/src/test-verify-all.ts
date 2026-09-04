@@ -235,6 +235,10 @@ function runTests() {
     assert.strictEqual(parseOrderMessage('เมนู'), null);
     assert.strictEqual(parseOrderMessage('ทำนายฝัน'), null);
     assert.strictEqual(parseOrderMessage('เลขเด็ด'), null);
+    assert.strictEqual(parseOrderMessage('วิธีชำระเงิน'), null);
+    assert.strictEqual(parseOrderMessage('ชำระเงิน'), null);
+    assert.strictEqual(parseOrderMessage('เป๋าตัง'), null);
+    assert.strictEqual(parseOrderMessage('สั่งซื้อ'), null);
     assert.strictEqual(parseOrderMessage(''), null);
   });
 
@@ -907,10 +911,11 @@ function runTests() {
     
     // Check quick reply labels
     const labels = welcome.quickReply?.items.map((it: any) => it.action.label);
-    assert(labels?.includes('🛒 ตัวอย่างสั่งซื้อ'));
-    assert(labels?.includes('📊 เช็คโควต้าสลาก'));
+    assert(labels?.includes('🛒 สั่งซื้อสลาก'));
+    assert(labels?.includes('📊 เช็คโควต้า'));
     assert(labels?.includes('🔮 ทำนายฝัน AI'));
     assert(labels?.includes('❓ วิธีสั่งซื้อ'));
+    assert(labels?.includes('📲 วิธีชำระเงิน'));
 
     // Check header and store branding
     const bubble: any = welcome.contents;
@@ -929,20 +934,93 @@ function runTests() {
     // Check footer buttons
     const footerTexts = JSON.stringify(bubble.footer);
     assert(footerTexts.includes('ทำนายฝัน หาเลขเด็ด AI'));
-    assert(footerTexts.includes('ทดลองสั่งซื้อ'));
+    assert(footerTexts.includes('สั่งซื้อสลาก N3'));
+    assert(footerTexts.includes('วิธีการชำระเงิน (เป๋าตัง)'));
   });
 
-  test('HowToOrder Card: buildHowToOrderMessage includes Quick Reply buttons', () => {
+  test('HowToOrder Card: buildHowToOrderMessage includes Quick Reply buttons and Paotang notice', () => {
     const howTo = FlexMessageBuilder.buildHowToOrderMessage();
     assert.strictEqual(howTo.type, 'flex');
     assert(howTo.quickReply, 'HowToOrder must include quickReply');
-    assert(howTo.quickReply?.items && howTo.quickReply.items.length >= 3);
+    assert(howTo.quickReply?.items && howTo.quickReply.items.length >= 4);
+    const bodyStr = JSON.stringify(howTo.contents);
+    assert(bodyStr.includes('เป๋าตัง'), 'Must mention Paotang in HowToOrder');
   });
 
+  test('Main Menu Card: buildMainMenuMessage produces complete interactive menu with Paotang emphasis', () => {
+    const menu = FlexMessageBuilder.buildMainMenuMessage();
+    assert.strictEqual(menu.type, 'flex');
+    assert(menu.altText.includes('เมนูหลัก'));
+    assert(menu.quickReply, 'Must include quick reply buttons');
+    assert.strictEqual(menu.quickReply?.items?.length, 5, 'Must have 5 quick reply buttons');
 
+    const bubble: any = menu.contents;
+    const bodyStr = JSON.stringify(bubble.body);
+    // Verify Paotang highlight
+    assert(bodyStr.includes('เป๋าตัง'), 'Main Menu must emphasize Paotang app');
+    assert(bodyStr.includes('ชำระเงินผ่านแอป') && bodyStr.includes('เท่านั้น'));
+
+    // Verify all 5 menu action buttons exist
+    assert(bodyStr.includes('สั่งซื้อสลาก N3'));
+    assert(bodyStr.includes('วิธีการชำระเงิน (เป๋าตัง)'));
+    assert(bodyStr.includes('วิธีการสั่งซื้อสลาก'));
+    assert(bodyStr.includes('ทำนายฝัน AI หาเลขเด็ด'));
+    assert(bodyStr.includes('เช็คโควต้าสลากคงเหลือ'));
+  });
+
+  test('Payment Guide Card: buildPaymentGuideMessage enforces Paotang-only rules with 5 steps', () => {
+    const guide = FlexMessageBuilder.buildPaymentGuideMessage();
+    assert.strictEqual(guide.type, 'flex');
+    assert(guide.altText.includes('เป๋าตัง'));
+
+    const bubble: any = guide.contents;
+    const bodyStr = JSON.stringify(bubble.body);
+
+    // Verify critical alert warning
+    assert(bodyStr.includes('เป๋าตัง') && bodyStr.includes('เท่านั้น'), 'Must state Paotang only');
+    assert(bodyStr.includes('ไม่สามารถใช้แอปธนาคารทั่วไป'), 'Must state commercial bank apps cannot be used');
+
+    // Verify 5 clear steps
+    assert(bodyStr.includes('บันทึกรูปภาพ QR Code'), 'Step 1: Save QR');
+    assert(bodyStr.includes('เปิดแอป') && bodyStr.includes('เป๋าตัง'), 'Step 2: Open Paotang');
+    assert(bodyStr.includes('เลือกรูปจากคลังภาพ'), 'Step 3: Select from gallery');
+    assert(bodyStr.includes('ตรวจสอบยอดและยืนยันชำระเงิน'), 'Step 4: Confirm 20 THB');
+    assert(bodyStr.includes('รับสลากดิจิทัลเข้าบัญชีทันที'), 'Step 5: Digital ticket added');
+
+    // Verify footer actions
+    const footerStr = JSON.stringify(bubble.footer);
+    assert(footerStr.includes('สั่งซื้อสลาก N3 เลย'));
+    assert(footerStr.includes('วิธีสั่งซื้อสลาก'));
+  });
+
+  test('Order Guidance Card: buildOrderGuidanceMessage provides format examples and Paotang notice', () => {
+    const orderGuide = FlexMessageBuilder.buildOrderGuidanceMessage();
+    assert.strictEqual(orderGuide.type, 'flex');
+    assert(orderGuide.altText.includes('สั่งซื้อสลาก'));
+
+    const bubble: any = orderGuide.contents;
+    const bodyStr = JSON.stringify(bubble.body);
+    assert(bodyStr.includes('123 2'), 'Must show single number example');
+    assert(bodyStr.includes('334 2, 447 3'), 'Must show multi number example');
+    assert(bodyStr.includes('เป๋าตัง'), 'Must remind about Paotang');
+  });
+
+  test('Payment QR Card: includes Paotang-only highlight box and Quick Replies', () => {
+    const qrMsg = FlexMessageBuilder.buildPaymentQRMessage(
+      'https://example.com/qr.png',
+      [{ number: '123', quantity: 2 }],
+      2,
+      40
+    );
+    assert.strictEqual(qrMsg.type, 'flex');
+    assert(qrMsg.quickReply, 'Must include quick reply');
+    const bodyStr = JSON.stringify(qrMsg.contents);
+    assert(bodyStr.includes('เป๋าตัง') && bodyStr.includes('เท่านั้น'));
+    assert(bodyStr.includes('ไม่สามารถใช้แอปธนาคารทั่วไป'));
+  });
 
   test('Greeting & Command Regex: supports typos, variants, and menu keywords', () => {
-    const isGreetingRegex = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|เมนู|menu|หน้าแรก|home|แนะนำตัว|ยินดีต้อนรับ)$/i;
+    const isGreetingRegex = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|แนะนำตัว|ยินดีต้อนรับ)$/i;
     assert.strictEqual(isGreetingRegex.test('เริ่ม'), true);
     assert.strictEqual(isGreetingRegex.test('เริ่มต้น'), true);
     assert.strictEqual(isGreetingRegex.test('เริ่มเลย'), true);
@@ -950,10 +1028,28 @@ function runTests() {
     assert.strictEqual(isGreetingRegex.test('สวัสดีครับ'), true);
     assert.strictEqual(isGreetingRegex.test('สวัสดีค่ะ'), true);
     assert.strictEqual(isGreetingRegex.test('สว้สดี'), true, 'Should match typo สว้สดี with tone mark');
-    assert.strictEqual(isGreetingRegex.test('เมนู'), true);
-    assert.strictEqual(isGreetingRegex.test('menu'), true);
-    assert.strictEqual(isGreetingRegex.test('หน้าแรก'), true);
     assert.strictEqual(isGreetingRegex.test('123 2'), false);
+
+    const isMainMenuRegex = /^(?:เมนู|เมนูหลัก|menu|main\s*menu|หน้าแรก|home|คำสั่ง|เลือก)$/i;
+    assert.strictEqual(isMainMenuRegex.test('เมนู'), true);
+    assert.strictEqual(isMainMenuRegex.test('เมนูหลัก'), true);
+    assert.strictEqual(isMainMenuRegex.test('menu'), true);
+    assert.strictEqual(isMainMenuRegex.test('หน้าแรก'), true);
+    assert.strictEqual(isMainMenuRegex.test('home'), true);
+
+    const isPaymentGuideRegex = /^(?:(?:วิธี|วิธีการ)?(?:ชำระเงิน|จ่ายเงิน|จ่าย|ชำระ|สแกน|เป๋าตัง|วิธีจ่าย|วิธีสแกน|จ่ายยังไง|สแกนยังไง)|payment)$/i;
+    assert.strictEqual(isPaymentGuideRegex.test('วิธีชำระเงิน'), true);
+    assert.strictEqual(isPaymentGuideRegex.test('วิธีการชำระเงิน'), true);
+    assert.strictEqual(isPaymentGuideRegex.test('จ่ายเงิน'), true);
+    assert.strictEqual(isPaymentGuideRegex.test('ชำระเงิน'), true);
+    assert.strictEqual(isPaymentGuideRegex.test('เป๋าตัง'), true);
+    assert.strictEqual(isPaymentGuideRegex.test('วิธีจ่าย'), true);
+    assert.strictEqual(isPaymentGuideRegex.test('จ่ายยังไง'), true);
+
+    const isOrderGuideRegex = /^(?:สั่งซื้อ|ซื้อสลาก|สั่งสลาก|ขอซื้อ|เลือกเลข|ซื้อ)$/i;
+    assert.strictEqual(isOrderGuideRegex.test('สั่งซื้อ'), true);
+    assert.strictEqual(isOrderGuideRegex.test('ซื้อสลาก'), true);
+    assert.strictEqual(isOrderGuideRegex.test('เลือกเลข'), true);
 
     const isDreamRegex = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*)$/i;
     assert.strictEqual(isDreamRegex.test('ทำนายฝัน'), true);

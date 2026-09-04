@@ -306,8 +306,8 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
     clean = clean.replace(new RegExp(thaiDigits[i], 'g'), String(i));
   }
 
-  // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป/ทักทาย
-  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน|เริ่ม.*|start.*|เมนู.*|menu.*|หน้าแรก.*|home.*|สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ทำนาย.*|เลขเด็ด.*)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
+  // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป/ทักทาย/ชำระเงิน
+  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน|เริ่ม.*|start.*|เมนู.*|menu.*|หน้าแรก.*|home.*|สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ทำนาย.*|เลขเด็ด.*|ชำระเงิน.*|จ่ายเงิน.*|วิธีชำระ.*|วิธีการชำระ.*|วิธีจ่าย.*|เป๋าตัง.*|สั่งซื้อ$|ซื้อสลาก$|สั่งสลาก$|เลือกเลข$)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
     return null;
   }
 
@@ -485,17 +485,38 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // คำสั่งทักทาย / เริ่มต้นใช้งาน (สวัสดี, สว้สดี, หวัดดี, hello, hi, เริ่ม, เมนู, ฯลฯ) -> ส่งการ์ดต้อนรับชุดใหญ่
-      const isGreeting = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|เมนู|menu|หน้าแรก|home|แนะนำตัว|ยินดีต้อนรับ)$/i.test(userText);
+      // คำสั่งเมนูหลัก (เมนู, menu, หน้าแรก, home, คำสั่ง)
+      const isMainMenuCmd = /^(?:เมนู|เมนูหลัก|menu|main\s*menu|หน้าแรก|home|คำสั่ง|เลือก)$/i.test(userText);
+      if (isMainMenuCmd) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        continue;
+      }
+
+      // คำสั่งทักทาย / เริ่มต้นใช้งาน (สวัสดี, สว้สดี, หวัดดี, hello, hi, เริ่ม, ฯลฯ) -> ส่งการ์ดต้อนรับชุดใหญ่
+      const isGreeting = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|แนะนำตัว|ยินดีต้อนรับ)$/i.test(userText);
       if (isGreeting) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildWelcomeMessage()]);
+        continue;
+      }
+
+      // คำสั่งวิธีการชำระเงิน (จ่ายผ่านแอปเป๋าตังเท่านั้น)
+      const isPaymentGuideCmd = /^(?:(?:วิธี|วิธีการ)?(?:ชำระเงิน|จ่ายเงิน|จ่าย|ชำระ|สแกน|เป๋าตัง|วิธีจ่าย|วิธีสแกน|จ่ายยังไง|สแกนยังไง)|payment)$/i.test(userText);
+      if (isPaymentGuideCmd) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildPaymentGuideMessage()]);
+        continue;
+      }
+
+      // คำสั่งขั้นตอนสั่งซื้อ / คำว่า สั่งซื้อ เดี่ยวๆ
+      const isOrderGuideCmd = /^(?:สั่งซื้อ|ซื้อสลาก|สั่งสลาก|ขอซื้อ|เลือกเลข|ซื้อ)$/i.test(userText);
+      if (isOrderGuideCmd) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildOrderGuidanceMessage()]);
         continue;
       }
 
       // คำสั่งทำนายฝัน / เลขเด็ด AI
       const isDreamCmd = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*)$/i.test(userText);
       if (isDreamCmd) {
-        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildWelcomeMessage()]);
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         continue;
       }
 
@@ -550,7 +571,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             }]);
           }
         } else {
-          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         }
         continue;
       }
@@ -561,9 +582,9 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         if (isAdmin) {
           triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง', replyToken);
         } else {
-          // ถ้าไม่ใช่ Admin: ห้ามส่ง QR เด็ดขาด! ส่งการ์ดแนะนำวิธีสั่งซื้อแทน
-          console.warn(`[SECURITY] ผู้ใช้ทั่วไป ${userId} พยายามสั่ง ${userText} -> ปฏิเสธและส่งวิธีสั่งซื้อ`);
-          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
+          // ถ้าไม่ใช่ Admin: ห้ามส่ง QR เด็ดขาด! ส่งการ์ดเมนูหลักแทน
+          console.warn(`[SECURITY] ผู้ใช้ทั่วไป ${userId} พยายามสั่ง ${userText} -> ปฏิเสธและส่งเมนูหลัก`);
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         }
         continue;
       }
@@ -571,7 +592,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       // 2. แกะคำสั่งซื้อสลาก (รองรับทั้งเลขเดี่ยวและหลายเลขในบิลเดียว)
       const parsedItems = parseOrderMessage(userText);
       if (!parsedItems || parsedItems.length === 0) {
-        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         continue;
       }
 
