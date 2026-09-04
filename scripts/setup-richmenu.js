@@ -22,7 +22,7 @@ const RICH_MENU_SPEC = {
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: ROW_H },
-      action: { type: 'message', text: 'สั่งซื้อ' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/order.html' }
     },
     {
       bounds: { x: 833, y: 0, width: 834, height: ROW_H },
@@ -158,10 +158,10 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 <body>
   <!-- TILE 1: สั่งซื้อสลาก N3 -->
   <div class="tile tile-1">
-    <div class="highlight-tag">พิมพ์สั่งได้เลย</div>
+    <div class="highlight-tag">เปิดตารางสั่งซื้อ</div>
     <div class="icon-box">🛒</div>
     <div class="title title-gold">สั่งซื้อสลาก N3</div>
-    <div class="subtitle">พิมพ์เลข 3 หลักในแชทนี้ทันที</div>
+    <div class="subtitle">เปิดตารางกรอกเลข & จำนวนใบ</div>
     <div class="badge badge-green">ใบละ 20 บาท</div>
   </div>
 

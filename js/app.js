@@ -791,7 +791,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
       const defaultOrderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      btnOrderLine.href = `https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(defaultOrderMsg)}`;
+      btnOrderLine.href = `https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(defaultOrderMsg)}`;
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
       btnOrderLine.onclick = () => {
         copyToClipboard(defaultOrderMsg);
@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
         copyToClipboard(msg);
         showToast(`🎯 3 ตัวตรง: คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
@@ -820,7 +820,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const msg = `สั่งซื้อ ${orderItems.join(', ')}`;
         copyToClipboard(msg);
         showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
@@ -829,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
         copyToClipboard(msg);
         showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(msg)}`, '_blank');
       };
     }
 
@@ -837,7 +837,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
     if (mobileLineBtn) {
       const mobileMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      mobileLineBtn.href = `https://line.me/R/oaMessage/@586xxhlx/?text=${encodeURIComponent(mobileMsg)}`;
+      mobileLineBtn.href = `https://line.me/R/oaMessage/%40586xxhlx/?${encodeURIComponent(mobileMsg)}`;
       mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
       mobileLineBtn.onclick = () => {
         copyToClipboard(mobileMsg);
@@ -1267,6 +1267,365 @@ document.addEventListener('DOMContentLoaded', function () {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 350);
     }, 3500);
+  }
+
+  // -------------------------------------------------------------------------
+  // 11.5. Interactive GLO N3 Order Table Modal Controller
+  // -------------------------------------------------------------------------
+  const modalOrderTable = document.getElementById('modal-order-table');
+  const modalOrderClose = document.getElementById('modal-order-close');
+  const modalOrderRows = document.getElementById('modal-order-rows');
+  const btnModalAddRow = document.getElementById('btn-modal-add-row');
+  const btnModalRandRow = document.getElementById('btn-modal-rand-row');
+  const btnModalPermute = document.getElementById('btn-modal-permute');
+  const btnModalSubmitOrder = document.getElementById('btn-modal-submit-order');
+  const modalOrderTotalQty = document.getElementById('modal-order-total-qty');
+  const modalOrderTotalPrice = document.getElementById('modal-order-total-price');
+
+  let modalRows = [];
+  let modalNextRowId = 1;
+
+  function toArabicDigits(str) {
+    const thai = '๐๑๒๓๔๕๖๗๘๙';
+    return String(str || '').replace(/[๐-๙]/g, d => thai.indexOf(d));
+  }
+
+  function createModalRow(num = '', qty = 1) {
+    return {
+      id: modalNextRowId++,
+      number: toArabicDigits(num).replace(/\D/g, '').slice(0, 3),
+      quantity: Math.max(1, Math.min(100, parseInt(qty, 10) || 1))
+    };
+  }
+
+  function renderModalRows() {
+    if (!modalOrderRows) return;
+    modalOrderRows.innerHTML = '';
+
+    modalRows.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = row.id;
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+      tr.style.textAlign = 'center';
+
+      const subtotal = row.quantity * 20;
+      const isValid = /^\d{3}$/.test(row.number);
+
+      tr.innerHTML = `
+        <td style="padding: 0.45rem 0.25rem; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.08); font-size: 0.72rem; color: var(--text-secondary);">${idx + 1}</span>
+            <input 
+              type="tel" 
+              inputmode="numeric" 
+              maxlength="3" 
+              placeholder="000" 
+              class="modal-ticket-num" 
+              value="${row.number}"
+              data-id="${row.id}"
+              style="width: 72px; padding: 0.35rem 0.25rem; font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700; text-align: center; letter-spacing: 2px; color: #fff; background: rgba(0,0,0,0.4); border: 1.5px solid ${isValid ? 'var(--color-emerald)' : 'rgba(255,255,255,0.15)'}; border-radius: 6px; outline: none;"
+            >
+          </div>
+        </td>
+        <td style="padding: 0.45rem 0.25rem;">
+          <div style="display: inline-flex; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden;">
+            <button type="button" class="btn-modal-step btn-modal-minus" data-id="${row.id}" style="background: none; border: none; color: var(--color-gold-light); width: 26px; height: 30px; cursor: pointer;" ${row.quantity <= 1 ? 'disabled' : ''}>-</button>
+            <input type="number" min="1" max="100" class="modal-qty-input" data-id="${row.id}" value="${row.quantity}" style="width: 36px; text-align: center; font-weight: 700; color: #fff; background: transparent; border: none; outline: none;">
+            <button type="button" class="btn-modal-step btn-modal-plus" data-id="${row.id}" style="background: none; border: none; color: var(--color-gold-light); width: 26px; height: 30px; cursor: pointer;" ${row.quantity >= 100 ? 'disabled' : ''}>+</button>
+          </div>
+        </td>
+        <td style="padding: 0.45rem 0.25rem;">
+          <span class="modal-row-subtotal" style="font-weight: 700; color: var(--color-emerald-light); font-size: 0.88rem;">${subtotal} ฿</span>
+        </td>
+        <td style="padding: 0.45rem 0.25rem;">
+          <button type="button" class="btn-modal-del" data-id="${row.id}" style="background: none; border: none; color: ${modalRows.length > 1 ? 'var(--color-rose)' : 'var(--text-muted)'}; cursor: pointer; font-size: 0.85rem;" title="ลบ">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </td>
+      `;
+
+      modalOrderRows.appendChild(tr);
+    });
+
+    updateModalSummary();
+  }
+
+  function updateModalSummary() {
+    const totalQty = modalRows.reduce((sum, r) => sum + (parseInt(r.quantity, 10) || 0), 0);
+    const totalPrice = totalQty * 20;
+
+    if (modalOrderTotalQty) modalOrderTotalQty.textContent = `${totalQty.toLocaleString()} ใบ`;
+    if (modalOrderTotalPrice) modalOrderTotalPrice.textContent = totalPrice.toLocaleString();
+  }
+
+  function addModalRow(num = '', qty = 1, shouldFocus = true) {
+    const newRow = createModalRow(num, qty);
+    modalRows.push(newRow);
+    renderModalRows();
+
+    if (shouldFocus && modalOrderRows) {
+      setTimeout(() => {
+        const inp = modalOrderRows.querySelector(`.modal-ticket-num[data-id="${newRow.id}"]`);
+        if (inp) {
+          inp.focus();
+          inp.select();
+        }
+      }, 50);
+    }
+  }
+
+  // Open Order Modal Trigger
+  document.querySelectorAll('.btn-trigger-order-modal').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      // If user holds Ctrl or on desktop middle click, allow opening order.html in new tab
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+
+      if (modalRows.length === 0) {
+        modalRows = [createModalRow()];
+      }
+      renderModalRows();
+
+      if (modalOrderTable) {
+        modalOrderTable.classList.add('active');
+        try { SoundEngine.playClick(); } catch (err) {}
+      }
+    });
+  });
+
+  if (modalOrderClose && modalOrderTable) {
+    modalOrderClose.addEventListener('click', () => {
+      modalOrderTable.classList.remove('active');
+    });
+
+    modalOrderTable.addEventListener('click', (e) => {
+      if (e.target === modalOrderTable) {
+        modalOrderTable.classList.remove('active');
+      }
+    });
+  }
+
+  if (btnModalAddRow) {
+    btnModalAddRow.addEventListener('click', () => {
+      addModalRow();
+      try { SoundEngine.playClick(); } catch (err) {}
+    });
+  }
+
+  if (btnModalRandRow) {
+    btnModalRandRow.addEventListener('click', () => {
+      const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const empty = modalRows.find(r => !r.number || r.number.length < 3);
+      if (empty) {
+        empty.number = rand;
+      } else {
+        modalRows.push(createModalRow(rand, 1));
+      }
+      renderModalRows();
+      showToast(`🎲 สุ่มเลขมงคล: ${rand}`);
+    });
+  }
+
+  if (btnModalPermute) {
+    btnModalPermute.addEventListener('click', () => {
+      const lastFilled = [...modalRows].reverse().find(r => /^\d{3}$/.test(r.number));
+      if (!lastFilled) {
+        showToast('⚠️ กรุณากรอกเลข 3 หลักในตารางก่อนกดกระจายโต๊ด');
+        return;
+      }
+
+      const digits = lastFilled.number.split('');
+      const perms = new Set();
+      function permute(arr, m = []) {
+        if (arr.length === 0) {
+          perms.add(m.join(''));
+        } else {
+          for (let i = 0; i < arr.length; i++) {
+            const curr = arr.slice();
+            const next = curr.splice(i, 1);
+            permute(curr.slice(), m.concat(next));
+          }
+        }
+      }
+      permute(digits);
+
+      const uniquePerms = Array.from(perms);
+      const existingNums = new Set(modalRows.map(r => r.number));
+      const toAdd = uniquePerms.filter(num => !existingNums.has(num));
+
+      if (toAdd.length === 0) {
+        showToast(`ชุดโต๊ด ${lastFilled.number} (${uniquePerms.length} ประตู) มีอยู่ในตารางครบแล้ว`);
+        return;
+      }
+
+      toAdd.forEach(num => {
+        modalRows.push(createModalRow(num, lastFilled.quantity));
+      });
+
+      renderModalRows();
+      showToast(`🔄 เพิ่มชุดโต๊ด ${toAdd.length} เลขเรียบร้อยแล้ว`);
+    });
+  }
+
+  if (modalOrderRows) {
+    modalOrderRows.addEventListener('input', (e) => {
+      const target = e.target;
+      const rowId = parseInt(target.dataset.id, 10);
+      const row = modalRows.find(r => r.id === rowId);
+      if (!row) return;
+
+      if (target.classList.contains('modal-ticket-num')) {
+        let clean = toArabicDigits(target.value).replace(/\D/g, '').slice(0, 3);
+        target.value = clean;
+        row.number = clean;
+
+        if (/^\d{3}$/.test(clean)) {
+          target.style.borderColor = 'var(--color-emerald)';
+        } else {
+          target.style.borderColor = 'rgba(255,255,255,0.15)';
+        }
+        updateModalSummary();
+      }
+
+      if (target.classList.contains('modal-qty-input')) {
+        let raw = toArabicDigits(target.value).replace(/\D/g, '');
+        let val = parseInt(raw, 10);
+        if (!isNaN(val)) {
+          if (val > 100) val = 100;
+          row.quantity = val;
+        } else {
+          row.quantity = 1;
+        }
+        
+        // Update row subtotal and button states in place without DOM re-render
+        const tr = target.closest('tr');
+        if (tr) {
+          const subtotalElem = tr.querySelector('.modal-row-subtotal');
+          if (subtotalElem) {
+            subtotalElem.textContent = `${row.quantity * 20} ฿`;
+          }
+          const btnMinus = tr.querySelector('.btn-modal-minus');
+          const btnPlus = tr.querySelector('.btn-modal-plus');
+          if (btnMinus) btnMinus.disabled = (row.quantity <= 1);
+          if (btnPlus) btnPlus.disabled = (row.quantity >= 100);
+        }
+        updateModalSummary();
+      }
+    });
+
+    modalOrderRows.addEventListener('blur', (e) => {
+      const target = e.target;
+      if (target.classList.contains('modal-qty-input')) {
+        let val = parseInt(toArabicDigits(target.value), 10);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > 100) val = 100;
+        target.value = val;
+        const rowId = parseInt(target.dataset.id, 10);
+        const row = modalRows.find(r => r.id === rowId);
+        if (row) row.quantity = val;
+        updateModalSummary();
+      }
+    }, true);
+
+    modalOrderRows.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const target = e.target;
+        if (target.classList.contains('modal-ticket-num')) {
+          e.preventDefault();
+          const rowId = parseInt(target.dataset.id, 10);
+          const currentIndex = modalRows.findIndex(r => r.id === rowId);
+          if (currentIndex !== -1) {
+            if (currentIndex < modalRows.length - 1) {
+              const nextInput = modalOrderRows.querySelector(`.modal-ticket-num[data-id="${modalRows[currentIndex + 1].id}"]`);
+              if (nextInput) {
+                nextInput.focus();
+                nextInput.select();
+              }
+            } else {
+              addModalRow('', 1, true);
+            }
+          }
+        }
+      }
+    });
+
+    modalOrderRows.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const rowId = parseInt(btn.dataset.id, 10);
+      const row = modalRows.find(r => r.id === rowId);
+      if (!row) return;
+
+      if (btn.classList.contains('btn-modal-minus')) {
+        if (row.quantity > 1) {
+          row.quantity -= 1;
+          renderModalRows();
+        }
+      }
+
+      if (btn.classList.contains('btn-modal-plus')) {
+        if (row.quantity < 100) {
+          row.quantity += 1;
+          renderModalRows();
+        }
+      }
+
+      if (btn.classList.contains('btn-modal-del')) {
+        if (modalRows.length > 1) {
+          modalRows = modalRows.filter(r => r.id !== rowId);
+          renderModalRows();
+        } else {
+          row.number = '';
+          row.quantity = 1;
+          renderModalRows();
+        }
+      }
+    });
+  }
+
+  if (btnModalSubmitOrder) {
+    btnModalSubmitOrder.addEventListener('click', () => {
+      let hasError = false;
+      let firstInvalid = null;
+
+      modalRows.forEach(r => {
+        const inp = modalOrderRows.querySelector(`.modal-ticket-num[data-id="${r.id}"]`);
+        if (!/^\d{3}$/.test(r.number)) {
+          hasError = true;
+          if (inp) {
+            inp.style.borderColor = 'var(--color-rose)';
+            if (!firstInvalid) firstInvalid = inp;
+          }
+        }
+      });
+
+      if (hasError) {
+        showToast('❌ กรุณากรอกเลข 3 หลักให้ครบทุกแถว');
+        if (firstInvalid) firstInvalid.focus();
+        return;
+      }
+
+      const map = new Map();
+      modalRows.forEach(r => {
+        map.set(r.number, (map.get(r.number) || 0) + r.quantity);
+      });
+
+      const items = Array.from(map.entries()).map(([num, qty]) => `${num} ${qty} ใบ`);
+      const cmd = `สั่งซื้อ ${items.join(', ')}`;
+
+      copyToClipboard(cmd);
+      showToast(`📋 ส่งคำสั่งซื้อ "${cmd}" เข้าสู่ LINE...`);
+
+      const encodedId = encodeURIComponent('@586xxhlx');
+      const lineUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodeURIComponent(cmd)}`;
+      if (modalOrderTable) modalOrderTable.classList.remove('active');
+
+      try {
+        window.location.href = lineUrl;
+      } catch (err) {
+        window.open(lineUrl, '_blank');
+      }
+    });
   }
 
   // -------------------------------------------------------------------------

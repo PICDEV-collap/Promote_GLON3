@@ -28,6 +28,22 @@ app.use(express.json({
 // เสิร์ฟรูปภาพ QR Code ผ่าน Static Route
 app.use('/qrcodes', express.static(CONFIG.QR_OUTPUT_DIR));
 
+// เสิร์ฟหน้าเว็บสั่งซื้อ / LIFF / Static Files
+app.use('/public', express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../../public')));
+app.use(express.static(path.join(__dirname, '../../')));
+
+// Endpoint เปิดตารางสั่งซื้อสลาก N3
+app.get('/order', (_req: Request, res: Response) => {
+  const localOrderPath = path.join(__dirname, '../public/order.html');
+  if (fs.existsSync(localOrderPath)) {
+    res.sendFile(localOrderPath);
+  } else {
+    res.redirect(CONFIG.ORDER_FORM_URL);
+  }
+});
+
 // Endpoint บังคับดาวน์โหลดไฟล์รูปภาพ QR Code โดยตรง (Force Download)
 app.get('/download-qr/:filename', (req: Request, res: Response) => {
   const rawParam = req.params.filename;
@@ -303,6 +319,7 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
   // 1. แปลงเลขอารบิกและแปลงเลขไทย (๐-๙) เป็นเลขอารบิก (0-9)
   const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
   let clean = text.trim();
+  clean = clean.replace(/^(?:\??text\s*=\s*)/i, '').trim();
   for (let i = 0; i < 10; i++) {
     clean = clean.replace(new RegExp(thaiDigits[i], 'g'), String(i));
   }
@@ -507,8 +524,8 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // คำสั่งขั้นตอนสั่งซื้อ / คำว่า สั่งซื้อ เดี่ยวๆ
-      const isOrderGuideCmd = /^(?:สั่งซื้อ|ซื้อสลาก|สั่งสลาก|ขอซื้อ|เลือกเลข|ซื้อ)$/i.test(userText);
+      // คำสั่งขั้นตอนสั่งซื้อ / ตารางสั่งซื้อ / สั่งซื้อสลาก N3 / คำว่า สั่งซื้อ เดี่ยวๆ
+      const isOrderGuideCmd = /^(?:(?:ตาราง)?(?:สั่งซื้อ|ซื้อสลาก|สั่งสลาก|ขอซื้อ|เลือกเลข|ซื้อ|สั่ง)(?:\s*(?:สลาก)?(?:\s*N3)?)?|order|ตาราง|ตารางสั่งซื้อ)$/i.test(userText);
       if (isOrderGuideCmd) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildOrderGuidanceMessage()]);
         continue;
