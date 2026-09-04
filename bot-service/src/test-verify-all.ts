@@ -230,6 +230,11 @@ function runTests() {
     assert.strictEqual(parseOrderMessage('myid'), null);
     assert.strictEqual(parseOrderMessage('help'), null);
     assert.strictEqual(parseOrderMessage('สวัสดีครับ'), null);
+    assert.strictEqual(parseOrderMessage('สว้สดี'), null);
+    assert.strictEqual(parseOrderMessage('เริ่ม'), null);
+    assert.strictEqual(parseOrderMessage('เมนู'), null);
+    assert.strictEqual(parseOrderMessage('ทำนายฝัน'), null);
+    assert.strictEqual(parseOrderMessage('เลขเด็ด'), null);
     assert.strictEqual(parseOrderMessage(''), null);
   });
 
@@ -935,6 +940,27 @@ function runTests() {
   });
 
 
+
+  test('Greeting & Command Regex: supports typos, variants, and menu keywords', () => {
+    const isGreetingRegex = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|เมนู|menu|หน้าแรก|home|แนะนำตัว|ยินดีต้อนรับ)$/i;
+    assert.strictEqual(isGreetingRegex.test('เริ่ม'), true);
+    assert.strictEqual(isGreetingRegex.test('เริ่มต้น'), true);
+    assert.strictEqual(isGreetingRegex.test('เริ่มเลย'), true);
+    assert.strictEqual(isGreetingRegex.test('สวัสดี'), true);
+    assert.strictEqual(isGreetingRegex.test('สวัสดีครับ'), true);
+    assert.strictEqual(isGreetingRegex.test('สวัสดีค่ะ'), true);
+    assert.strictEqual(isGreetingRegex.test('สว้สดี'), true, 'Should match typo สว้สดี with tone mark');
+    assert.strictEqual(isGreetingRegex.test('เมนู'), true);
+    assert.strictEqual(isGreetingRegex.test('menu'), true);
+    assert.strictEqual(isGreetingRegex.test('หน้าแรก'), true);
+    assert.strictEqual(isGreetingRegex.test('123 2'), false);
+
+    const isDreamRegex = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*)$/i;
+    assert.strictEqual(isDreamRegex.test('ทำนายฝัน'), true);
+    assert.strictEqual(isDreamRegex.test('ทำนายฝันเห็นพญานาค'), true);
+    assert.strictEqual(isDreamRegex.test('เลขเด็ดงวดนี้'), true);
+    assert.strictEqual(isDreamRegex.test('334=5'), false);
+  });
 
   console.log(`\n====================================================`);
   console.log(`TEST SUMMARY: ${passed} / ${total} tests passed (100%)`);

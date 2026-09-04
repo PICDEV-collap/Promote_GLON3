@@ -84,6 +84,49 @@ function sendLineAdminAlert(messageText) {
 }
 
 /**
+ * อัปเดต Webhook URL ไปยัง LINE Developers Console อัตโนมัติ (ไม่ต้องคอยก๊อปปี้ไปวางเอง)
+ */
+async function updateLineWebhookEndpoint(webhookUrl, maxRetries = 3) {
+  const { token } = getLineConfig();
+  if (!token || !webhookUrl || !webhookUrl.startsWith('https://')) return false;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const success = await new Promise((resolve) => {
+      const payload = JSON.stringify({ endpoint: webhookUrl });
+      const req = https.request('https://api.line.me/v2/bot/channel/webhook/endpoint', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        timeout: 8000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            console.log('\x1b[32m[LINE AUTO-SYNC] อัปเดต Webhook URL ไปยัง LINE Developers Console สำเร็จอัตโนมัติ!\x1b[0m');
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        });
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.write(payload);
+      req.end();
+    });
+
+    if (success) return true;
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+  return false;
+}
+
+/**
  * ดึงเวลาปัจจุบันในรูปแบบภาษาไทย
  */
 function getThaiTime(date = new Date()) {
@@ -459,6 +502,9 @@ function startDashboard() {
       // ส่งแจ้งเตือน Admin ผ่าน LINE ทันทีที่เชื่อมต่อ Webhook สำเร็จ
       notifyBotStarted(currentWebhookUrl);
 
+      // ซิงค์ Webhook URL ไปยัง LINE Developers Console อัตโนมัติทันที
+      updateLineWebhookEndpoint(currentWebhookUrl);
+
       console.log('\n===============================================================================');
       console.log('       🎉 LINE BOT SERVICE & CLOUDFLARE TUNNEL ARE ONLINE!');
       console.log('===============================================================================');
@@ -689,6 +735,7 @@ async function startBackground() {
   console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE แอดมิน...');
   try {
     await sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
+    await updateLineWebhookEndpoint(webhookUrl);
   } catch (e) {
     console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนเปิดบอทไม่สำเร็จ:', e.message);
   }
@@ -856,7 +903,7 @@ async function main() {
 
   if (mode === 'start') {
     startDashboard();
-  } else if (mode === 'bg' || mode === 'start-bg' || mode === 'silent') {
+  } else if (mode === 'bg' || mode === 'start-bg' || mode === 'silent' || mode === 'background') {
     await startBackground();
   } else if (mode === 'stop') {
     await stopBot();

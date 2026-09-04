@@ -306,8 +306,8 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
     clean = clean.replace(new RegExp(thaiDigits[i], 'g'), String(i));
   }
 
-  // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป
-  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
+  // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป/ทักทาย
+  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน|เริ่ม.*|start.*|เมนู.*|menu.*|หน้าแรก.*|home.*|สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ทำนาย.*|เลขเด็ด.*)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
     return null;
   }
 
@@ -485,9 +485,16 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // คำสั่งทักทาย / เริ่มต้นใช้งาน (สวัสดี, หวัดดี, hello, hi, เริ่ม, แนะนำตัว) -> ส่งการ์ดต้อนรับชุดใหญ่
-      const isGreeting = /^(?:สวัสดี|หวัดดี|ดีครับ|ดีค่ะ|สวัสดียามเช้า|อรุณสวัสดิ์|hello|hi|hey|start|เริ่ม|เริ่มต้น|แนะนำตัว|ยินดีต้อนรับ)$/i.test(userText);
+      // คำสั่งทักทาย / เริ่มต้นใช้งาน (สวัสดี, สว้สดี, หวัดดี, hello, hi, เริ่ม, เมนู, ฯลฯ) -> ส่งการ์ดต้อนรับชุดใหญ่
+      const isGreeting = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|เมนู|menu|หน้าแรก|home|แนะนำตัว|ยินดีต้อนรับ)$/i.test(userText);
       if (isGreeting) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildWelcomeMessage()]);
+        continue;
+      }
+
+      // คำสั่งทำนายฝัน / เลขเด็ด AI
+      const isDreamCmd = /^(?:ทำนายฝัน.*|ทำนาย.*|ฝัน.*|เลขเด็ด.*|หาเลข.*)$/i.test(userText);
+      if (isDreamCmd) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildWelcomeMessage()]);
         continue;
       }
