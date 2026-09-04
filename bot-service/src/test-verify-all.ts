@@ -584,6 +584,11 @@ function runTests() {
     assert(engineContent.includes('shell: true'), 'n3-engine.js must spawn with shell: true on Windows');
     assert(engineContent.includes('detached: true'), 'n3-engine.js must spawn detached');
     assert(engineContent.includes('windowsHide: true'), 'n3-engine.js must specify windowsHide: true');
+    // Ensure both startDashboard and startBackground specify windowsHide: true
+    const dashboardMatch = engineContent.match(/function startDashboard\(\)[\s\S]*?function openLiveBrowser\(\)/);
+    assert(dashboardMatch && dashboardMatch[0].includes('windowsHide: true'), 'startDashboard must specify windowsHide: true on spawn');
+    assert(engineContent.includes('process.execPath'), 'n3-engine.js must spawn node directly via process.execPath to avoid cmd.exe console window');
+    assert(engineContent.includes('getCloudflaredCommand'), 'n3-engine.js must have getCloudflaredCommand to resolve binary or npx-cli without cmd.exe');
     assert(engineContent.includes('sendLineAdminAlert'), 'n3-engine.js must implement sendLineAdminAlert');
     assert(engineContent.includes('setupEngineLifecycle'), 'n3-engine.js must have setupEngineLifecycle');
     assert(engineContent.includes('notifyBotStopped'), 'n3-engine.js must have notifyBotStopped');
@@ -597,6 +602,21 @@ function runTests() {
     assert(fs.existsSync(startBatPath), 'START-BOT.bat must exist');
     const startBatContent = fs.readFileSync(startBatPath, 'utf-8');
     assert(startBatContent.includes('n3-engine.js start'), 'START-BOT.bat must run n3-engine.js start to start bot and tunnel');
+  });
+
+  test('Launcher: START-BOT-SILENT.bat launches START-BOT-HIDDEN.vbs and exits cleanly', () => {
+    const silentBatPath = path.resolve(__dirname, '../../START-BOT-SILENT.bat');
+    assert(fs.existsSync(silentBatPath), 'START-BOT-SILENT.bat must exist');
+    const silentBatContent = fs.readFileSync(silentBatPath, 'utf-8');
+    assert(silentBatContent.includes('START-BOT-HIDDEN.vbs'), 'START-BOT-SILENT.bat must invoke START-BOT-HIDDEN.vbs');
+    assert(silentBatContent.includes('exit'), 'START-BOT-SILENT.bat must exit cleanly to avoid lingering cmd.exe');
+  });
+
+  test('Launcher: START-BOT-HIDDEN.vbs runs hidden without console windows', () => {
+    const vbsPath = path.resolve(__dirname, '../../START-BOT-HIDDEN.vbs');
+    assert(fs.existsSync(vbsPath), 'START-BOT-HIDDEN.vbs must exist');
+    const vbsContent = fs.readFileSync(vbsPath, 'utf-8');
+    assert(vbsContent.includes('WindowStyle Hidden') || vbsContent.includes(', 0,'), 'START-BOT-HIDDEN.vbs must run hidden');
   });
 
   test('Launcher: create-desktop-shortcuts.vbs delegates to create-desktop-shortcuts.ps1', () => {

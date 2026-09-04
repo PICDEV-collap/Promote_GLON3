@@ -168,20 +168,19 @@ function setupEngineLifecycle() {
 }
 
 /**
- * 1. Kill lingering processes on Port 3333, Cloudflare, and browser_profile
+ * 1. Kill lingering processes on Port 3333, Cloudflare, dist/index.js, and browser_profile
  */
 function killLingering() {
   try {
-    execSync('powershell -Command "Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"', { stdio: 'ignore' });
+    const psCmd = [
+      'Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue',
+      'Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }',
+      'Get-CimInstance Win32_Process | Where-Object { ($_.CommandLine -like "*dist/index.js*" -or $_.CommandLine -like "*dist\\index.js*" -or $_.CommandLine -like "*cloudflared*" -or $_.CommandLine -like "*browser_profile*") -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }'
+    ].join('; ');
+    execSync(`powershell -NoProfile -Command "${psCmd}"`, { stdio: 'ignore', windowsHide: true });
   } catch (e) {}
   try {
-    execSync('powershell -Command "Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"', { stdio: 'ignore' });
-  } catch (e) {}
-  try {
-    execSync('powershell -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like \'*browser_profile*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"', { stdio: 'ignore' });
-  } catch (e) {}
-  try {
-    execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore' });
+    execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore', windowsHide: true });
   } catch (e) {}
 
   const pidFile = path.join(ROOT_DIR, 'bot.pid');
@@ -189,10 +188,10 @@ function killLingering() {
     try {
       const pidData = JSON.parse(fs.readFileSync(pidFile, 'utf-8'));
       if (pidData.botPid) {
-        try { execSync(`taskkill /F /T /PID ${pidData.botPid}`, { stdio: 'ignore' }); } catch {}
+        try { execSync(`taskkill /F /T /PID ${pidData.botPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
       }
       if (pidData.tunnelPid) {
-        try { execSync(`taskkill /F /T /PID ${pidData.tunnelPid}`, { stdio: 'ignore' }); } catch {}
+        try { execSync(`taskkill /F /T /PID ${pidData.tunnelPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
       }
       fs.unlinkSync(pidFile);
     } catch {}
@@ -232,7 +231,7 @@ function cleanFiles() {
  */
 function getBotStatus() {
   try {
-    const portCheck = execSync('powershell -Command "Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"', { encoding: 'utf-8' }).trim();
+    const portCheck = execSync('powershell -Command "Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"', { encoding: 'utf-8', windowsHide: true }).trim();
     if (portCheck) {
       return { isRunning: true, pid: portCheck };
     }
@@ -240,7 +239,7 @@ function getBotStatus() {
 
   // Fallback netstat
   try {
-    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
+    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8', windowsHide: true });
     const match = netstatOut.match(/:3333\s+.*LISTENING\s+(\d+)/i);
     if (match && match[1]) {
       return { isRunning: true, pid: match[1] };
@@ -329,6 +328,56 @@ function checkStatus() {
 }
 
 /**
+ * Helper: ค้นหา binary cloudflared หรือรันผ่าน node npx-cli โดยเลี่ยง cmd.exe
+ */
+function getCloudflaredCommand() {
+  // 1. ตรวจสอบ bin/ ของโปรเจกต์
+  const localBin = path.join(ROOT_DIR, 'bin', process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared');
+  if (fs.existsSync(localBin)) {
+    return { command: localBin, args: [], shell: false };
+  }
+
+  // 2. ตรวจสอบ npm cache บน Windows (pre-downloaded cloudflared binary)
+  if (process.platform === 'win32') {
+    const userProfile = process.env.USERPROFILE || process.env.HOME || '';
+    const npxCacheDir = path.join(userProfile, 'AppData', 'Local', 'npm-cache', '_npx');
+    if (fs.existsSync(npxCacheDir)) {
+      try {
+        const dirs = fs.readdirSync(npxCacheDir);
+        for (const d of dirs) {
+          const candidate = path.join(npxCacheDir, d, 'node_modules', 'cloudflared', 'bin', 'cloudflared.exe');
+          if (fs.existsSync(candidate)) {
+            return { command: candidate, args: [], shell: false };
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 3. ตรวจสอบ PATH ของระบบ
+  try {
+    const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
+    const whereOut = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
+    if (whereOut) {
+      const firstLine = whereOut.split(/\r?\n/)[0].trim();
+      if (fs.existsSync(firstLine)) {
+        return { command: firstLine, args: [], shell: false };
+      }
+    }
+  } catch {}
+
+  // 4. รันผ่าน node npx-cli.js โดยตรง (เลี่ยง cmd.exe)
+  const npxCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
+  if (fs.existsSync(npxCli)) {
+    return { command: process.execPath, args: [npxCli, '--yes', 'cloudflared'], shell: false };
+  }
+
+  // 5. Fallback
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  return { command: npxCmd, args: ['--yes', 'cloudflared'], shell: true };
+}
+
+/**
  * 4. Start All-in-One Dashboard (Bot + Cloudflare Tunnel)
  */
 function startDashboard() {
@@ -341,7 +390,7 @@ function startDashboard() {
 
   try {
     console.log('[2/3] Compiling latest TypeScript Build...');
-    execSync('npm run build', { cwd: BOT_DIR, stdio: 'ignore' });
+    execSync('npm run build', { cwd: BOT_DIR, stdio: 'ignore', windowsHide: true });
   } catch (e) {
     console.warn('[BUILD WARNING] Using existing compiled build');
   }
@@ -350,9 +399,9 @@ function startDashboard() {
 
   let isStopping = false;
 
-  const bot = spawn('node', ['dist/index.js'], {
+  const bot = spawn(process.execPath, ['dist/index.js'], {
     cwd: BOT_DIR,
-    shell: true,
+    windowsHide: true,
     env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -376,9 +425,12 @@ function startDashboard() {
     }
   });
 
-  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const tunnel = spawn(npxCmd, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333'], {
-    shell: true,
+  const cf = getCloudflaredCommand();
+  const tunnelArgs = [...cf.args, 'tunnel', '--url', 'http://localhost:3333'];
+  const tunnel = spawn(cf.command, tunnelArgs, {
+    cwd: ROOT_DIR,
+    shell: cf.shell || false,
+    windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
@@ -522,13 +574,13 @@ function buildProject() {
  */
 function openFolder(target) {
   try {
-    execSync(`explorer "${target}"`, { stdio: 'ignore' });
+    execSync(`explorer "${target}"`, { stdio: 'ignore', windowsHide: true });
   } catch (e) {}
 }
 
 function openFile(target) {
   try {
-    execSync(`start "" "${target}"`, { shell: true, stdio: 'ignore' });
+    execSync(`start "" "${target}"`, { shell: true, stdio: 'ignore', windowsHide: true });
   } catch (e) {}
 }
 
@@ -561,7 +613,7 @@ async function startBackground() {
   const distPath = path.join(BOT_DIR, 'dist', 'index.js');
   try {
     console.log('[2/3] Checking TypeScript build...');
-    execSync('npm run build', { cwd: BOT_DIR, stdio: 'ignore' });
+    execSync('npm run build', { cwd: BOT_DIR, stdio: 'ignore', windowsHide: true });
   } catch (e) {
     if (!fs.existsSync(distPath)) {
       console.error('[ERROR] Build failed and dist/index.js does not exist.');
@@ -574,11 +626,10 @@ async function startBackground() {
   const botOut = fs.openSync(botLogPath, 'a');
   const botErr = fs.openSync(botLogPath, 'a');
 
-  // Launch node dist/index.js detached on Windows with shell: true
-  const bot = spawn('node', ['dist/index.js'], {
+  // Launch node dist/index.js detached on Windows directly without cmd.exe shell to guarantee zero visible console window
+  const bot = spawn(process.execPath, ['dist/index.js'], {
     cwd: BOT_DIR,
     detached: true,
-    shell: true,
     windowsHide: true,
     env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
     stdio: ['ignore', botOut, botErr]
@@ -587,12 +638,13 @@ async function startBackground() {
   try { fs.closeSync(botOut); } catch {}
   try { fs.closeSync(botErr); } catch {}
 
-  // Launch cloudflared tunnel detached on Windows with shell: true and native --logfile
-  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const tunnel = spawn(npxCmd, ['--yes', 'cloudflared', 'tunnel', '--url', 'http://localhost:3333', '--logfile', tunnelLogPath], {
+  // Launch cloudflared tunnel detached with direct binary or npx-cli (avoiding cmd.exe)
+  const cf = getCloudflaredCommand();
+  const tunnelArgs = [...cf.args, 'tunnel', '--url', 'http://localhost:3333', '--logfile', tunnelLogPath];
+  const tunnel = spawn(cf.command, tunnelArgs, {
     cwd: ROOT_DIR,
     detached: true,
-    shell: true,
+    shell: cf.shell || false,
     windowsHide: true,
     stdio: 'ignore'
   });

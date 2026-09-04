@@ -25,6 +25,7 @@ sc1.Arguments = """" & strRootDir & "\START-BOT-HIDDEN.vbs"""
 sc1.WorkingDirectory = strRootDir
 sc1.Description = "เปิดบอทรับออเดอร์สลาก N3 ในเบื้องหลัง (ซ่อนหน้าต่าง 100% ไม่กวนหน้าจอ)"
 sc1.IconLocation = "shell32.dll,137"
+sc1.WindowStyle = 7
 sc1.Save
 
 ' 2. ทางลัด: ปิดบอท
