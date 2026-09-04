@@ -17,7 +17,7 @@ $sc1 = $WshShell.CreateShortcut($sc1Path)
 $sc1.TargetPath = "wscript.exe"
 $sc1.Arguments = "`"$RootDir\START-BOT-HIDDEN.vbs`""
 $sc1.WorkingDirectory = $RootDir
-$sc1.Description = "เปิดบอทรับออเดอร์สลาก N3 ในเบื้องหลัง (ซ่อนหน้าต่าง 100% ไม่กวนหน้าจอ)"
+$sc1.Description = "เปิดบอทรับออเดอร์สลาก N3 ในเบื้องหลัง (ซ่อนหน้าต่าง 100%)"
 $sc1.IconLocation = "shell32.dll,137"
 $sc1.Save()
 
@@ -47,5 +47,14 @@ $sc4.WorkingDirectory = $RootDir
 $sc4.Description = "เปิดบอทสลาก N3 แบบแสดงหน้าจอ CMD (สำหรับตรวจสอบการทำงานสด)"
 $sc4.IconLocation = "shell32.dll,44"
 $sc4.Save()
+
+# 5. ทางลัด: อัปเดตและรีสตาร์ทบอท (ไม่เปลี่ยน Webhook URL)
+$sc5Path = Join-Path $DesktopPath "UPDATE-N3-BOT.lnk"
+$sc5 = $WshShell.CreateShortcut($sc5Path)
+$sc5.TargetPath = Join-Path $RootDir "UPDATE-BOT.bat"
+$sc5.WorkingDirectory = $RootDir
+$sc5.Description = "อัปเดตโค้ดล่าสุดและรีสตาร์ทบอทสลาก N3 โดยคง Webhook URL เดิม 100%"
+$sc5.IconLocation = "shell32.dll,238"
+$sc5.Save()
 
 Write-Host "✅ Shortcuts created on Desktop: $DesktopPath"

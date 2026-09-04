@@ -211,20 +211,52 @@ function setupEngineLifecycle() {
 }
 
 /**
- * 1. Kill lingering processes on Port 3333, Cloudflare, dist/index.js, and browser_profile
+ * ตรวจสอบว่า Cloudflare Tunnel กำลังทำงานอยู่ และมี URL สาธารณะที่พร้อมใช้งานหรือไม่
  */
-function killLingering() {
+function isTunnelAlive() {
   try {
-    const psCmd = [
-      'Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue',
-      'Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }',
-      'Get-CimInstance Win32_Process | Where-Object { ($_.CommandLine -like "*dist/index.js*" -or $_.CommandLine -like "*dist\\index.js*" -or $_.CommandLine -like "*cloudflared*" -or $_.CommandLine -like "*browser_profile*") -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }'
-    ].join('; ');
+    const psCmd = 'Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id';
+    const out = execSync(`powershell -NoProfile -Command "${psCmd}"`, {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
+    }).trim();
+    if (!out) return false;
+
+    const urlFile = path.join(ROOT_DIR, 'webhook-url.txt');
+    if (!fs.existsSync(urlFile)) return false;
+    const u = fs.readFileSync(urlFile, 'utf-8').trim();
+    return u.startsWith('https://') && u.includes('.trycloudflare.com');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 1. Kill lingering processes on Port 3333, Cloudflare, dist/index.js, and browser_profile
+ * @param {Object} options - { keepTunnel: boolean }
+ */
+function killLingering(options = {}) {
+  const keepTunnel = options.keepTunnel === true;
+  try {
+    const psParts = [
+      'Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }'
+    ];
+    if (!keepTunnel) {
+      psParts.unshift('Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue');
+      psParts.push('Get-CimInstance Win32_Process | Where-Object { ($_.CommandLine -like "*dist/index.js*" -or $_.CommandLine -like "*dist\\\\index.js*" -or $_.CommandLine -like "*cloudflared*" -or $_.CommandLine -like "*browser_profile*") -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }');
+    } else {
+      psParts.push('Get-CimInstance Win32_Process | Where-Object { ($_.CommandLine -like "*dist/index.js*" -or $_.CommandLine -like "*dist\\\\index.js*" -or $_.CommandLine -like "*browser_profile*") -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }');
+    }
+    const psCmd = psParts.join('; ');
     execSync(`powershell -NoProfile -Command "${psCmd}"`, { stdio: 'ignore', windowsHide: true });
   } catch (e) {}
-  try {
-    execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore', windowsHide: true });
-  } catch (e) {}
+
+  if (!keepTunnel) {
+    try {
+      execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore', windowsHide: true });
+    } catch (e) {}
+  }
 
   const pidFile = path.join(ROOT_DIR, 'bot.pid');
   if (fs.existsSync(pidFile)) {
@@ -233,10 +265,15 @@ function killLingering() {
       if (pidData.botPid) {
         try { execSync(`taskkill /F /T /PID ${pidData.botPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
       }
-      if (pidData.tunnelPid) {
-        try { execSync(`taskkill /F /T /PID ${pidData.tunnelPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
+      if (!keepTunnel) {
+        if (pidData.tunnelPid) {
+          try { execSync(`taskkill /F /T /PID ${pidData.tunnelPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
+        }
+        fs.unlinkSync(pidFile);
+      } else {
+        delete pidData.botPid;
+        fs.writeFileSync(pidFile, JSON.stringify(pidData, null, 2), 'utf-8');
       }
-      fs.unlinkSync(pidFile);
     } catch {}
   }
 }
@@ -643,21 +680,33 @@ function waitForKeypress() {
 
 /**
  * 8. Start Bot Service & LINE Tunnel in Background (Silent / Hidden Mode)
+ * @param {Object} options - { forceNewTunnel: boolean }
  */
-async function startBackground() {
+async function startBackground(options = {}) {
+  const forceNewTunnel = options.forceNewTunnel === true;
+  const tunnelAlreadyRunning = !forceNewTunnel && isTunnelAlive();
+
   console.clear();
   console.log('===============================================================================');
   console.log('     🚀 STARTING N3 BOT SERVICE IN BACKGROUND (SILENT / HIDDEN MODE)');
   console.log('===============================================================================');
-  console.log('\n[1/3] Clearing lingering processes and memory...');
-  killLingering();
+
+  if (tunnelAlreadyRunning) {
+    console.log('\n[1/3] คงสถานะ Cloudflare Tunnel เดิม (Webhook URL จะไม่เปลี่ยน)...');
+    killLingering({ keepTunnel: true });
+  } else {
+    console.log('\n[1/3] ล้างโปรเซสเก่าและเตรียมเปิด Tunnel ใหม่...');
+    killLingering({ keepTunnel: false });
+  }
 
   const urlFile = path.join(ROOT_DIR, 'webhook-url.txt');
   const tunnelLogPath = path.join(ROOT_DIR, 'tunnel.log');
   const botLogPath = path.join(ROOT_DIR, 'bot.log');
 
-  try { if (fs.existsSync(urlFile)) fs.unlinkSync(urlFile); } catch {}
-  try { if (fs.existsSync(tunnelLogPath)) fs.unlinkSync(tunnelLogPath); } catch {}
+  if (!tunnelAlreadyRunning) {
+    try { if (fs.existsSync(urlFile)) fs.unlinkSync(urlFile); } catch {}
+    try { if (fs.existsSync(tunnelLogPath)) fs.unlinkSync(tunnelLogPath); } catch {}
+  }
 
   const distPath = path.join(BOT_DIR, 'dist', 'index.js');
   try {
@@ -670,7 +719,7 @@ async function startBackground() {
     }
   }
 
-  console.log('[3/3] Launching Bot Service and Tunnel in Background...');
+  console.log('[3/3] Launching Bot Service on Port 3333 in Background...');
 
   const botOut = fs.openSync(botLogPath, 'a');
   const botErr = fs.openSync(botLogPath, 'a');
@@ -687,83 +736,139 @@ async function startBackground() {
   try { fs.closeSync(botOut); } catch {}
   try { fs.closeSync(botErr); } catch {}
 
-  // Launch cloudflared tunnel detached with direct binary or npx-cli (avoiding cmd.exe)
-  const cf = getCloudflaredCommand();
-  const tunnelArgs = [...cf.args, 'tunnel', '--url', 'http://localhost:3333', '--logfile', tunnelLogPath];
-  const tunnel = spawn(cf.command, tunnelArgs, {
-    cwd: ROOT_DIR,
-    detached: true,
-    shell: cf.shell || false,
-    windowsHide: true,
-    stdio: 'ignore'
-  });
-  tunnel.unref();
+  let webhookUrl = '';
+  let tunnelPid = null;
+
+  if (tunnelAlreadyRunning) {
+    // ดึง URL เดิมที่มีอยู่แล้ว
+    try {
+      webhookUrl = fs.readFileSync(urlFile, 'utf-8').trim();
+    } catch {}
+    if (!webhookUrl) {
+      webhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
+    }
+
+    const pidFile = path.join(ROOT_DIR, 'bot.pid');
+    if (fs.existsSync(pidFile)) {
+      try {
+        const prev = JSON.parse(fs.readFileSync(pidFile, 'utf-8'));
+        tunnelPid = prev.tunnelPid || null;
+      } catch {}
+    }
+
+    console.log('\n===============================================================================');
+    console.log('   🎉 บอทสลาก N3 รีสตาร์ทในเบื้องหลังเรียบร้อยแล้ว (TUNNEL REUSED)');
+    console.log('===============================================================================');
+    console.log(`  - บอททำงานบนพอร์ต: 3333 (PID: ${bot.pid})`);
+    console.log(`  - สถานะ Tunnel: \x1b[32m● เชื่อมต่อต่อเนื่อง (ไม่เปลี่ยน URL)\x1b[0m`);
+    console.log(`  - LINE Webhook URL: \x1b[36m\x1b[1m${webhookUrl}\x1b[0m`);
+    console.log(`  - บันทึกการทำงาน: bot.log`);
+    console.log('===============================================================================\n');
+
+    // แจ้งเตือนแอดมินทาง LINE ว่ารีสตาร์ทบอทสำเร็จโดยใช้ Webhook เดิม
+    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการรีสตาร์ทไปยัง LINE แอดมิน...');
+    try {
+      await sendLineAdminAlert(`🚀 [รีสตาร์ทบอทสำเร็จ] บอทสลาก N3 อัปเดตและเริ่มทำงานใหม่เรียบร้อยแล้ว (ใช้ Webhook เดิม: ${webhookUrl})`);
+    } catch (e) {
+      console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนรีสตาร์ทไม่สำเร็จ:', e.message);
+    }
+  } else {
+    // Launch cloudflared tunnel detached with direct binary or npx-cli (avoiding cmd.exe)
+    console.log('กำลังเริ่มต้น Cloudflare Tunnel ใหม่...');
+    const cf = getCloudflaredCommand();
+    const tunnelArgs = [...cf.args, 'tunnel', '--url', 'http://localhost:3333', '--logfile', tunnelLogPath];
+    const tunnel = spawn(cf.command, tunnelArgs, {
+      cwd: ROOT_DIR,
+      detached: true,
+      shell: cf.shell || false,
+      windowsHide: true,
+      stdio: 'ignore'
+    });
+    tunnel.unref();
+    tunnelPid = tunnel.pid;
+
+    console.log('\n[WAIT] กำลังรอ URL สาธารณะจาก Cloudflare Tunnel...');
+
+    // ดึง URL สาธารณะจาก tunnel.log (รอสูงสุด 15 วินาที)
+    const startTime = Date.now();
+    while (Date.now() - startTime < 15000) {
+      await new Promise(r => setTimeout(r, 600));
+      if (fs.existsSync(tunnelLogPath)) {
+        try {
+          const content = fs.readFileSync(tunnelLogPath, 'utf-8');
+          const match = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
+          if (match && match.length > 0) {
+            webhookUrl = match[match.length - 1] + '/webhook';
+            fs.writeFileSync(urlFile, webhookUrl, 'utf-8');
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    if (!webhookUrl) {
+      webhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
+    }
+
+    console.log(`\n  >>> LINE WEBHOOK URL ใหม่: \x1b[32m\x1b[1m${webhookUrl}\x1b[0m\n`);
+
+    // ส่งแจ้งเตือนเปิดบอทเข้า LINE Admin
+    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE แอดมิน...');
+    try {
+      await sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
+      await updateLineWebhookEndpoint(webhookUrl);
+    } catch (e) {
+      console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนเปิดบอทไม่สำเร็จ:', e.message);
+    }
+
+    console.log('\n===============================================================================');
+    console.log('   🎉 บอทสลาก N3 เริ่มทำงานในเบื้องหลังเรียบร้อยแล้ว (BACKGROUND RUNNING)');
+    console.log('===============================================================================');
+    console.log(`  - บอททำงานบนพอร์ต: 3333 (PID: ${bot.pid})`);
+    console.log(`  - โหมดเบราว์เซอร์: Headless Chrome (ซ่อนหน้าต่าง 100% ไม่กวนหน้าจอ)`);
+    console.log(`  - LINE Webhook URL: ${webhookUrl}`);
+    console.log(`  - บันทึกการทำงาน: bot.log`);
+    console.log(`  - บันทึก Tunnel: tunnel.log`);
+    console.log('===============================================================================\n');
+  }
 
   // Save PID metadata
   const pidFile = path.join(ROOT_DIR, 'bot.pid');
   try {
-    fs.writeFileSync(pidFile, JSON.stringify({ botPid: bot.pid, tunnelPid: tunnel.pid, startedAt: new Date().toISOString() }, null, 2));
+    fs.writeFileSync(pidFile, JSON.stringify({
+      botPid: bot.pid,
+      tunnelPid: tunnelPid,
+      tunnelReused: tunnelAlreadyRunning,
+      startedAt: new Date().toISOString()
+    }, null, 2));
   } catch {}
 
-  console.log('\n[WAIT] กำลังรอ URL สาธารณะจาก Cloudflare Tunnel...');
-
-  // ดึง URL สาธารณะจาก tunnel.log (รอสูงสุด 15 วินาที)
-  let webhookUrl = '';
-  const startTime = Date.now();
-  while (Date.now() - startTime < 15000) {
-    await new Promise(r => setTimeout(r, 600));
-    if (fs.existsSync(tunnelLogPath)) {
-      try {
-        const content = fs.readFileSync(tunnelLogPath, 'utf-8');
-        const match = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
-        if (match && match.length > 0) {
-          webhookUrl = match[match.length - 1] + '/webhook';
-          fs.writeFileSync(urlFile, webhookUrl, 'utf-8');
-          break;
-        }
-      } catch {}
-    }
-  }
-
-  if (!webhookUrl) {
-    webhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
-  }
-
-  console.log(`\n  >>> LINE WEBHOOK URL ล่าสุด: \x1b[32m\x1b[1m${webhookUrl}\x1b[0m\n`);
-
-  // ส่งแจ้งเตือนเปิดบอทเข้า LINE Admin
-  console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE แอดมิน...');
-  try {
-    await sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
-    await updateLineWebhookEndpoint(webhookUrl);
-  } catch (e) {
-    console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนเปิดบอทไม่สำเร็จ:', e.message);
-  }
-
-  console.log('\n===============================================================================');
-  console.log('   🎉 บอทสลาก N3 เริ่มทำงานในเบื้องหลังเรียบร้อยแล้ว (BACKGROUND RUNNING)');
-  console.log('===============================================================================');
-  console.log(`  - บอททำงานบนพอร์ต: 3333 (PID: ${bot.pid})`);
-  console.log(`  - โหมดเบราว์เซอร์: Headless Chrome (ซ่อนหน้าต่าง 100% ไม่กวนหน้าจอ)`);
-  console.log(`  - LINE Webhook URL: ${webhookUrl}`);
-  console.log(`  - บันทึกการทำงาน: bot.log`);
-  console.log(`  - บันทึก Tunnel: tunnel.log`);
-  console.log('\n  คำแนะนำ:');
+  console.log('  คำแนะนำ:');
   console.log('  1. บอทจะคอยรับออเดอร์ทาง LINE ตลอด 24 ชม. แม้ปิดหน้าต่างนี้');
   console.log('  2. ตรวจสอบสถานะ / ดู Webhook URL ได้ที่ N3-MANAGER.bat (เมนู [3])');
   console.log('  3. สั่งหยุดบอทได้ที่ N3-MANAGER.bat (เมนู [7]) หรือดับเบิลคลิก STOP-BOT.bat');
+  console.log('  4. รีสตาร์ทเฉพาะบอทโดยไม่เปลี่ยน Webhook URL ได้ด้วยเมนู [B] หรือ [U]');
   console.log('===============================================================================\n');
 }
 
 /**
  * 9. Stop Bot Service & Tunnel
+ * @param {Object} options - { stopTunnel: boolean }
  */
-async function stopBot() {
+async function stopBot(options = {}) {
+  const stopTunnel = options.stopTunnel !== false; // default true for full stop
   console.clear();
   console.log('===============================================================================');
-  console.log('              🛑 STOPPING N3 BOT SERVICE & CLOUDFLARE TUNNEL');
+  console.log(stopTunnel 
+    ? '              🛑 STOPPING N3 BOT SERVICE & CLOUDFLARE TUNNEL' 
+    : '                  🛑 STOPPING BOT SERVICE ONLY (KEEP TUNNEL)');
   console.log('===============================================================================');
-  console.log('\nกำลังหยุดการทำงานของบอท, Cloudflare Tunnel และเบราว์เซอร์...');
+  
+  if (stopTunnel) {
+    console.log('\nกำลังหยุดการทำงานของบอท, Cloudflare Tunnel และเบราว์เซอร์...');
+  } else {
+    console.log('\nกำลังหยุดการทำงานของบอท (คง Cloudflare Tunnel ไว้)...');
+  }
 
   // 1. บันทึก flag ว่าเป็นการหยุดอย่างตั้งใจโดยแอดมิน เพื่อป้องกัน index.ts ส่ง crash alert ซ้ำซ้อน
   const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
@@ -772,25 +877,43 @@ async function stopBot() {
   // 2. ส่งแจ้งเตือนแอดมินทาง LINE ทันที
   console.log('[NOTIFY] กำลังส่งแจ้งเตือนการหยุดทำงานไปยัง LINE แอดมิน...');
   try {
-    await sendLineAdminAlert('🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว');
+    if (stopTunnel) {
+      await sendLineAdminAlert('🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว (ปิดทั้งระบบ)');
+    } else {
+      await sendLineAdminAlert('🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดเฉพาะตัวบอทสลาก N3 (คง Webhook URL ไว้)');
+    }
   } catch (e) {
     console.warn('[NOTIFY WARNING] ไม่สามารถส่งแจ้งเตือนแอดมินได้:', e.message);
   }
 
-  // 3. จัดการปิดโปรเซสที่ค้างอยู่
-  killLingering();
+  // 3. จัดการปิดโปรเซส
+  killLingering({ keepTunnel: !stopTunnel });
 
   // ล้างไฟล์ flag หลังโปรเซสปิดตัว
   setTimeout(() => {
     try { if (fs.existsSync(intentionalStopFile)) fs.unlinkSync(intentionalStopFile); } catch {}
   }, 2000);
 
-  console.log('\n\x1b[32m[SUCCESS] สั่งหยุดการทำงานของบอทและล้างพอร์ต 3333 เรียบร้อยแล้ว\x1b[0m');
+  console.log('\n\x1b[32m[SUCCESS] สั่งหยุดการทำงานเรียบร้อยแล้ว\x1b[0m');
   console.log('===============================================================================\n');
 }
 
 /**
- * 10. Interactive Main Menu
+ * 10. Restart Bot Service Only (Preserve Webhook URL)
+ */
+async function restartBotOnly() {
+  await startBackground({ forceNewTunnel: false });
+}
+
+/**
+ * 11. Update Code & Restart Bot (Preserve Webhook URL)
+ */
+async function updateAndRestart() {
+  await startBackground({ forceNewTunnel: false });
+}
+
+/**
+ * 12. Interactive Main Menu
  */
 function showMainMenu() {
   console.clear();
@@ -798,6 +921,11 @@ function showMainMenu() {
   const statusText = status.isRunning 
     ? `\x1b[32m● กำลังทำงาน (RUNNING - Port 3333, PID: ${status.pid})\x1b[0m`
     : '\x1b[33m○ หยุดทำงาน (STOPPED)\x1b[0m';
+
+  const tunnelAlive = isTunnelAlive();
+  const tunnelText = tunnelAlive
+    ? '\x1b[32m● กำลังเชื่อมต่อ (ACTIVE - คงที่)\x1b[0m'
+    : '\x1b[33m○ หยุดทำงาน (INACTIVE)\x1b[0m';
 
   let quotaText = '2,000 ใบ';
   const quotaPath = path.join(BOT_DIR, 'data', 'quota.json');
@@ -816,8 +944,9 @@ function showMainMenu() {
   console.log('               (Thanagit Namchok - N3 Digital Lottery Agent)');
   console.log('===============================================================================');
   console.log(`  สถานะบริการ:   ${statusText}`);
+  console.log(`  สถานะ Tunnel:  ${tunnelText}`);
   console.log(`  โควต้าคงเหลือ: \x1b[36m${quotaText}\x1b[0m`);
-  if (status.isRunning && webhookUrl) {
+  if (webhookUrl) {
     console.log(`  LINE Webhook:  \x1b[35m${webhookUrl}\x1b[0m`);
   }
   console.log('===============================================================================');
@@ -827,7 +956,9 @@ function showMainMenu() {
   console.log('  [3] Check System & Ticket Quota Status (Quota, Round, Port, Webhook)');
   console.log('  [4] Clean Temporary Files & Free Memory (Remove old QR images)');
   console.log('  [5] Build Project (Compile TypeScript to latest version)');
-  console.log('  [6] Start Bot in Background (🚀 ซ่อนหน้าต่าง ไร้หน้าจอกวนใจ ทำงานเบื้องหลัง)');
+  console.log('  [6] Start Bot in Background (🚀 ซ่อนหน้าต่าง ไร้หน้าจอ - Reuse Tunnel อัตโนมัติ)');
+  console.log('  [U] Update & Restart Bot (⚡ Build ใหม่ + รีสตาร์ทบอท โดยไม่เปลี่ยน Webhook URL)');
+  console.log('  [B] Restart Bot Only (🔄 รีสตาร์ทเฉพาะบอท คง Webhook URL เดิม 100%)');
   console.log('  [7] Stop Bot Service (🛑 สั่งหยุดการทำงานของบอท / ปิดบอทเบื้องหลัง)');
   console.log('  [8] Open QR Codes Folder (Open public/qrcodes in Explorer)');
   console.log('  [9] Open Website in Browser (Open index.html)');
@@ -842,7 +973,7 @@ function showMainMenu() {
     output: process.stdout
   });
 
-  rl.question('Please select an option [0-9 or S] (or type bg / stop): ', async (choice) => {
+  rl.question('Please select an option [0-9, U, B, or S] (or type bg / stop): ', async (choice) => {
     rl.close();
     const c = choice.trim().toLowerCase();
     if (c === '1' || c === 'start') {
@@ -865,8 +996,14 @@ function showMainMenu() {
     } else if (c === '6' || c === 'bg' || c === 'silent') {
       await startBackground();
       waitForKeypress();
+    } else if (c === 'u' || c === 'update' || c === 'hot-reload') {
+      await updateAndRestart();
+      waitForKeypress();
+    } else if (c === 'b' || c === 'restart' || c === 'restart-bot') {
+      await restartBotOnly();
+      waitForKeypress();
     } else if (c === '7' || c === 'stop') {
-      await stopBot();
+      await stopBot({ stopTunnel: true });
       waitForKeypress();
     } else if (c === '8') {
       openFolder(QR_DIR);
@@ -915,8 +1052,16 @@ async function main() {
     startDashboard();
   } else if (mode === 'bg' || mode === 'start-bg' || mode === 'silent' || mode === 'background') {
     await startBackground();
-  } else if (mode === 'stop') {
-    await stopBot();
+  } else if (mode === 'restart' || mode === 'restart-bot') {
+    await restartBotOnly();
+  } else if (mode === 'update' || mode === 'hot-reload') {
+    await updateAndRestart();
+  } else if (mode === 'stop-bot') {
+    await stopBot({ stopTunnel: false });
+  } else if (mode === 'force-tunnel') {
+    await startBackground({ forceNewTunnel: true });
+  } else if (mode === 'stop' || mode === 'stop-all') {
+    await stopBot({ stopTunnel: true });
   } else if (mode === 'clean') {
     console.log('Stopping lingering processes and cleaning files...');
     killLingering();
