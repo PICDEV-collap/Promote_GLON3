@@ -9,8 +9,8 @@ Set WshShell = CreateObject("WScript.Shell")
 ' โฟลเดอร์ที่ตั้งของโปรเจกต์
 strScriptDir = FSO.GetParentFolderName(WScript.ScriptFullName)
 
-' 1. รันสคริปต์ n3-engine.js โหมด bg ซ่อนหน้าต่าง CMD (WindowStyle = 0: Hide, WaitOnReturn = True เพื่อรอให้ Tunnel เชื่อมต่อเสร็จ)
-strCommand = "cmd.exe /c cd /d """ & strScriptDir & """ && node scripts\n3-engine.js bg"
+' 1. รันสคริปต์ n3-engine.js โหมด bg ซ่อนหน้าต่าง 100% ไร้หน้าต่างดำ (WindowStyle = Hidden, WindowStyle = 0: Hide)
+strCommand = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -Command ""Set-Location '" & strScriptDir & "'; node scripts\n3-engine.js bg"""
 WshShell.Run strCommand, 0, True
 
 ' 2. แสดง Popup แจ้งเตือนภาษาไทยคมชัด 100% ผ่าน PowerShell (WindowStyle = Hidden ไม่กะพริบหน้าจอดำ)
