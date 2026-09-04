@@ -1484,7 +1484,7 @@ export class FlexMessageBuilder {
     const allComboNums = [directNum, ...todNums.filter(n => n !== directNum)];
     const comboCount = allComboNums.length;
     const comboPrice = comboCount * 20;
-    const comboOrderText = `สั่งซื้อ ` + allComboNums.map(n => `${n} 1`).join(', ');
+    const comboOrderText = `สั่งซื้อ ` + allComboNums.map(n => `${n} 1 ใบ`).join(', ');
 
     const webFullUrl = `${CONFIG.DREAM_PREDICTION_URL}?dream=${encodeURIComponent(pred.dreamText || '')}`;
 
@@ -1498,7 +1498,7 @@ export class FlexMessageBuilder {
             action: {
               type: 'message',
               label: `🎯 ซื้อ ${directNum} 1 ใบ`,
-              text: `สั่งซื้อ ${directNum} 1`
+              text: `สั่งซื้อ ${directNum} 1 ใบ`
             }
           },
           {
@@ -1513,8 +1513,8 @@ export class FlexMessageBuilder {
             type: 'action',
             action: {
               type: 'message',
-              label: `✌️ ซื้อ ${twoDigit} 1 ใบ`,
-              text: `สั่งซื้อ ${twoDigit} 1`
+              label: '✌️ ลุ้น 2 ตัวท้าย',
+              text: `สั่งซื้อ ${directNum} 1 ใบ`
             }
           },
           {
@@ -1794,7 +1794,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'message',
                 label: `🎯 ซื้อ 3 ตรง (${directNum}) 20บ.`,
-                text: `สั่งซื้อ ${directNum} 1`
+                text: `สั่งซื้อ ${directNum} 1 ใบ`
               }
             },
             {
@@ -1815,8 +1815,8 @@ export class FlexMessageBuilder {
               height: 'sm',
               action: {
                 type: 'message',
-                label: `✌️ ซื้อ 2 ตัวท้าย (${twoDigit}) 20บ.`,
-                text: `สั่งซื้อ ${twoDigit} 1`
+                label: `✌️ ลุ้น 2 ตัวท้าย (${twoDigit}) 20บ.`,
+                text: `สั่งซื้อ ${directNum} 1 ใบ`
               }
             },
             {

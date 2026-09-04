@@ -602,6 +602,55 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       // 2. แกะคำสั่งซื้อสลาก (รองรับทั้งเลขเดี่ยวและหลายเลขในบิลเดียว)
       const parsedItems = parseOrderMessage(userText);
       if (!parsedItems || parsedItems.length === 0) {
+        // ตรวจจับกรณีลูกค้าพยายามสั่งซื้อเลข 2 หลัก (เช่น "89", "89 1", "สั่งซื้อ 89 1 ใบ")
+        const thaiConverted = userText.trim().replace(/[๐-๙]/g, (d) => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(d)));
+        const twoDigitMatch = thaiConverted
+          .replace(/^(?:ขอสั่งซื้อ|ขอซื้อสลาก|ซื้อสลาก|สั่งสลาก|ขอสลาก|สั่งซื้อ|ขอซื้อ|ขอสั่ง|เอาเลข|ซื้อเลข|สั่งเลข|เลือกเลข|ขอเลข|สั่ง|ซื้อ|เอา|ขอ|เลือก|สลาก|เลข|\s)+/i, '')
+          .match(/^(\d{2})(?:[\s=\-xX*:]+([0-9]+))?(?:\s*ใบ)?$/);
+
+        if (twoDigitMatch) {
+          const twoNum = twoDigitMatch[1];
+          const twoQty = twoDigitMatch[2] ? parseInt(twoDigitMatch[2], 10) : 1;
+          const s1 = `0${twoNum}`;
+          const s2 = `9${twoNum}`;
+          console.log(`[2-DIGIT ORDER DETECTED] ลูกค้าสั่งเลข 2 ตัว "${twoNum}" (${twoQty} ใบ) -> แนะนำสลาก N3 3 หลัก`);
+          await lineHandler.reply(replyToken, [
+            {
+              type: 'text',
+              text: `💡 สลาก N3 เป็นสลากตัวเลข 3 หลัก (000-999) ใบละ 20 บาท\n\nหากท่านต้องการลุ้นรางวัลเลขท้าย 2 ตัว "${twoNum}" ระบบจะตรวจผลจาก 2 ตัวท้ายของสลาก 3 หลักครับ\n\n👉 ท่านสามารถแตะเลือกสั่งซื้อเลข 3 หลักด้านล่างนี้ได้ทันทีครับ:`,
+              quickReply: {
+                items: [
+                  {
+                    type: 'action',
+                    action: {
+                      type: 'message',
+                      label: `🎯 ซื้อ ${s1} 1 ใบ`,
+                      text: `สั่งซื้อ ${s1} ${twoQty} ใบ`
+                    }
+                  },
+                  {
+                    type: 'action',
+                    action: {
+                      type: 'message',
+                      label: `🎯 ซื้อ ${s2} 1 ใบ`,
+                      text: `สั่งซื้อ ${s2} ${twoQty} ใบ`
+                    }
+                  },
+                  {
+                    type: 'action',
+                    action: {
+                      type: 'message',
+                      label: '🏠 เมนูหลัก',
+                      text: 'เมนู'
+                    }
+                  }
+                ]
+              }
+            }
+          ]);
+          continue;
+        }
+
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         continue;
       }
