@@ -681,6 +681,38 @@ function runTests() {
     assert.strictEqual(CONFIG.LINE_ADMIN_USER_ID, CONFIG.ADMIN_LINE_USER_ID);
   });
 
+  // TEST SUITE: Cybersecurity Controls & Hardening Verification
+  test('Cybersecurity: index.ts enforces security headers, disabled x-powered-by, and rate limiter', () => {
+    const indexPath = path.resolve(__dirname, 'index.ts');
+    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+
+    // 1. Check disabled x-powered-by
+    assert(indexContent.includes("app.disable('x-powered-by')"), 'index.ts must disable x-powered-by');
+
+    // 2. Check security headers
+    assert(indexContent.includes('X-Content-Type-Options') && indexContent.includes('nosniff'), 'index.ts must set X-Content-Type-Options: nosniff');
+    assert(indexContent.includes('X-Frame-Options') && indexContent.includes('SAMEORIGIN'), 'index.ts must set X-Frame-Options: SAMEORIGIN');
+    assert(indexContent.includes('Referrer-Policy'), 'index.ts must set Referrer-Policy');
+
+    // 3. Check rate limiter
+    assert(indexContent.includes('InMemoryRateLimiter'), 'index.ts must implement rate limiting');
+    assert(indexContent.includes('rateLimiter.check'), 'index.ts must check rate limiter on endpoints');
+
+    // 4. Check sensitive path blocking
+    assert(indexContent.includes('SECURITY BLOCKED'), 'index.ts must log security blocked events');
+    assert(indexContent.includes('browser_profile'), 'index.ts must block browser_profile path');
+    assert(indexContent.includes('.env'), 'index.ts must block .env path');
+
+    // 5. Check root directory is NOT exposed
+    assert(!indexContent.includes("app.use(express.static(path.join(__dirname, '../../')));"), 'index.ts must NOT expose root directory');
+
+    // 6. Check strict webhook signature enforcement (cannot bypass without signature)
+    assert(indexContent.includes('if (!signature || !rawBody || !validateSignature'), 'index.ts must reject missing or invalid webhook signature');
+
+    // 7. Check QR download filename whitelist regex
+    assert(indexContent.includes('payment-') && indexContent.includes('.png'), 'index.ts must validate QR download filename strictly');
+  });
+
   // TEST SUITE 11: Live Quota Extraction & GLO N3 Portal Web Sync Verification
   test('Live Quota: Banner text extraction "📣 คุณขายสลากฯ ได้อีก 1,968 ใบ"', () => {
     const raw = '📣 คุณขายสลากฯ ได้อีก 1,968 ใบ';

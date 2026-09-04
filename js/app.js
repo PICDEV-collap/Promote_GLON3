@@ -1256,8 +1256,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const toast = document.createElement('div');
     toast.className = 'toast success';
-    toast.innerHTML = `<i class="fas fa-check-circle toast-icon"></i> <span class="toast-text">${message}</span>`;
+    
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-check-circle toast-icon';
+    const span = document.createElement('span');
+    span.className = 'toast-text';
+    span.textContent = message; // ปลอดภัยต่อ XSS 100% ด้วย textContent
 
+    toast.appendChild(icon);
+    toast.appendChild(span);
     toastContainer.appendChild(toast);
 
     // Trigger transition
