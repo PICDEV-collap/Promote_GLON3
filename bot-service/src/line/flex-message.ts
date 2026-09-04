@@ -5,6 +5,56 @@ import { OrderItem } from '../queue/order-queue';
 
 export class FlexMessageBuilder {
   /**
+   * 0. แถบปุ่มเมนูด่วน (Quick Reply Buttons) ให้ลูกค้าเลือกทำรายการได้ตลอดเวลา
+   */
+  public static getDefaultQuickReply(): messagingApi.QuickReply {
+    return {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '🛒 สั่งซื้อสลาก',
+            text: 'สั่งซื้อ'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '❓ วิธีสั่งซื้อ',
+            text: 'วิธีสั่งซื้อ'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📲 วิธีชำระเงิน',
+            text: 'วิธีชำระเงิน'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'uri',
+            label: '🔮 ทำนายฝัน AI',
+            uri: CONFIG.DREAM_PREDICTION_URL
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📊 เช็คโควต้า',
+            text: 'เช็คโควต้า'
+          }
+        }
+      ]
+    };
+  }
+
+  /**
    * 1. การ์ด QR Code ชำระเงิน N3 ส่งให้ลูกค้า (รองรับทั้งเลขเดียวและหลายเลข)
    */
   public static buildPaymentQRMessage(
@@ -123,22 +173,39 @@ export class FlexMessageBuilder {
         type: 'box',
         layout: 'vertical',
         margin: 'md',
+        backgroundColor: '#fff3cd',
+        cornerRadius: 'md',
+        paddingAll: '10px',
         contents: [
           {
             type: 'text',
-            text: `⏳ สแกนจ่ายผ่านแอป "เป๋าตัง" ภายใน ${expireMinutes} นาที`,
+            text: '⚠️ ข้อสำคัญ: ชำระผ่านแอป "เป๋าตัง" เท่านั้น',
+            size: 'xs',
+            weight: 'bold',
+            color: '#856404'
+          },
+          {
+            type: 'text',
+            text: '❌ ไม่สามารถใช้แอปธนาคารทั่วไปสแกนได้\n💡 บันทึกรูป QR แล้วเปิดแอปเป๋าตัง เข้าเมนูสแกนจ่ายเงินได้ทันที',
+            size: 'xxs',
+            color: '#856404',
+            wrap: true,
+            margin: 'xs'
+          }
+        ]
+      },
+      {
+        type: 'box',
+        layout: 'vertical',
+        margin: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: `⏳ สแกนจ่ายภายใน ${expireMinutes} นาที (ใบละ 20 บาท)`,
             size: 'sm',
             color: '#e74c3c',
             wrap: true,
             weight: 'bold'
-          },
-          {
-            type: 'text',
-            text: '💡 แตะรูป QR ด้านบน หรือกดปุ่ม "ดาวน์โหลด" ด้านล่าง เพื่อบันทึกรูปลงเครื่อง แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายได้ทันที',
-            size: 'xs',
-            color: '#0056b3',
-            wrap: true,
-            margin: 'xs'
           }
         ]
       }
@@ -147,6 +214,7 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText,
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -231,42 +299,7 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: 'ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค - วิธีพิมพ์สั่งซื้อ',
-      quickReply: {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🛒 ตัวอย่างสั่งซื้อ',
-              text: '334 2, 447 2'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '📊 เช็คโควต้าสลาก',
-              text: 'เช็คโควต้า'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'uri',
-              label: '🔮 ทำนายฝัน AI',
-              uri: CONFIG.DREAM_PREDICTION_URL
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '❓ วิธีสั่งซื้อ',
-              text: 'วิธีสั่งซื้อ'
-            }
-          }
-        ]
-      },
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -339,6 +372,30 @@ export class FlexMessageBuilder {
               type: 'box',
               layout: 'vertical',
               margin: 'md',
+              backgroundColor: '#fff3cd',
+              cornerRadius: 'md',
+              paddingAll: '8px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '👛 ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น',
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#856404'
+                },
+                {
+                  type: 'text',
+                  text: 'ใบละ 20 บาท (ไม่สามารถใช้แอปธนาคารอื่นสแกนได้)',
+                  size: 'xxs',
+                  color: '#856404',
+                  margin: 'xs'
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
               contents: [
                 {
                   type: 'text',
@@ -368,6 +425,28 @@ export class FlexMessageBuilder {
             {
               type: 'button',
               style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🛒 สั่งซื้อสลาก N3',
+                text: 'สั่งซื้อ'
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#0056b3',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '📲 วิธีการชำระเงิน (เป๋าตัง)',
+                text: 'วิธีชำระเงิน'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
               color: '#d4af37',
               height: 'sm',
               action: {
@@ -390,42 +469,7 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: '🎉 ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค!',
-      quickReply: {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🛒 ตัวอย่างสั่งซื้อ',
-              text: '334 2, 447 2'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '📊 เช็คโควต้าสลาก',
-              text: 'เช็คโควต้า'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'uri',
-              label: '🔮 ทำนายฝัน AI',
-              uri: CONFIG.DREAM_PREDICTION_URL
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '❓ วิธีสั่งซื้อ',
-              text: 'วิธีสั่งซื้อ'
-            }
-          }
-        ]
-      },
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -520,6 +564,30 @@ export class FlexMessageBuilder {
             },
             { type: 'separator', margin: 'md' },
             {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#fff3cd',
+              cornerRadius: 'md',
+              paddingAll: '8px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '👛 การชำระเงิน: จ่ายผ่านแอป "เป๋าตัง" เท่านั้น',
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#856404'
+                },
+                {
+                  type: 'text',
+                  text: 'สแกนจ่ายง่าย รวดเร็ว ปลอดภัย สลากเข้าเมนู "สลากของฉัน" ทันที',
+                  size: 'xxs',
+                  color: '#856404',
+                  margin: 'xs'
+                }
+              ]
+            },
+            {
               type: 'text',
               text: '🛒 วิธีการสั่งซื้อสลากง่ายๆ:',
               weight: 'bold',
@@ -553,6 +621,28 @@ export class FlexMessageBuilder {
             {
               type: 'button',
               style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🛒 สั่งซื้อสลาก N3',
+                text: 'สั่งซื้อ'
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#0056b3',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '📲 วิธีการชำระเงิน (เป๋าตัง)',
+                text: 'วิธีชำระเงิน'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
               color: '#d4af37',
               height: 'sm',
               action: {
@@ -564,12 +654,511 @@ export class FlexMessageBuilder {
             {
               type: 'button',
               style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '❓ วิธีการสั่งซื้อสลาก',
+                text: 'วิธีสั่งซื้อ'
+              }
+            }
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+  }
+
+  /**
+   * 2.2 การ์ดเมนูหลัก (Main Menu Card) ให้ลูกค้าเลือกทำรายการได้ทันที
+   */
+  public static buildMainMenuMessage(): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: '🏪 เมนูหลักร้านสลาก N3 ธนกิจนำโชค - เลือกทำรายการ',
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '🏪 เมนูหลัก (Main Menu)',
+              weight: 'bold',
+              color: '#d4af37',
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: 'ร้านสลาก N3 ธนกิจนำโชค',
+              weight: 'bold',
+              size: 'lg',
+              color: '#ffffff',
+              margin: 'xs'
+            },
+            {
+              type: 'text',
+              text: 'สลากกินแบ่งรัฐบาลตัวเลขสามหลัก ใบละ 20 บาท ถูกกฎหมาย 100%',
+              size: 'xxs',
+              color: '#a0b2c6',
+              margin: 'xs'
+            }
+          ],
+          backgroundColor: '#0c1b33',
+          paddingAll: '16px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#fff3cd',
+              cornerRadius: 'md',
+              paddingAll: '10px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '👛 ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น',
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#856404'
+                },
+                {
+                  type: 'text',
+                  text: 'สลาก N3 ผูกกับเป๋าตังของผู้ซื้อโดยตรง ถูกรางวัลรับเงินโอนเข้าเป๋าตังทันที!',
+                  size: 'xxs',
+                  color: '#856404',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            {
+              type: 'text',
+              text: '👇 กรุณาเลือกเมนูที่ต้องการทำรายการ:',
+              weight: 'bold',
+              size: 'xs',
+              color: '#333333',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'button',
+                  style: 'primary',
+                  color: '#28a745',
+                  height: 'sm',
+                  action: {
+                    type: 'message',
+                    label: '🛒 สั่งซื้อสลาก N3',
+                    text: 'สั่งซื้อ'
+                  }
+                },
+                {
+                  type: 'button',
+                  style: 'primary',
+                  color: '#0056b3',
+                  height: 'sm',
+                  action: {
+                    type: 'message',
+                    label: '📲 วิธีการชำระเงิน (เป๋าตัง)',
+                    text: 'วิธีชำระเงิน'
+                  }
+                },
+                {
+                  type: 'button',
+                  style: 'secondary',
+                  color: '#555555',
+                  height: 'sm',
+                  action: {
+                    type: 'message',
+                    label: '❓ วิธีการสั่งซื้อสลาก',
+                    text: 'วิธีสั่งซื้อ'
+                  }
+                },
+                {
+                  type: 'button',
+                  style: 'secondary',
+                  color: '#8e44ad',
+                  height: 'sm',
+                  action: {
+                    type: 'uri',
+                    label: '🔮 ทำนายฝัน AI หาเลขเด็ด',
+                    uri: CONFIG.DREAM_PREDICTION_URL
+                  }
+                },
+                {
+                  type: 'button',
+                  style: 'secondary',
+                  color: '#17a2b8',
+                  height: 'sm',
+                  action: {
+                    type: 'message',
+                    label: '📊 เช็คโควต้าสลากคงเหลือ',
+                    text: 'เช็คโควต้า'
+                  }
+                }
+              ]
+            }
+          ],
+          paddingAll: '16px'
+        }
+      }
+    };
+  }
+
+  /**
+   * 2.3 การ์ดแนะนำวิธีการชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น
+   */
+  public static buildPaymentGuideMessage(): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: '📲 ขั้นตอนการชำระเงินสลาก N3 ผ่านแอปเป๋าตังเท่านั้น',
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '📲 วิธีการชำระเงิน (Payment Guide)',
+              weight: 'bold',
+              color: '#d4af37',
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: 'ร้านสลาก N3 ธนกิจนำโชค',
+              weight: 'bold',
+              size: 'lg',
+              color: '#ffffff',
+              margin: 'xs'
+            }
+          ],
+          backgroundColor: '#0c1b33',
+          paddingAll: '16px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#fff2f0',
+              cornerRadius: 'md',
+              paddingAll: '10px',
+              borderColor: '#ffccc7',
+              borderWidth: '1px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🚨 ข้อควรระวังสำคัญมาก:',
+                  size: 'xs',
+                  weight: 'bold',
+                  color: '#cf1322'
+                },
+                {
+                  type: 'text',
+                  text: 'การชำระเงินต้องทำผ่านแอป "เป๋าตัง" เท่านั้น!\n❌ ไม่สามารถใช้แอปธนาคารทั่วไป (กสิกร, SCB, กรุงเทพ, Krungthai NEXT ฯลฯ) สแกนจ่ายได้ เนื่องจากเป็นระบบเฉพาะของสำนักงานสลากฯ',
+                  size: 'xxs',
+                  color: '#cf1322',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            {
+              type: 'text',
+              text: '📋 5 ขั้นตอนการชำระเงินง่ายๆ:',
+              weight: 'bold',
+              size: 'xs',
+              color: '#111111',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              margin: 'sm',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '1️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'บันทึกรูปภาพ QR Code', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'แตะที่รูป QR หรือกดปุ่ม "ดาวน์โหลด QR" เพื่อบันทึกรูปลงเครื่องโทรศัพท์', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '2️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'เปิดแอป "เป๋าตัง"', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'เข้าสู่แอปเป๋าตัง เลือกบริการ "G-Wallet" หรือกดปุ่ม "สแกน QR"', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '3️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'เลือกรูปจากคลังภาพ', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'แตะไอคอน "รูปภาพ" ในหน้าสแกน แล้วเลือกรูป QR Code ที่บันทึกไว้', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '4️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'ตรวจสอบยอดและยืนยันชำระเงิน', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'ตรวจสอบความถูกต้อง (ใบละ 20 บาท) แล้วกดยืนยันชำระเงินภายใน 10 นาที', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '5️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'รับสลากดิจิทัลเข้าบัญชีทันที', size: 'xs', weight: 'bold', color: '#28a745' },
+                        { type: 'text', text: 'สลากจะถูกบันทึกในเมนู "สลากของฉัน" ในแอปเป๋าตัง มีผลทางกฎหมาย 100% ถูกรางวัลเงินโอนเข้าเป๋าตังโดยตรง!', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          paddingAll: '16px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🛒 สั่งซื้อสลาก N3 เลย',
+                text: 'สั่งซื้อ'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '❓ วิธีสั่งซื้อสลาก',
+                text: 'วิธีสั่งซื้อ'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#d4af37',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔮 ทำนายฝัน AI หาเลขเด็ด',
+                uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            }
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+  }
+
+  /**
+   * 2.4 การ์ดแนะนำการสั่งซื้อสลาก N3 และตัวอย่างการพิมพ์
+   */
+  public static buildOrderGuidanceMessage(): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: '🛒 วิธีการสั่งซื้อสลาก N3 ร้านธนกิจนำโชค',
+      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '🛒 สั่งซื้อสลาก N3',
+              weight: 'bold',
+              color: '#d4af37',
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: 'ร้านสลาก N3 ธนกิจนำโชค',
+              weight: 'bold',
+              size: 'lg',
+              color: '#ffffff',
+              margin: 'xs'
+            }
+          ],
+          backgroundColor: '#0c1b33',
+          paddingAll: '16px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: 'ท่านสามารถพิมพ์เลข 3 หลักที่ต้องการลงในแชทนี้ได้ทันที:',
+              size: 'xs',
+              color: '#333333',
+              weight: 'bold'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#f8f9fa',
+              cornerRadius: 'md',
+              paddingAll: '10px',
+              margin: 'sm',
+              spacing: 'xs',
+              contents: [
+                {
+                  type: 'text',
+                  text: '• เลขเดียว: 123 2 (ได้เลข 123 จำนวน 2 ใบ)',
+                  size: 'xxs',
+                  color: '#444444'
+                },
+                {
+                  type: 'text',
+                  text: '• หลายเลข: 334 2, 447 3 (คั่นด้วยจุลภาค)',
+                  size: 'xxs',
+                  color: '#444444'
+                },
+                {
+                  type: 'text',
+                  text: '• จำนวนเท่ากัน: 111 222 อย่างละ 2 ใบ',
+                  size: 'xxs',
+                  color: '#444444'
+                },
+                {
+                  type: 'text',
+                  text: '• สั่ง 1 ใบ: พิมพ์เฉพาะเลข เช่น 999',
+                  size: 'xxs',
+                  color: '#444444'
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#fff3cd',
+              cornerRadius: 'md',
+              paddingAll: '8px',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: '⚠️ จ่ายผ่านแอป "เป๋าตัง" เท่านั้น (ใบละ 20 บาท)',
+                  size: 'xxs',
+                  weight: 'bold',
+                  color: '#856404'
+                }
+              ]
+            }
+          ],
+          paddingAll: '16px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🛒 สั่งซื้อตัวอย่าง 334 2 ใบ',
+                text: '334 2'
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
               color: '#0056b3',
               height: 'sm',
               action: {
                 type: 'message',
-                label: '🛒 ทดลองสั่งซื้อ (ตัวอย่าง 334 2 ใบ)',
-                text: '334 2'
+                label: '📲 วิธีการชำระเงิน (เป๋าตัง)',
+                text: 'วิธีชำระเงิน'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#d4af37',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔮 ทำนายฝัน AI หาเลขเด็ด',
+                uri: CONFIG.DREAM_PREDICTION_URL
               }
             }
           ],
