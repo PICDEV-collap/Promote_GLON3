@@ -397,6 +397,9 @@ const AIDreamEngine = (function () {
   function extractExplicitNumbers(text) {
     if (!text) return { found: false, countDigits: [], rawNumbers: [], anchorDirect: null, anchorTwo: null };
 
+    // แปลงเลขไทย ๐-๙ เป็นเลขอารบิก 0-9 เพื่อรองรับทั้งสองระบบ
+    const normalizedText = text.replace(/[๐-๙]/g, (d) => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(d)));
+
     const thaiNumberWords = {
       'หนึ่ง': '1', 'เดียว': '1', 'สอง': '2', 'คู่': '2', 'สาม': '3',
       'สี่': '4', 'ห้า': '5', 'หก': '6', 'เจ็ด': '7', 'แปด': '8',
@@ -409,7 +412,7 @@ const AIDreamEngine = (function () {
     // 1. ตรวจจับจำนวน เช่น "2 ตัว", "3 ใบ", "5 คน", "สองตัว"
     const countRegex = /(\d+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)\s*(?:ตัว|คน|ใบ|อัน|ชิ้น|หลัง|คัน|องค์|รูป|คู่|แห่ง)/g;
     let match;
-    while ((match = countRegex.exec(text)) !== null) {
+    while ((match = countRegex.exec(normalizedText)) !== null) {
       const val = match[1];
       if (thaiNumberWords[val]) {
         countDigits.push(thaiNumberWords[val]);
@@ -420,7 +423,7 @@ const AIDreamEngine = (function () {
 
     // 2. ตรวจจับตัวเลขชัดเจน 2-4 หลัก เช่น "ทะเบียน 954", "เลข 42", "999"
     const explicitRegex = /(?:ทะเบียน|เลข|เบอร์|งวด|อายุ|พ\.?ศ\.?|บ้านเลขที่|ห้อง|ชั้น|เบอร์โทร)?\s*([0-9]{2,4})/g;
-    while ((match = explicitRegex.exec(text)) !== null) {
+    while ((match = explicitRegex.exec(normalizedText)) !== null) {
       const numStr = match[1];
       if (numStr && numStr.length >= 2) {
         rawNumbers.push(numStr);
@@ -431,15 +434,19 @@ const AIDreamEngine = (function () {
     let anchorTwo = null;
 
     if (rawNumbers.length > 0) {
-      const firstNum = rawNumbers[0];
-      if (firstNum.length === 3) {
-        anchorDirect = firstNum;
-        anchorTwo = firstNum.slice(1);
-      } else if (firstNum.length === 2) {
-        anchorTwo = firstNum;
-      } else if (firstNum.length >= 4) {
-        anchorDirect = firstNum.slice(-3);
-        anchorTwo = firstNum.slice(-2);
+      // ให้ลำดับความสำคัญเลข 3 ตัวตรงก่อนเลข 2 ตัว (เช่น "ฝันเห็น 25 ทะเบียน 954" -> 954 เป็น anchorDirect)
+      const threeDigitNum = rawNumbers.find(n => n.length === 3);
+      const fourPlusNum = rawNumbers.find(n => n.length >= 4);
+      const twoDigitNum = rawNumbers.find(n => n.length === 2);
+
+      if (threeDigitNum) {
+        anchorDirect = threeDigitNum;
+        anchorTwo = twoDigitNum || threeDigitNum.slice(-2);
+      } else if (fourPlusNum) {
+        anchorDirect = fourPlusNum.slice(-3);
+        anchorTwo = twoDigitNum || fourPlusNum.slice(-2);
+      } else if (twoDigitNum) {
+        anchorTwo = twoDigitNum;
       }
     }
 

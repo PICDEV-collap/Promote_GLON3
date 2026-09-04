@@ -110,10 +110,35 @@ const ShareCardEngine = (function () {
     ctx.lineTo(960, 180);
     ctx.stroke();
 
-    // 4. Dream Subject & Element
+    // 4. Dream Subject & Element (Auto-scaling & Ellipsis Truncation to Prevent Canvas Overflow)
     ctx.fillStyle = '#ffffff';
-    ctx.font = '700 48px "Prompt", sans-serif';
-    ctx.fillText(`"${pred.dreamText || 'ความฝันมงคล'}"`, 540, 260);
+    let cleanDream = (pred.dreamText || 'ความฝันมงคล').replace(/\s+/g, ' ').trim();
+    let dreamTitle = `"${cleanDream}"`;
+    const maxTitleWidth = 880;
+
+    let titleFontSize = 48;
+    if (dreamTitle.length > 25) titleFontSize = 38;
+    if (dreamTitle.length > 40) titleFontSize = 30;
+    if (dreamTitle.length > 60) titleFontSize = 24;
+
+    ctx.font = `700 ${titleFontSize}px "Prompt", sans-serif`;
+    let measuredWidth = ctx.measureText(dreamTitle).width;
+
+    while (measuredWidth > maxTitleWidth && titleFontSize > 22) {
+      titleFontSize -= 2;
+      ctx.font = `700 ${titleFontSize}px "Prompt", sans-serif`;
+      measuredWidth = ctx.measureText(dreamTitle).width;
+    }
+
+    if (measuredWidth > maxTitleWidth) {
+      let rawTrimmed = cleanDream;
+      while (ctx.measureText(`"${rawTrimmed}..."`).width > maxTitleWidth && rawTrimmed.length > 3) {
+        rawTrimmed = rawTrimmed.slice(0, -1);
+      }
+      dreamTitle = `"${rawTrimmed.trim()}..."`;
+    }
+
+    ctx.fillText(dreamTitle, 540, 260);
 
     // Element Badge Box
     ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';

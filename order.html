@@ -1414,6 +1414,10 @@
     // Initialize from URL Query Parameters (e.g. ?n=123&q=2 or ?order=123:2,456:1)
     function initFromParams() {
       const params = new URLSearchParams(window.location.search);
+      const lineParam = params.get('line');
+      if (lineParam) {
+        CONFIG.LINE_OA_ID = lineParam.startsWith('@') ? lineParam : '@' + lineParam;
+      }
       const singleNum = params.get('n') || params.get('number');
       const singleQty = params.get('q') || params.get('qty') || 1;
       const orderList = params.get('order') || params.get('numbers');
