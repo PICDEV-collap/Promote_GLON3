@@ -18,7 +18,8 @@ export class N3OrderService {
   public static async executeOrder(
     page: Page,
     lotteryNumberOrItems: string | OrderItem[],
-    quantity: number = 1
+    quantity: number = 1,
+    onProgress?: (stage: 'PREPARING_NUMBERS' | 'GENERATING_QR', info?: { current: number; total: number; number?: string }) => void
   ): Promise<{
     success: boolean;
     qrImageUrl?: string;
@@ -90,6 +91,11 @@ export class N3OrderService {
       // 1. วนลูปค้นหาและเลือกแต่ละสลากรวมเข้าในตะกร้าเดียวกัน (ไม่รีโหลดหน้าเว็บเพื่อรักษาสลากทั้งหมดในตะกร้า)
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
+        if (onProgress) {
+          try {
+            onProgress('PREPARING_NUMBERS', { current: idx + 1, total: items.length, number: item.number });
+          } catch (_) {}
+        }
         console.log(`[N3 ORDER ITEM ${idx + 1}/${items.length}] กำลังค้นหาและเพิ่มเลข ${item.number} (จำนวน ${item.quantity} ใบ)...`);
 
         // หากเป็นรายการที่ 2 เป็นต้นไป ให้ล้างช่องค้นหาเลขหรือสลับตำแหน่งใน SPA โดยไม่รีโหลดหน้าเว็บ
@@ -406,6 +412,11 @@ export class N3OrderService {
       }
 
       // 2. กดปุ่ม "ตรวจสอบสลากฯ" (cw.COMMON_CEHCK_LOTTO_BUTTON) รวมทุกรายการในตะกร้า
+      if (onProgress) {
+        try {
+          onProgress('GENERATING_QR', { current: fulfilledItems.length, total: items.length });
+        } catch (_) {}
+      }
       console.log('[N3 ORDER STEP 2] กำลังกดปุ่ม ตรวจสอบสลากฯ รวมทุกรายการในตะกร้า...');
       const inspectBtn = page.locator('button:has-text("ตรวจสอบสลากฯ"), button:has-text("ตรวจสอบสลาก")').first();
       await inspectBtn.waitFor({ state: 'visible', timeout: 15000 });
