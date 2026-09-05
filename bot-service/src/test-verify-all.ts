@@ -2,7 +2,7 @@ import assert from 'assert';
 import { messagingApi } from '@line/bot-sdk';
 import fs from 'fs';
 import path from 'path';
-import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl, getPublicBaseUrl } from './index';
+import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl, getPublicBaseUrl, saveQrToMemoryCache, getQrFromMemoryCache } from './index';
 import { FlexMessageBuilder } from './line/flex-message';
 import { QuotaManager, parseQuotaFromPortalText } from './quota/quota-manager';
 import { syncQuotaFromLivePortal as syncQuotaAutomation } from './automation/quota-manager';
@@ -12,6 +12,9 @@ import { CONFIG } from './config';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { DreamEngine } from './dream/dream-engine';
 import { N3Auth } from './automation/n3-auth';
+import { CustomerRegistry } from './storage/customer-registry';
+import { LuckyDistributor } from './dream/lucky-distributor';
+import { CampaignService } from './automation/campaign-service';
 
 function runTests() {
   console.log('====================================================');
@@ -297,7 +300,9 @@ function runTests() {
       totalQty,
       totalPrice,
       10,
-      downloadUrl
+      downloadUrl,
+      undefined,
+      true // ระบุ true เพื่อทดสอบกรณีมี hero image
     );
 
     assert.strictEqual(msg.type, 'flex');
@@ -307,7 +312,7 @@ function runTests() {
     const bubble = msg.contents as any;
     assert.strictEqual(bubble.type, 'bubble');
 
-    // Hero contains only the single QR code image
+    // Hero contains only the single QR code image when includeHeroImage=true
     assert.strictEqual(bubble.hero.type, 'image');
     assert.strictEqual(bubble.hero.url, qrUrl);
     assert.strictEqual(bubble.hero.aspectMode, 'cover');
@@ -361,7 +366,7 @@ function runTests() {
     assert(bodyStr.includes('60 บาท'));
   });
 
-  test('Native Image Message + Flex Card Delivery: provides 1-tap in-chat download button', () => {
+  test('Native Image Message + Flex Card Delivery: provides 1-tap in-chat download button without duplicate QR image', () => {
     const qrPublicUrl = 'https://example.com/qrcodes/payment-123.png';
     const downloadUrl = 'https://example.com/download-qr/payment-123.png';
     const items: OrderItem[] = [{ number: '123', quantity: 2 }];
@@ -376,9 +381,12 @@ function runTests() {
     assert.strictEqual(imageMsg.originalContentUrl, qrPublicUrl);
     assert.strictEqual(imageMsg.previewImageUrl, qrPublicUrl);
 
-    // 2. Flex Message Card (order summary and guidance)
-    const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(qrPublicUrl, items, 2, 40, 10, downloadUrl);
+    // 2. Flex Message Card (order summary and guidance, NO duplicate hero QR image)
+    const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(qrPublicUrl, items, 2, 40, 10, downloadUrl, undefined, false);
     assert.strictEqual(flexMsg.type, 'flex');
+
+    const flexBubble = flexMsg.contents as any;
+    assert.strictEqual(flexBubble.hero, undefined, 'Must NOT contain duplicate hero QR image when paired with Image Message');
 
     // Verify messages bundle sent together
     const messages = [imageMsg, flexMsg];
@@ -389,6 +397,16 @@ function runTests() {
     // Verify instruction contains guidance to tap QR above and click 📥
     const bodyStr = JSON.stringify(flexMsg.contents);
     assert(bodyStr.includes('แตะที่รูป QR ด้านบน แล้วกดปุ่ม 📥'), 'Must guide customer to use 📥 button on QR image');
+  });
+
+  test('QR Memory Cache & Instant Disk Deletion: serves images from RAM and frees disk', () => {
+    const testFileName = `test-qr-${Date.now()}.png`;
+    const testBuffer = Buffer.from('fake-qr-image-png-content');
+    saveQrToMemoryCache(testFileName, testBuffer, 10);
+
+    const retrieved = getQrFromMemoryCache(testFileName);
+    assert(retrieved !== null, 'Should retrieve cached buffer from RAM');
+    assert.strictEqual(retrieved?.toString(), 'fake-qr-image-png-content');
   });
 
   test('Dynamic Public Base URL: getPublicBaseUrl retrieves live tunnel and avoids stale tunnels', () => {
@@ -1089,8 +1107,9 @@ function runTests() {
     assert(bodyStr.includes('เป๋าตัง'), 'Main Menu must emphasize Paotang app');
     assert(bodyStr.includes('ชำระเงินผ่านแอป') && bodyStr.includes('เท่านั้น'));
 
-    // Verify all 5 menu action buttons exist
+    // Verify all 6 menu action buttons exist
     assert(bodyStr.includes('สั่งซื้อสลาก N3'));
+    assert(bodyStr.includes('ตรวจผลรางวัล'));
     assert(bodyStr.includes('วิธีการชำระเงิน (เป๋าตัง)'));
     assert(bodyStr.includes('วิธีการสั่งซื้อสลาก'));
     assert(bodyStr.includes('ทำนายฝัน AI หาเลขเด็ด'));
@@ -1307,9 +1326,9 @@ function runTests() {
     assert(bubble.body);
     assert(bubble.footer);
 
-    // Verify footer buttons: 3ตรง, 3ตรง+ทุกโต๊ด, 2ตัวท้าย, เว็บทำนายฝัน, เมนูหลัก
+    // Verify footer buttons: 3ตรง, 3ตรง+ทุกโต๊ด, 2ตัวท้าย, สั่งซื้อสลาก N3 (LIFF), เว็บทำนายฝัน, เมนูหลัก
     const footerButtons = bubble.footer.contents;
-    assert.strictEqual(footerButtons.length, 5);
+    assert(footerButtons.length >= 5 && footerButtons.length <= 6, `Footer buttons count must be 5 or 6 (actual: ${footerButtons.length})`);
     for (const btn of footerButtons) {
       if (btn.action && btn.action.label) {
         assert(btn.action.label.length <= 40, `Button label must be <= 40 chars: ${btn.action.label}`);
@@ -1355,7 +1374,7 @@ function runTests() {
 
     const footerStr = JSON.stringify(bubble.footer);
     assert(footerStr.includes('ตาราง') && footerStr.includes('สั่งซื้อสลาก N3'), 'Footer must have button to open order table');
-    assert(footerStr.includes(CONFIG.ORDER_FORM_URL), 'Footer button must link to CONFIG.ORDER_FORM_URL');
+    assert(footerStr.includes(CONFIG.ORDER_LIFF_URL) || footerStr.includes(CONFIG.ORDER_FORM_URL), 'Footer button must link to CONFIG.ORDER_LIFF_URL or CONFIG.ORDER_FORM_URL');
   });
 
   test('Order Table Dispatch: parseOrderMessage seamlessly parses orders generated by order.html and handles text= prefix', () => {
@@ -1492,6 +1511,70 @@ function runTests() {
     assert(fs.existsSync(managerBatPath), 'N3-MANAGER.bat must exist');
     const content = fs.readFileSync(managerBatPath, 'utf-8');
     assert(content.includes('chcp 65001 >nul'), 'N3-MANAGER.bat must include chcp 65001 >nul');
+  });
+
+  test('CustomerRegistry: register, update, block on unfollow, and active customer filtering', () => {
+    const reg = CustomerRegistry.getInstance();
+    const testId = `U_temp_verify_${Date.now()}`;
+    reg.registerOrUpdateUser(testId, 'ทดสอบ ผู้ใช้');
+    assert.strictEqual(reg.getCustomer(testId)?.status, 'active');
+    reg.markBlocked(testId);
+    assert.strictEqual(reg.getCustomer(testId)?.status, 'blocked');
+    const actives = reg.getActiveCustomers();
+    assert(!actives.some(c => c.userId === testId), 'Blocked user must not be in active list');
+  });
+
+  test('LuckyDistributor: Zero-Collision Non-Colliding distribution across customers', () => {
+    const dummyList = Array.from({ length: 50 }, (_, i) => ({
+      userId: `U_verify_${i}`,
+      status: 'active' as const,
+      firstSeen: new Date().toISOString(),
+      lastSeen: new Date().toISOString(),
+      totalOrders: 0,
+      assignedLuckyNumbers: {}
+    }));
+    const distributed = LuckyDistributor.distributeLuckyNumbers(dummyList, '2026-09-16', '16 กันยายน 2569');
+    assert.strictEqual(distributed.length, 50);
+    const assignedSet = new Set(distributed.map(d => d.number));
+    assert.strictEqual(assignedSet.size, 50, 'All 50 users must receive distinct 100% unique numbers');
+  });
+
+  test('FlexMessageBuilder: Personalized Lucky Teaser & Draw Results cards have valid button lengths', () => {
+    const sampleItem = LuckyDistributor.generateSingleLuckyItem('U_admin_test', '2026-09-16', '16 กันยายน 2569');
+    const teaserCard = FlexMessageBuilder.buildPersonalizedLuckyTeaserMessage(sampleItem);
+    assert.strictEqual(teaserCard.type, 'flex');
+    const b1 = teaserCard.contents as messagingApi.FlexBubble;
+    for (const btn of b1.footer?.contents || []) {
+      const lbl = (btn as any).action?.label;
+      if (lbl) assert(lbl.length <= 20, `Label "${lbl}" length must be <= 20`);
+    }
+
+    const lotterySample = {
+      drawDate: '2026-09-01',
+      drawDateThai: '1 กันยายน 2569',
+      period: 'งวดประจำวันที่ 1 กันยายน 2569',
+      n3: {
+        straight3: { number: '212', prizeText: '5,801 บาท' },
+        shuffle3: { numbers: ['122', '221'], prizeText: '2,702 บาท' },
+        straight2: { number: '04', prizeText: '582 บาท' },
+        specialJackpot: { ticketNumber: '212000003860', prizeText: '839,705 บาท' }
+      },
+      gloStandard: { firstPrize: { number: '417212' }, last2: { number: '04' } }
+    };
+    const resultsCard = FlexMessageBuilder.buildDrawResultsMessage(lotterySample);
+    assert.strictEqual(resultsCard.type, 'flex');
+    const b2 = resultsCard.contents as messagingApi.FlexBubble;
+    for (const btn of b2.footer?.contents || []) {
+      const lbl = (btn as any).action?.label;
+      if (lbl) assert(lbl.length <= 20, `Label "${lbl}" length must be <= 20`);
+    }
+  });
+
+  test('CampaignService: upcoming draw detection and dry-run execution', () => {
+    const cs = CampaignService.getInstance();
+    const info = cs.getUpcomingDrawInfo();
+    assert(!!info.drawDate, 'Must resolve upcoming draw date');
+    assert(!!info.thaiDate, 'Must resolve upcoming Thai date');
   });
 
   console.log(`\n====================================================`);

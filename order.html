@@ -966,9 +966,13 @@
     // Configuration
     const CONFIG = {
       LINE_OA_ID: '@586xxhlx',
+      LIFF_ID: '2011462211-WVsuHFk4',
       PRICE_PER_TICKET: 20,
       MAX_QUANTITY_PER_ROW: 100
     };
+
+    // LIFF Ready State
+    let isLiffReady = false;
 
     // State
     let rowsData = [];
@@ -1312,7 +1316,7 @@
     });
 
     // Submit Order Handler
-    btnSubmitOrder.addEventListener('click', () => {
+    btnSubmitOrder.addEventListener('click', async () => {
       // 1. Validation
       let hasError = false;
       let firstErrorInput = null;
@@ -1361,42 +1365,91 @@
       const totalTickets = aggregatedItems.reduce((sum, it) => sum + it.quantity, 0);
       const totalPrice = totalTickets * CONFIG.PRICE_PER_TICKET;
 
-      // 4. Update Modal Preview
-      const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
-      modalItemsText.textContent = previewText;
-      modalQtyText.textContent = `${totalTickets} ใบ`;
-      modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
-      modalCmdDisplay.textContent = orderCommand;
+      // Helper function for external browser / deep link fallback
+      function executeDeepLinkFallback() {
+        // 4. Update Modal Preview
+        const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
+        modalItemsText.textContent = previewText;
+        modalQtyText.textContent = `${totalTickets} ใบ`;
+        modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
+        modalCmdDisplay.textContent = orderCommand;
 
-      // Build Direct Deep Link URL (Direct Intent / Custom Scheme to bypass line.me landing page)
-      const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID); // '%40586xxhlx'
-      const encodedMsg = encodeURIComponent(orderCommand);
-      const isAndroid = /Android/i.test(navigator.userAgent || '');
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+        // Build Direct Deep Link URL (Direct Intent / Custom Scheme to bypass line.me landing page)
+        const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID); // '%40586xxhlx'
+        const encodedMsg = encodeURIComponent(orderCommand);
+        const isAndroid = /Android/i.test(navigator.userAgent || '');
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
-      const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
-      const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
-      const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+        const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+        const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+        const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
 
-      // Priority URL for opening LINE app directly
-      const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
-      btnModalOpenLine.href = directAppUrl;
+        // Priority URL for opening LINE app directly
+        const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+        btnModalOpenLine.href = directAppUrl;
 
-      // Copy to clipboard immediately as safety net
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(orderCommand).catch(() => {});
+        // Copy to clipboard immediately as safety net
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(orderCommand).catch(() => {});
+        }
+
+        // 5. Open Confirmation Modal & Automatically Dispatch to LINE App
+        modalConfirm.classList.add('active');
+        showToast(`🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
+
+        try {
+          window.location.href = directAppUrl;
+        } catch (err) {
+          console.warn('Direct redirection failed, falling back to universal link:', err);
+          try { window.location.href = universalUrl; } catch (e) {}
+        }
       }
 
-      // 5. Open Confirmation Modal & Automatically Dispatch to LINE App
-      modalConfirm.classList.add('active');
-      showToast(`🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
-
-      try {
-        window.location.href = directAppUrl;
-      } catch (err) {
-        console.warn('Direct redirection failed, falling back to universal link:', err);
-        try { window.location.href = universalUrl; } catch (e) {}
+      // 4. Automatic Send via LINE LIFF SDK (Inside LINE App)
+      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
+        if (!isLiffReady) {
+          try {
+            await liff.init({ liffId: CONFIG.LIFF_ID });
+            isLiffReady = true;
+          } catch (initErr) {
+            console.warn('[LIFF] On-demand init failed:', initErr);
+          }
+        }
       }
+
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        btnSubmitOrder.disabled = true;
+        showToast('🛒 กำลังส่งคำสั่งซื้อเข้าห้องแชทอัตโนมัติ...', 'info');
+
+        try {
+          await liff.sendMessages([
+            {
+              type: 'text',
+              text: orderCommand
+            }
+          ]);
+          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชท...', 'success');
+          setTimeout(() => {
+            btnSubmitOrder.disabled = false;
+            liff.closeWindow();
+          }, 400);
+          return;
+        } catch (err) {
+          console.error('[LIFF] sendMessages failed:', err);
+          btnSubmitOrder.disabled = false;
+          showToast('⚠️ ไม่สามารถส่งอัตโนมัติได้: ' + (err.message || 'สิทธิ์ไม่เพียงพอ') + ' กำลังสลับไปเปิดแอป LINE', 'error');
+          executeDeepLinkFallback();
+          return;
+        }
+      }
+
+      // Fallback for regular browser or external environment
+      executeDeepLinkFallback();
     });
 
     // Copy Command from Modal
@@ -1422,12 +1475,31 @@
       }
     });
 
+    // Initialize LINE LIFF SDK
+    async function initLiff() {
+      if (typeof liff === 'undefined' || !CONFIG.LIFF_ID) {
+        console.warn('[LIFF] SDK or LIFF_ID not available');
+        return;
+      }
+      try {
+        await liff.init({ liffId: CONFIG.LIFF_ID });
+        isLiffReady = true;
+        console.log('[LIFF] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
+      } catch (err) {
+        console.warn('[LIFF] Initialization failed:', err);
+      }
+    }
+
     // Initialize from URL Query Parameters (e.g. ?n=123&q=2 or ?order=123:2,456:1)
     function initFromParams() {
       const params = new URLSearchParams(window.location.search);
       const lineParam = params.get('line');
       if (lineParam) {
         CONFIG.LINE_OA_ID = lineParam.startsWith('@') ? lineParam : '@' + lineParam;
+      }
+      const liffParam = params.get('liffId') || params.get('liff');
+      if (liffParam) {
+        CONFIG.LIFF_ID = liffParam;
       }
       const rawSingleNum = params.get('n') || params.get('number');
       const rawSingleQty = params.get('q') || params.get('qty') || 1;
@@ -1470,6 +1542,7 @@
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {
       initFromParams();
+      initLiff();
     });
   </script>
 </body>

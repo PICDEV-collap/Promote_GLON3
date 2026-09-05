@@ -331,7 +331,19 @@ function cleanFiles() {
   if (fs.existsSync(QR_DIR)) {
     const files = fs.readdirSync(QR_DIR);
     for (const f of files) {
-      if (f.startsWith('payment-') || f.startsWith('error-') || f.startsWith('login-') || f.startsWith('n3-dealer-') || f.startsWith('paotang-login-')) {
+      if (
+        f.startsWith('payment-') ||
+        f.startsWith('error-') ||
+        f.startsWith('login-') ||
+        f.startsWith('n3-dealer-') ||
+        f.startsWith('n3-live-') ||
+        f.startsWith('n3-step') ||
+        f.startsWith('n3-real-') ||
+        f.startsWith('geolocation-') ||
+        f.startsWith('multi-test-') ||
+        f.startsWith('session-test-') ||
+        f.startsWith('paotang-login-')
+      ) {
         try {
           fs.unlinkSync(path.join(QR_DIR, f));
           count++;

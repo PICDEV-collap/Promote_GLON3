@@ -73,13 +73,19 @@ export class N3Auth {
         const hasSelectBtn = await page.locator('button:visible').filter({ hasText: /^เลือกเลข$/ }).count().catch(() => 0);
         if (hasInputs >= 1 && hasSelectBtn >= 1) {
           // ตรวจสอบอีกครั้งว่าไม่มี Backdrop สีดำบังอยู่
-          const isBlocked = await page.locator('div.fixed.inset-0.bg-black').first().isVisible().catch(() => false);
+          const isBlocked = await page.locator('div.fixed.inset-0.bg-black, div.fixed.inset-0[class*="z-"]').first().isVisible().catch(() => false);
           if (!isBlocked) return true;
         }
       }
 
+      // หากอยู่ที่หน้า Landing หรือหน้าหลักของตัวแทน และไม่มีป๊อปอัปหลุดเซสชัน ถือว่า Session ยังใช้งานได้ทันที (ประหยัดเวลา ~3-5 วินาที)
+      if (currentUrl.includes('/landing') || currentUrl.includes('/home') || currentUrl.replace(/\/+$/, '') === 'https://n3.glolotteryshop.com') {
+        const isBlocked = await page.locator('div.fixed.inset-0.bg-black, div.fixed.inset-0[class*="z-"]').first().isVisible().catch(() => false);
+        if (!isBlocked) return true;
+      }
+
       console.log('[N3 AUTH] กำลังตรวจสอบ Session ผ่านหน้าค้นหาสลาก...');
-      await page.goto('https://n3.glolotteryshop.com/lotto-search/?position=1', { waitUntil: 'networkidle', timeout: 15000 });
+      await page.goto('https://n3.glolotteryshop.com/lotto-search/?position=1', { waitUntil: 'domcontentloaded', timeout: 15000 });
 
       // ตรวจจับป๊อปอัปเซสชันหมดอายุหลังโหลดหน้าใหม่
       if (await this.checkAndDismissSessionModal(page)) {

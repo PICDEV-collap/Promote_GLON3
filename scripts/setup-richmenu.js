@@ -17,16 +17,16 @@ const ROW_H = Math.round(HEIGHT / 2); // 843
 const RICH_MENU_SPEC = {
   size: { width: WIDTH, height: HEIGHT },
   selected: true,
-  name: 'N3_Thanakit_MainMenu_v1',
+  name: 'N3_Thanakit_MainMenu_v2',
   chatBarText: '🏠 เมนูหลัก',
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/order.html?openExternalBrowser=1' }
+      action: { type: 'uri', uri: 'https://liff.line.me/2011462211-WVsuHFk4' }
     },
     {
       bounds: { x: 833, y: 0, width: 834, height: ROW_H },
-      action: { type: 'message', text: 'วิธีชำระเงิน' }
+      action: { type: 'message', text: 'ผลรางวัล' }
     },
     {
       bounds: { x: 1667, y: 0, width: 833, height: ROW_H },
@@ -51,6 +51,9 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -60,7 +63,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     grid-template-columns: 833px 834px 833px;
     grid-template-rows: 843px 843px;
     background-color: #0b1120;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Prompt', 'Sarabun', 'Noto Sans Thai', sans-serif;
+    font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Sarabun', 'Noto Sans Thai', sans-serif;
     overflow: hidden;
   }
   .tile {
@@ -69,19 +72,20 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 30px;
+    padding: 28px 24px;
     text-align: center;
-    border: 3px solid rgba(255, 255, 255, 0.12);
+    border: 3px solid rgba(255, 255, 255, 0.14);
     cursor: pointer;
   }
   .tile-1 {
     background: linear-gradient(135deg, #0b192e 0%, #1e3a8a 100%);
   }
   .tile-2 {
-    background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%);
+    box-shadow: inset 0 0 80px rgba(250, 204, 21, 0.22);
   }
   .tile-3 {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
   }
   .tile-4 {
     background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
@@ -94,64 +98,77 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     box-shadow: inset 0 0 80px rgba(251, 191, 36, 0.25);
   }
   .icon-box {
-    width: 220px;
-    height: 220px;
+    width: 180px;
+    height: 180px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.16);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 110px;
-    margin-bottom: 28px;
+    font-size: 92px;
+    margin-bottom: 20px;
     box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3);
     border: 2px solid rgba(255, 255, 255, 0.35);
   }
   .title {
-    font-size: 66px;
-    font-weight: 800;
+    font-size: 88px;
+    font-weight: 900;
     color: #ffffff;
-    line-height: 1.25;
-    margin-bottom: 16px;
-    text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    line-height: 1.2;
+    margin-bottom: 12px;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
   }
   .title-gold {
     color: #fef08a;
   }
   .subtitle {
-    font-size: 38px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.88);
+    font-size: 48px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
     line-height: 1.3;
-    margin-bottom: 24px;
-    max-width: 90%;
+    margin-bottom: 26px;
+    max-width: 96%;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    white-space: nowrap;
   }
   .badge {
-    display: inline-block;
-    padding: 12px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 82%;
+    max-width: 660px;
+    padding: 22px 24px;
     border-radius: 9999px;
-    font-size: 32px;
-    font-weight: 700;
+    font-size: 50px;
+    font-weight: 800;
     letter-spacing: 0.5px;
-    text-transform: uppercase;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    white-space: nowrap;
   }
   .badge-green { background: #22c55e; color: #ffffff; }
   .badge-red { background: #ef4444; color: #ffffff; }
   .badge-blue { background: #38bdf8; color: #082f49; }
   .badge-purple { background: #e879f9; color: #4a044e; }
   .badge-mint { background: #34d399; color: #064e3b; }
-  .badge-gold { background: #fef08a; color: #78350f; font-size: 36px; padding: 14px 40px; }
+  .badge-gold { background: #fef08a; color: #78350f; font-size: 50px; }
+  .badge-trophy {
+    background: linear-gradient(135deg, #fef08a 0%, #f59e0b 100%);
+    color: #78350f;
+    border: 2px solid rgba(254, 240, 138, 0.6);
+  }
   .highlight-tag {
     position: absolute;
-    top: 24px;
-    right: 24px;
-    background: rgba(0,0,0,0.4);
+    top: 26px;
+    right: 26px;
+    background: rgba(0,0,0,0.45);
     color: #fef08a;
-    padding: 8px 20px;
-    border-radius: 12px;
-    font-size: 26px;
-    font-weight: 600;
-    border: 1px solid rgba(254, 240, 138, 0.3);
+    padding: 10px 24px;
+    border-radius: 14px;
+    font-size: 32px;
+    font-weight: 700;
+    border: 1px solid rgba(254, 240, 138, 0.35);
   }
 </style>
 </head>
@@ -165,22 +182,22 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     <div class="badge badge-green">ใบละ 20 บาท</div>
   </div>
 
-  <!-- TILE 2: วิธีชำระเงิน (เป๋าตัง เท่านั้น) -->
+  <!-- TILE 2: ผลการออกรางวัล (NEW!) -->
   <div class="tile tile-2">
-    <div class="highlight-tag" style="color: #fecaca; border-color: rgba(239,68,68,0.4);">สำคัญมาก!</div>
-    <div class="icon-box">📲</div>
-    <div class="title">วิธีชำระเงิน</div>
-    <div class="subtitle">สแกน QR ผ่านแอปเป๋าตัง</div>
-    <div class="badge badge-red">แอปเป๋าตัง เท่านั้น</div>
+    <div class="highlight-tag" style="color: #fef08a; border-color: rgba(254, 240, 138, 0.5);">อัปเดตงวดล่าสุด</div>
+    <div class="icon-box" style="background: rgba(254, 240, 138, 0.22); border-color: rgba(254, 240, 138, 0.6);">🏆</div>
+    <div class="title title-gold">ผลการออกรางวัล</div>
+    <div class="subtitle">3 ตรง • 3 โต๊ด • 2 ตรง • แจ็กพอต</div>
+    <div class="badge badge-trophy">ตรวจผลสลาก N3</div>
   </div>
 
-  <!-- TILE 3: วิธีสั่งซื้อสลาก -->
+  <!-- TILE 3: วิธีสั่งซื้อ & จ่ายเงิน -->
   <div class="tile tile-3">
-    <div class="highlight-tag">คำแนะนำ</div>
-    <div class="icon-box">❓</div>
-    <div class="title">วิธีสั่งซื้อสลาก</div>
-    <div class="subtitle">ดูตัวอย่างการพิมพ์สั่งแบบต่างๆ</div>
-    <div class="badge badge-blue">ขั้นตอน & รูปแบบ</div>
+    <div class="highlight-tag" style="color: #fecaca; border-color: rgba(239,68,68,0.4);">สำคัญมาก!</div>
+    <div class="icon-box">📲</div>
+    <div class="title">วิธีซื้อ & จ่ายเงิน</div>
+    <div class="subtitle">ขั้นตอนสั่ง & สแกนจ่ายเป๋าตัง</div>
+    <div class="badge badge-red">แอปเป๋าตัง เท่านั้น</div>
   </div>
 
   <!-- TILE 4: ทำนายฝัน AI -->
@@ -205,7 +222,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
   <div class="tile tile-6">
     <div class="highlight-tag" style="color: #ffffff;">กดที่นี่ได้เลย</div>
     <div class="icon-box" style="background: rgba(254, 240, 138, 0.25);">🏠</div>
-    <div class="title title-gold" style="font-size: 74px;">เมนูหลัก</div>
+    <div class="title title-gold">เมนูหลัก</div>
     <div class="subtitle" style="color: #ffffff;">กดดูรวมบริการทั้งหมดไม่ต้องพิมพ์</div>
     <div class="badge badge-gold">⭐ แตะเปิดเมนู ⭐</div>
   </div>
@@ -223,6 +240,7 @@ async function main() {
   });
   
   await page.setContent(HTML_TEMPLATE, { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
   const imageBuffer = await page.screenshot({ type: 'jpeg', quality: 86 });
   await browser.close();
   

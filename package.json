@@ -1,0 +1,28 @@
+{
+  "name": "promote-glon3",
+  "version": "2.0.0",
+  "private": true,
+  "description": "GLO N3 Digital Lottery Automation, Promotion Platform & LINE Bot Service",
+  "scripts": {
+    "start": "node scripts/n3-engine.js start",
+    "start:silent": "wscript.exe START-BOT-HIDDEN.vbs",
+    "stop": "node scripts/n3-engine.js stop",
+    "restart": "node scripts/n3-engine.js restart-bot",
+    "menu": "node scripts/n3-engine.js menu",
+    "clean": "node scripts/n3-engine.js clean",
+    "test": "npm test --prefix bot-service",
+    "test:e2e": "node scripts/test-all-scenarios.js",
+    "build": "npm run build --prefix bot-service",
+    "richmenu": "node scripts/setup-richmenu.js",
+    "shortcuts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/create-desktop-shortcuts.ps1"
+  },
+  "keywords": [
+    "glo-n3",
+    "lottery",
+    "line-bot",
+    "playwright",
+    "paotang"
+  ],
+  "author": "ธนกิจนำโชค",
+  "license": "ISC"
+}
