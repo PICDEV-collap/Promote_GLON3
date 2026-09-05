@@ -7,7 +7,8 @@ import { FlexMessageBuilder } from './line/flex-message';
 import { QuotaManager, parseQuotaFromPortalText } from './quota/quota-manager';
 import { syncQuotaFromLivePortal as syncQuotaAutomation } from './automation/quota-manager';
 import { N3OrderService, syncQuotaFromLivePortal as syncQuotaOrder } from './automation/n3-order';
-import { OrderItem } from './queue/order-queue';
+import { OrderItem, OrderQueue, OrderTask } from './queue/order-queue';
+import { OrderHeartbeatManager } from './queue/order-heartbeat';
 import { CONFIG } from './config';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { DreamEngine } from './dream/dream-engine';
@@ -1575,6 +1576,90 @@ function runTests() {
     const info = cs.getUpcomingDrawInfo();
     assert(!!info.drawDate, 'Must resolve upcoming draw date');
     assert(!!info.thaiDate, 'Must resolve upcoming Thai date');
+  });
+
+  test('OrderQueue: getPosition accurately reflects FIFO waiting order and running status', () => {
+    const q = new OrderQueue();
+    const t1: OrderTask = { orderId: 'O1', replyToken: '', userId: 'U1', items: [{ number: '111', quantity: 1 }], totalQuantity: 1, totalPrice: 20, timestamp: Date.now() };
+    const t2: OrderTask = { orderId: 'O2', replyToken: '', userId: 'U2', items: [{ number: '222', quantity: 1 }], totalQuantity: 1, totalPrice: 20, timestamp: Date.now() };
+    const t3: OrderTask = { orderId: 'O3', replyToken: '', userId: 'U3', items: [{ number: '333', quantity: 1 }], totalQuantity: 1, totalPrice: 20, timestamp: Date.now() };
+
+    q.enqueue(t1);
+    q.enqueue(t2);
+    q.enqueue(t3);
+
+    assert.strictEqual(q.getPosition('O1'), 1);
+    assert.strictEqual(q.getPosition('O2'), 2);
+    assert.strictEqual(q.getPosition('O3'), 3);
+  });
+
+  test('OrderHeartbeatManager: progress messages format appropriately for QUEUED, PREPARING_NUMBERS, and GENERATING_QR', () => {
+    const hb = new OrderHeartbeatManager(undefined, 20000);
+    const mockTask: OrderTask = {
+      orderId: 'ORD_TEST_HB',
+      replyToken: '',
+      userId: 'U_test_heartbeat',
+      items: [{ number: '789', quantity: 2 }, { number: '123', quantity: 1 }],
+      totalQuantity: 3,
+      totalPrice: 60,
+      timestamp: Date.now()
+    };
+
+    // 1. QUEUED message
+    const queuedMsg = hb.buildProgressMessage({
+      task: mockTask,
+      stage: 'QUEUED',
+      startedAt: Date.now() - 21000,
+      intervalId: null as any,
+      getQueuePos: () => 3,
+      tickCount: 1
+    });
+    assert(queuedMsg.includes('อยู่ระหว่างรอคิว'), 'Must indicate waiting in queue');
+    assert(queuedMsg.includes('ลำดับคิวที่ 3'), 'Must indicate queue position 3');
+
+    // 2. PREPARING_NUMBERS message
+    const prepMsg = hb.buildProgressMessage({
+      task: mockTask,
+      stage: 'PREPARING_NUMBERS',
+      startedAt: Date.now() - 41000,
+      intervalId: null as any,
+      progress: { current: 1, total: 2, number: '789' },
+      tickCount: 2
+    });
+    assert(prepMsg.includes('กำลังจัดเตรียมและบรรจุเลขสลากลงตะกร้า'), 'Must indicate preparing numbers');
+    assert(prepMsg.includes('1/2'), 'Must show current item progress 1/2');
+    assert(prepMsg.includes('789'), 'Must show active number 789');
+
+    // 3. GENERATING_QR message
+    const qrMsg = hb.buildProgressMessage({
+      task: mockTask,
+      stage: 'GENERATING_QR',
+      startedAt: Date.now() - 61000,
+      intervalId: null as any,
+      tickCount: 3
+    });
+    assert(qrMsg.includes('บรรจุสลากครบทุกรายการแล้ว'), 'Must indicate all items loaded in cart');
+    assert(qrMsg.includes('สร้าง QR Code ชำระเงิน'), 'Must indicate generating QR code');
+  });
+
+  test('OrderHeartbeatManager: fast orders within 20s clear timers without leaking memory or extra messages', () => {
+    const hb = new OrderHeartbeatManager(undefined, 20000);
+    const mockTask: OrderTask = {
+      orderId: 'ORD_TEST_FAST',
+      replyToken: '',
+      userId: 'U_test_fast',
+      items: [{ number: '748', quantity: 1 }],
+      totalQuantity: 1,
+      totalPrice: 20,
+      timestamp: Date.now()
+    };
+
+    hb.start(mockTask);
+    assert.strictEqual(hb.getActiveCount(), 1, 'Must have 1 active heartbeat');
+
+    // Fast order finishes at 10s: call stop
+    hb.stop(mockTask.orderId);
+    assert.strictEqual(hb.getActiveCount(), 0, 'Active heartbeat must be cleared');
   });
 
   console.log(`\n====================================================`);

@@ -22,10 +22,14 @@ export type OrderWorkerFunction = (task: OrderTask) => Promise<void>;
 export class OrderQueue {
   private queue: OrderTask[] = [];
   private isProcessing: boolean = false;
+  private currentRunningTask: OrderTask | null = null;
   private worker: OrderWorkerFunction | null = null;
 
   public setWorker(worker: OrderWorkerFunction) {
     this.worker = worker;
+    if (!this.isProcessing && this.queue.length > 0) {
+      this.processNext();
+    }
   }
 
   /**
@@ -48,8 +52,8 @@ export class OrderQueue {
    */
   public enqueue(task: OrderTask): number {
     this.queue.push(task);
-    // ตำแหน่งคิว = รายการที่รอในแถว + 1 (หากมีตัวกำลังรันอยู่)
-    const queuePosition = this.queue.length + (this.isProcessing ? 1 : 0);
+    // ตำแหน่งคิว = รายการที่รอในแถว + (หากมีตัวกำลังรันอยู่)
+    const queuePosition = this.queue.length + (this.currentRunningTask ? 1 : 0);
     const summaryText = task.items && task.items.length > 0
       ? task.items.map(i => `${i.number}x${i.quantity}`).join(', ')
       : `${task.number} x ${task.quantity} ใบ`;
@@ -67,13 +71,14 @@ export class OrderQueue {
    * ประมวลผลคิวทีละรายการ (Single Concurrency FIFO)
    */
   private async processNext(): Promise<void> {
-    if (this.queue.length === 0) {
+    if (this.queue.length === 0 || !this.worker) {
       this.isProcessing = false;
       return;
     }
 
     this.isProcessing = true;
     const currentTask = this.queue.shift();
+    this.currentRunningTask = currentTask || null;
 
     if (currentTask && this.worker) {
       const startTime = Date.now();
@@ -87,11 +92,31 @@ export class OrderQueue {
         console.log(`[QUEUE FINISHED] ออเดอร์ ${currentTask.orderId} เสร็จสิ้นใน ${elapsed} วินาที!`);
       } catch (error) {
         console.error(`[QUEUE ERROR] เกิดข้อผิดพลาดกับออเดอร์ ${currentTask.orderId}:`, error);
+      } finally {
+        this.currentRunningTask = null;
       }
     }
 
     // ประมวลผลรายการถัดไปต่อเนื่องทันที
     this.processNext();
+  }
+
+  /**
+   * ค้นหาลำดับคิวของออเดอร์ (1 = กำลังทำรายการอยู่ หรือ คิวแรกสุด)
+   */
+  public getPosition(orderId: string): number {
+    if (this.currentRunningTask && this.currentRunningTask.orderId === orderId) {
+      return 1;
+    }
+    const idx = this.queue.findIndex(t => t.orderId === orderId);
+    if (idx !== -1) {
+      return idx + 1 + (this.currentRunningTask ? 1 : 0);
+    }
+    return 1;
+  }
+
+  public getCurrentRunningTask(): OrderTask | null {
+    return this.currentRunningTask;
   }
 
   public getQueueLength(): number {

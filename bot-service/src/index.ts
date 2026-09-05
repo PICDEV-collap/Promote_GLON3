@@ -11,6 +11,7 @@ import { N3OrderService } from './automation/n3-order';
 import { PersistentBrowserManager, isCdpAlive } from './automation/browser-context';
 import { QuotaManager } from './quota/quota-manager';
 import { OrderQueue, OrderTask, OrderItem } from './queue/order-queue';
+import { OrderHeartbeatManager } from './queue/order-heartbeat';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { FlexMessageBuilder } from './line/flex-message';
 import { OperatingHoursGuard } from './guard/operating-hours';
@@ -286,6 +287,7 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
 const quotaManager = QuotaManager.getInstance();
 const orderQueue = new OrderQueue();
 const lineHandler = new LineReplyHandler();
+const orderHeartbeat = OrderHeartbeatManager.getInstance(lineHandler);
 const securityGuard = new SecurityGuard();
 const customerRegistry = CustomerRegistry.getInstance();
 const campaignService = CampaignService.getInstance();
@@ -466,6 +468,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   };
 
   const queuePos = orderQueue.enqueue(orderTask);
+  orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
   const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
 
   const waitingMessage = queuePos > 1
@@ -650,6 +653,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     // 1. ตรวจสอบเวลาจำหน่ายอีกครั้งก่อนประมวลผล
     const timeStatus = OperatingHoursGuard.checkSalesStatus();
     if (!timeStatus.isOpen) {
+      orderHeartbeat.stop(task.orderId);
       await sendCustomerMessage([
         FlexMessageBuilder.buildOutsideOperatingHoursMessage(timeStatus)
       ]);
@@ -660,6 +664,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     const totalQty = task.totalQuantity || task.quantity || 1;
     const quotaCheck = quotaManager.canFulfill(totalQty);
     if (!quotaCheck.allowed) {
+      orderHeartbeat.stop(task.orderId);
       await sendCustomerMessage([
         FlexMessageBuilder.buildQuotaExceededMessage(quotaCheck.remaining)
       ]);
@@ -669,6 +674,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
     // 3. ตรวจสอบสถานะล็อกอิน N3
     const isLoggedIn = await N3Auth.isSessionValid(currentPage);
     if (!isLoggedIn) {
+      orderHeartbeat.stop(task.orderId);
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
       await sendCustomerMessage([
@@ -685,11 +691,22 @@ orderQueue.setWorker(async (task: OrderTask) => {
       return;
     }
 
-    // 4. สั่งซื้อบนเว็บ N3
+    // 4. สั่งซื้อบนเว็บ N3 (อัปเดตสถานะเป็น PREPARING_NUMBERS)
+    orderHeartbeat.updateStage(task.orderId, 'PREPARING_NUMBERS', {
+      current: 1,
+      total: task.items && task.items.length > 0 ? task.items.length : 1,
+      number: task.items && task.items.length > 0 ? task.items[0].number : task.number
+    });
+
     const orderItems: OrderItem[] = task.items && task.items.length > 0
       ? task.items
       : [{ number: task.number || '', quantity: task.quantity || 1 }];
-    const result = await N3OrderService.executeOrder(currentPage, orderItems);
+    const result = await N3OrderService.executeOrder(currentPage, orderItems, 1, (stage, info) => {
+      orderHeartbeat.updateStage(task.orderId, stage, info);
+    });
+
+    // หยุด Heartbeat ทันทีหลังจากกระบวนการสั่งซื้อและออก QR บน GLO เสร็จสิ้น
+    orderHeartbeat.stop(task.orderId);
 
     if (result.success && result.qrImageUrl) {
       const actualQty = result.totalQuantity || totalQty;
@@ -1360,6 +1377,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       };
 
       const queuePos = orderQueue.enqueue(orderTask);
+      orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
       const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
 
       const waitingMessage = queuePos > 1
@@ -1499,6 +1517,7 @@ export function setupLifecycleHandlers(): void {
   // 3. ดักจับ SIGINT และ SIGTERM (การสั่งปิดโปรเซส)
   const handleSignal = async (signal: string) => {
     console.log(`[SHUTDOWN] ได้รับสัญญาณ ${signal}`);
+    try { orderHeartbeat.stopAll(); } catch {}
     if (!hasNotifiedShutdown) {
       hasNotifiedShutdown = true;
       const intentional = isStopIntentional();
