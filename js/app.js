@@ -94,21 +94,89 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
-  // 2. Real-time Next Draw Countdown Ticker
+  // 2. Real-time Next Draw Countdown Ticker (Official GLO Synchronized)
   // -------------------------------------------------------------------------
   const cdTargetDate = document.getElementById('cd-target-date');
   const cdDays = document.getElementById('cd-days');
   const cdHours = document.getElementById('cd-hours');
   const cdMinutes = document.getElementById('cd-minutes');
   const cdSeconds = document.getElementById('cd-seconds');
+  const cdPostponeBadge = document.getElementById('cd-postpone-badge');
+  const cdPostponeText = document.getElementById('cd-postpone-text');
 
-  N3Countdown.startTicker((rem) => {
+  function renderCountdownState(rem) {
     if (cdTargetDate) cdTargetDate.innerText = rem.targetDateText;
     if (cdDays) cdDays.innerText = String(rem.days).padStart(2, '0');
     if (cdHours) cdHours.innerText = String(rem.hours).padStart(2, '0');
     if (cdMinutes) cdMinutes.innerText = String(rem.minutes).padStart(2, '0');
     if (cdSeconds) cdSeconds.innerText = String(rem.seconds).padStart(2, '0');
+
+    if (cdPostponeBadge) {
+      if (rem.isPostponed) {
+        cdPostponeBadge.style.display = 'inline-flex';
+        if (cdPostponeText) {
+          cdPostponeText.innerText = rem.postponeReason || 'เลื่อนวันออกสลากตามประกาศทางการ';
+        }
+      } else {
+        cdPostponeBadge.style.display = 'none';
+      }
+    }
+  }
+
+  function renderLatestLotteryResults(latest) {
+    if (!latest || !latest.n3) return;
+    const elPeriod = document.getElementById('latest-draw-period');
+    const elDirect3 = document.getElementById('latest-num-direct3');
+    const elPrizeDirect3 = document.getElementById('latest-prize-direct3');
+    const elTod3 = document.getElementById('latest-num-tod3');
+    const elPrizeTod3 = document.getElementById('latest-prize-tod3');
+    const elDirect2 = document.getElementById('latest-num-direct2');
+    const elPrizeDirect2 = document.getElementById('latest-prize-direct2');
+    const elJackpot = document.getElementById('latest-num-jackpot');
+    const elPrizeJackpot = document.getElementById('latest-prize-jackpot');
+    const elGloFirst = document.getElementById('latest-glo-first');
+    const elGloLast2 = document.getElementById('latest-glo-last2');
+
+    if (elPeriod) elPeriod.innerText = `งวดวันที่ ${latest.drawDateThai || latest.drawDate}`;
+    if (elDirect3) elDirect3.innerText = latest.n3.straight3?.number || '---';
+    if (elPrizeDirect3) elPrizeDirect3.innerText = `รางวัลละ ${latest.n3.straight3?.prizeText || (latest.n3.straight3?.prize ? Number(latest.n3.straight3.prize).toLocaleString() + ' บาท' : '5,801 บาท')}`;
+    
+    if (elTod3) {
+      const tods = latest.n3.shuffle3?.numbers || [latest.n3.shuffle3?.number];
+      elTod3.innerText = Array.isArray(tods) ? tods.filter(Boolean).join(', ') : (tods || '---');
+    }
+    if (elPrizeTod3) elPrizeTod3.innerText = `รางวัลละ ${latest.n3.shuffle3?.prizeText || (latest.n3.shuffle3?.prize ? Number(latest.n3.shuffle3.prize).toLocaleString() + ' บาท' : '2,702 บาท')}`;
+
+    if (elDirect2) elDirect2.innerText = latest.n3.straight2?.number || '---';
+    if (elPrizeDirect2) elPrizeDirect2.innerText = `รางวัลละ ${latest.n3.straight2?.prizeText || (latest.n3.straight2?.prize ? Number(latest.n3.straight2.prize).toLocaleString() + ' บาท' : '582 บาท')}`;
+
+    if (elJackpot) elJackpot.innerText = latest.n3.specialJackpot?.ticketNumber || '---';
+    if (elPrizeJackpot) elPrizeJackpot.innerText = `(${latest.n3.specialJackpot?.prizeText || (latest.n3.specialJackpot?.prize ? Number(latest.n3.specialJackpot.prize).toLocaleString() + ' บาท' : '839,705 บาท')})`;
+
+    if (elGloFirst) elGloFirst.innerText = latest.gloStandard?.firstPrize?.number || '---';
+    if (elGloLast2) elGloLast2.innerText = latest.gloStandard?.last2?.number || '---';
+  }
+
+  // Start real-time 1s ticker
+  N3Countdown.startTicker((rem) => {
+    renderCountdownState(rem);
   });
+
+  // Async sync with official GLO schedule & latest results
+  if (window.N3Countdown && typeof window.N3Countdown.syncOfficialSchedule === 'function') {
+    window.N3Countdown.syncOfficialSchedule().then((res) => {
+      if (res && res.latestLottery) {
+        renderLatestLotteryResults(res.latestLottery);
+      }
+    }).catch(() => {});
+
+    if (typeof window.N3Countdown.onScheduleUpdated === 'function') {
+      window.N3Countdown.onScheduleUpdated((rem, latest) => {
+        renderCountdownState(rem);
+        if (latest) renderLatestLotteryResults(latest);
+      });
+    }
+  }
 
   // -------------------------------------------------------------------------
   // 3. White-label Agent System Initialization
@@ -1285,6 +1353,61 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // -------------------------------------------------------------------------
+  // 10.1 Instant N3 Prize Checker
+  // -------------------------------------------------------------------------
+  const btnCheckN3 = document.getElementById('btn-check-n3');
+  const inputCheckN3 = document.getElementById('input-check-n3');
+  const boxCheckN3Result = document.getElementById('box-check-n3-result');
+
+  function runN3Check() {
+    if (!inputCheckN3 || !boxCheckN3Result) return;
+    const val = inputCheckN3.value.trim();
+    if (!/^\d{3}$/.test(val)) {
+      boxCheckN3Result.style.display = 'block';
+      boxCheckN3Result.style.background = 'rgba(239, 68, 68, 0.15)';
+      boxCheckN3Result.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+      boxCheckN3Result.style.color = '#fca5a5';
+      boxCheckN3Result.innerHTML = '<i class="fas fa-exclamation-triangle"></i> กรุณากรอกตัวเลข 3 หลักให้ถูกต้อง (000-999)';
+      return;
+    }
+
+    try { SoundEngine.playClick(); } catch (_) {}
+    const res = N3Checker.checkN3Prize(val);
+    boxCheckN3Result.style.display = 'block';
+    if (res.isWinner) {
+      try { SoundEngine.playRevealFanfare(); } catch (_) {}
+      boxCheckN3Result.style.background = 'rgba(16, 185, 129, 0.2)';
+      boxCheckN3Result.style.border = '1px solid rgba(16, 185, 129, 0.5)';
+      boxCheckN3Result.style.color = '#6ee7b7';
+      boxCheckN3Result.innerHTML = `
+        <div style="font-weight: 700; font-size: 1rem; color: #34d399; margin-bottom: 0.25rem;">
+          <i class="fas fa-trophy"></i> ยินดีด้วยครับ! สลาก N3 เลข ${val} ถูกรางวัล!
+        </div>
+        <div style="font-size: 0.85rem; color: #fff;">
+          ${res.prizesWon.map(p => `• <strong>${p.title}</strong>: รับเงินรางวัลประมาณ ${p.amount.toLocaleString()} บาท (${p.description})`).join('<br>')}
+        </div>
+        <div style="margin-top: 0.5rem; font-weight: 700; color: #fbbf24;">
+          รวมเงินรางวัลประมาณ: ${res.totalPrize.toLocaleString()} บาท
+        </div>
+      `;
+    } else {
+      boxCheckN3Result.style.background = 'rgba(255, 255, 255, 0.05)';
+      boxCheckN3Result.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+      boxCheckN3Result.style.color = '#cbd5e1';
+      boxCheckN3Result.innerHTML = `
+        <div><i class="fas fa-info-circle"></i> เลข <strong>${val}</strong> ยังไม่ถูกรางวัลใน${res.drawDate} (เลข 3 ตัวตรงคือ <strong>${res.winningNumber}</strong>)</div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">ลองใช้ระบบ AI ทำนายฝันวิเคราะห์เลขเด็ดสำหรับงวดถัดไปดูนะครับ!</div>
+      `;
+    }
+  }
+
+  if (btnCheckN3) btnCheckN3.addEventListener('click', runN3Check);
+  if (inputCheckN3) {
+    inputCheckN3.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') runN3Check();
+    });
+  }
+
   // -------------------------------------------------------------------------
   // 11. General Clipboard Utilities
   // -------------------------------------------------------------------------

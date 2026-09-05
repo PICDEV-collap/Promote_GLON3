@@ -1,0 +1,65 @@
+{
+  "source": "สำนักงานสลากกินแบ่งรัฐบาล (The Government Lottery Office - GLO)",
+  "officialApi": "https://www.glo.or.th/api/lottery/getLatestLottery",
+  "status": "completed",
+  "drawDate": "2026-09-01",
+  "drawDateThai": "1 กันยายน 2569",
+  "period": "งวดประจำวันที่ 1 กันยายน 2569",
+  "n3": {
+    "straight3": {
+      "name": "รางวัล 3 ตัวตรง",
+      "number": "212",
+      "prize": 5801.00,
+      "prizeText": "5,801 บาท",
+      "description": "เลขตรงกันทุกหลักและตรงตำแหน่ง"
+    },
+    "shuffle3": {
+      "name": "รางวัล 3 ตัวโต๊ด",
+      "numbers": ["122", "221"],
+      "prize": 2702.00,
+      "prizeText": "2,702 บาท",
+      "description": "เลขตรงกัน 3 ตัว แต่สลับตำแหน่งกันได้"
+    },
+    "straight2": {
+      "name": "รางวัล 2 ตัวตรง",
+      "number": "04",
+      "prize": 582.00,
+      "prizeText": "582 บาท",
+      "description": "เลขท้าย 2 ตัวตรงกันทุกหลัก"
+    },
+    "specialJackpot": {
+      "name": "รางวัลพิเศษ (Jackpot)",
+      "ticketNumber": "212000003860",
+      "prize": 839705.00,
+      "prizeText": "839,705 บาท",
+      "description": "สุ่มจากผู้ถูกรางวัล 3 ตัวตรงในงวดนี้"
+    }
+  },
+  "gloStandard": {
+    "firstPrize": {
+      "name": "รางวัลที่ 1",
+      "number": "417212",
+      "prize": 6000000.00,
+      "prizeText": "6,000,000 บาท"
+    },
+    "last2": {
+      "name": "เลขท้าย 2 ตัว",
+      "number": "04",
+      "prize": 2000.00,
+      "prizeText": "2,000 บาท"
+    },
+    "last3Front": {
+      "name": "เลขหน้า 3 ตัว",
+      "numbers": ["257", "346"],
+      "prize": 4000.00,
+      "prizeText": "4,000 บาท"
+    },
+    "last3Back": {
+      "name": "เลขท้าย 3 ตัว",
+      "numbers": ["136", "740"],
+      "prize": 4000.00,
+      "prizeText": "4,000 บาท"
+    }
+  },
+  "updatedAt": "2026-09-05T05:37:00.000Z"
+}

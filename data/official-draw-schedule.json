@@ -1,0 +1,214 @@
+{
+  "source": "สำนักงานสลากกินแบ่งรัฐบาล (The Government Lottery Office - GLO)",
+  "officialPortalUrl": "https://www.glo.or.th",
+  "dealerPortalUrl": "https://n3.glolotteryshop.com",
+  "drawTime": "14:30",
+  "description": "ปฏิทินและกำหนดการออกรางวัลสลากกินแบ่งรัฐบาลและสลาก N3 ทางการ พร้อมเงื่อนไขการเลื่อนวันออกรางวัลเมื่อตรงกับวันหยุดสำคัญ",
+  "postponementRules": [
+    {
+      "trigger": "01-01",
+      "postponedTo": "01-02",
+      "reason": "วันขึ้นปีใหม่ (เลื่อนออกรางวัลเป็นวันที่ 2 มกราคม หรือออกเร็วขึ้นเป็น 30 ธันวาคม ตามประกาศของสำนักงานสลากฯ)"
+    },
+    {
+      "trigger": "01-16",
+      "postponedTo": "01-17",
+      "reason": "วันครูแห่งชาติ (สำนักงานสลากฯ กำหนดเลื่อนออกรางวัลเป็นวันที่ 17 มกราคม เป็นการถาวรทุกปี)"
+    },
+    {
+      "trigger": "05-01",
+      "postponedTo": "05-02",
+      "reason": "วันแรงงานแห่งชาติ (สำนักงานสลากฯ กำหนดเลื่อนออกรางวัลเป็นวันที่ 2 พฤษภาคม เป็นประจำทุกปี)"
+    }
+  ],
+  "schedules": [
+    {
+      "drawDate": "2026-09-16",
+      "thaiDate": "16 กันยายน 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "upcoming",
+      "period": "งวดประจำวันที่ 16 กันยายน 2569"
+    },
+    {
+      "drawDate": "2026-10-01",
+      "thaiDate": "1 ตุลาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 1 ตุลาคม 2569"
+    },
+    {
+      "drawDate": "2026-10-16",
+      "thaiDate": "16 ตุลาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 16 ตุลาคม 2569"
+    },
+    {
+      "drawDate": "2026-11-01",
+      "thaiDate": "1 พฤศจิกายน 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 1 พฤศจิกายน 2569"
+    },
+    {
+      "drawDate": "2026-11-16",
+      "thaiDate": "16 พฤศจิกายน 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 16 พฤศจิกายน 2569"
+    },
+    {
+      "drawDate": "2026-12-01",
+      "thaiDate": "1 ธันวาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 1 ธันวาคม 2569"
+    },
+    {
+      "drawDate": "2026-12-16",
+      "thaiDate": "16 ธันวาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 16 ธันวาคม 2569"
+    },
+    {
+      "drawDate": "2026-12-30",
+      "thaiDate": "30 ธันวาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": true,
+      "originalDate": "2027-01-01",
+      "postponeReason": "งวดส่งท้ายปีเก่าต้อนรับปีใหม่ (ออกรางวัลเร็วขึ้นเป็นวันที่ 30 ธันวาคม)",
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 30 ธันวาคม 2569"
+    },
+    {
+      "drawDate": "2027-01-17",
+      "thaiDate": "17 มกราคม 2570",
+      "drawTime": "14:30",
+      "isPostponed": true,
+      "originalDate": "2027-01-16",
+      "postponeReason": "ตรงกับวันครูแห่งชาติ (16 ม.ค.) สำนักงานสลากฯ เลื่อนออกรางวัลเป็นวันที่ 17 ม.ค.",
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 17 มกราคม 2570"
+    },
+    {
+      "drawDate": "2027-02-01",
+      "thaiDate": "1 กุมภาพันธ์ 2570",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 1 กุมภาพันธ์ 2570"
+    },
+    {
+      "drawDate": "2027-02-16",
+      "thaiDate": "16 กุมภาพันธ์ 2570",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 16 กุมภาพันธ์ 2570"
+    },
+    {
+      "drawDate": "2027-03-01",
+      "thaiDate": "1 มีนาคม 2570",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 1 มีนาคม 2570"
+    },
+    {
+      "drawDate": "2027-03-16",
+      "thaiDate": "16 มีนาคม 2570",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 16 มีนาคม 2570"
+    },
+    {
+      "drawDate": "2027-04-01",
+      "thaiDate": "1 เมษายน 2570",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 1 เมษายน 2570"
+    },
+    {
+      "drawDate": "2027-04-16",
+      "thaiDate": "16 เมษายน 2570",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 16 เมษายน 2570"
+    },
+    {
+      "drawDate": "2027-05-02",
+      "thaiDate": "2 พฤษภาคม 2570",
+      "drawTime": "14:30",
+      "isPostponed": true,
+      "originalDate": "2027-05-01",
+      "postponeReason": "ตรงกับวันแรงงานแห่งชาติ (1 พ.ค.) สำนักงานสลากฯ เลื่อนออกรางวัลเป็นวันที่ 2 พ.ค.",
+      "status": "scheduled",
+      "period": "งวดประจำวันที่ 2 พฤษภาคม 2570"
+    },
+    {
+      "drawDate": "2026-09-01",
+      "thaiDate": "1 กันยายน 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "completed",
+      "period": "งวดประจำวันที่ 1 กันยายน 2569"
+    },
+    {
+      "drawDate": "2026-08-16",
+      "thaiDate": "16 สิงหาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "completed",
+      "period": "งวดประจำวันที่ 16 สิงหาคม 2569"
+    },
+    {
+      "drawDate": "2026-08-01",
+      "thaiDate": "1 สิงหาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": false,
+      "status": "completed",
+      "period": "งวดประจำวันที่ 1 สิงหาคม 2569"
+    },
+    {
+      "drawDate": "2026-05-02",
+      "thaiDate": "2 พฤษภาคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": true,
+      "originalDate": "2026-05-01",
+      "postponeReason": "ตรงกับวันแรงงานแห่งชาติ (1 พ.ค.) สำนักงานสลากฯ เลื่อนออกรางวัลเป็นวันที่ 2 พ.ค.",
+      "status": "completed",
+      "period": "งวดประจำวันที่ 2 พฤษภาคม 2569"
+    },
+    {
+      "drawDate": "2026-01-17",
+      "thaiDate": "17 มกราคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": true,
+      "originalDate": "2026-01-16",
+      "postponeReason": "ตรงกับวันครูแห่งชาติ (16 ม.ค.) สำนักงานสลากฯ เลื่อนออกรางวัลเป็นวันที่ 17 ม.ค.",
+      "status": "completed",
+      "period": "งวดประจำวันที่ 17 มกราคม 2569"
+    },
+    {
+      "drawDate": "2026-01-02",
+      "thaiDate": "2 มกราคม 2569",
+      "drawTime": "14:30",
+      "isPostponed": true,
+      "originalDate": "2026-01-01",
+      "postponeReason": "ตรงกับวันขึ้นปีใหม่ (1 ม.ค.) สำนักงานสลากฯ เลื่อนออกรางวัลเป็นวันที่ 2 ม.ค.",
+      "status": "completed",
+      "period": "งวดประจำวันที่ 2 มกราคม 2569"
+    }
+  ]
+}

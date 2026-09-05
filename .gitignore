@@ -2,6 +2,7 @@
 node_modules/
 .vercel/
 *.log
+scratch/
 
 # Sensitive Credentials & Tokens
 .env
@@ -11,7 +12,6 @@ node_modules/
 # Automation Sessions & Storage State (ความปลอดภัย: ห้ามนำ Session คุกกี้ขึ้น Git)
 storageState.json
 */storageState.json
-data/
 bot-service/data/
 
 # Generated QR Codes & Temporary Images

@@ -5,6 +5,7 @@ import { CONFIG } from '../config';
 
 export interface QuotaData {
   round: string;           // งวดวันที่ เช่น "2026-09-16"
+  drawDateThai?: string;   // วันที่งวดภาษาไทย เช่น "16 ก.ย. 2569"
   maxQuota: number;        // โควต้าสูงสุด (2,000 ใบ)
   usedQuota: number;       // ใช้ไปแล้ว (เช่น 32 ใบ)
   remainingQuota: number;  // คงเหลือ (เช่น 1,968 ใบ)
@@ -41,7 +42,7 @@ export class QuotaManager {
   }
 
   /**
-   * คำนวณชื่องวดปัจจุบันตามปฏิทินสลากกินแบ่งรัฐบาล (วันที่ 1 และ 16 ของแต่ละเดือน)
+   * คำนวณชื่องวดปัจจุบันตามปฏิทินสลากกินแบ่งรัฐบาล พร้อมรองรับการเลื่อนวันหยุดราชการ
    */
   public static getCurrentRoundIdentifier(dateObj?: Date): string {
     const now = dateObj || new Date();
@@ -50,6 +51,29 @@ export class QuotaManager {
     const month = bkkTime.getMonth() + 1;
     const day = bkkTime.getDate();
 
+    // 1. เดือนมกราคม (เลื่อนวันปีใหม่เป็น 2 ม.ค. และวันครูเป็น 17 ม.ค.)
+    if (month === 1) {
+      if (day <= 2) return `${year}-01-02`;
+      if (day <= 17) return `${year}-01-17`;
+      return `${year}-02-01`;
+    }
+
+    // 2. เดือนพฤษภาคม (เลื่อนวันแรงงานแห่งชาติเป็น 2 พ.ค.)
+    if (month === 5) {
+      if (day <= 2) return `${year}-05-02`;
+      if (day <= 16) return `${year}-05-16`;
+      return `${year}-06-01`;
+    }
+
+    // 3. เดือนธันวาคม (งวดสิ้นปีออกเร็วขึ้นเป็น 30 ธ.ค.)
+    if (month === 12) {
+      if (day <= 1) return `${year}-12-01`;
+      if (day <= 16) return `${year}-12-16`;
+      if (day <= 30) return `${year}-12-30`;
+      return `${year + 1}-01-02`;
+    }
+
+    // 4. กำหนดการปกติวันที่ 1 และ 16 ของเดือน
     if (day <= 1) {
       return `${year}-${String(month).padStart(2, '0')}-01`;
     } else if (day <= 16) {
@@ -123,6 +147,46 @@ export class QuotaManager {
     } catch (e) {
       console.error('[QUOTA] ไม่สามารถบันทึกไฟล์โควต้าได้', e);
     }
+  }
+
+  /**
+   * แกะชื่องวดออกสลากและวันที่ทางการจากหน้าเว็บ GLO N3 Portal (เช่น "งวดวันที่ 16 ก.ย. 2569" หรือ "16 ก.ย. 2569")
+   */
+  public static parseOfficialRoundFromPortal(rawText: string): { round: string; thaiDate: string } | null {
+    if (!rawText || typeof rawText !== 'string') return null;
+
+    const monthMap: Record<string, string> = {
+      'ม.ค.': '01', 'มกราคม': '01',
+      'ก.พ.': '02', 'กุมภาพันธ์': '02',
+      'มี.ค.': '03', 'มีนาคม': '03',
+      'เม.ย.': '04', 'เมษายน': '04',
+      'พ.ค.': '05', 'พฤษภาคม': '05',
+      'มิ.ย.': '06', 'มิถุนายน': '06',
+      'ก.ค.': '07', 'กรกฎาคม': '07',
+      'ส.ค.': '08', 'สิงหาคม': '08',
+      'ก.ย.': '09', 'กันยายน': '09',
+      'ต.ค.': '10', 'ตุลาคม': '10',
+      'พ.ย.': '11', 'พฤศจิกายน': '11',
+      'ธ.ค.': '12', 'ธันวาคม': '12'
+    };
+
+    const regex = /(?:งวดวันที่\s*)?(\d{1,2})\s+([ก-๙\.]+)\s+(\d{4})/i;
+    const match = rawText.match(regex);
+    if (match) {
+      const day = String(parseInt(match[1], 10)).padStart(2, '0');
+      const monthStr = match[2].trim();
+      const rawYear = parseInt(match[3], 10);
+      const year = rawYear > 2400 ? rawYear - 543 : rawYear;
+      const month = monthMap[monthStr];
+
+      if (month) {
+        return {
+          round: `${year}-${month}-${day}`,
+          thaiDate: `${parseInt(day, 10)} ${monthStr} ${rawYear}`
+        };
+      }
+    }
+    return null;
   }
 
   /**
@@ -237,6 +301,16 @@ export class QuotaManager {
       let pageText = '';
       if (typeof page.evaluate === 'function') {
         pageText = await page.evaluate(() => document.body ? document.body.innerText : '').catch(() => '');
+      }
+
+      // 1.5 แกะชื่องวดทางการจากหน้าเว็บ (เช่น "งวดวันที่ 16 ก.ย. 2569")
+      const roundExtracted = QuotaManager.parseOfficialRoundFromPortal(pageText);
+      if (roundExtracted) {
+        if (this.data.round !== roundExtracted.round) {
+          console.log(`[QUOTA ROUND SYNC] อัปเดตชื่องวดจากหน้าเว็บ: ${this.data.round} -> ${roundExtracted.round} (${roundExtracted.thaiDate})`);
+          this.data.round = roundExtracted.round;
+        }
+        this.data.drawDateThai = roundExtracted.thaiDate;
       }
 
       // 2. แกะตัวเลขโควต้า
@@ -386,6 +460,10 @@ export class QuotaManager {
 
 export function parseQuotaFromPortalText(rawText: string, fallbackMaxQuota?: number): ExtractedQuota | null {
   return QuotaManager.parseQuotaFromPortalText(rawText, fallbackMaxQuota);
+}
+
+export function parseOfficialRoundFromPortal(rawText: string): { round: string; thaiDate: string } | null {
+  return QuotaManager.parseOfficialRoundFromPortal(rawText);
 }
 
 export async function syncQuotaFromLivePortal(
