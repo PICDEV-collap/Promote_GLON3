@@ -935,9 +935,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btnOrderLine.href = liffUrl;
       btnOrderLine.removeAttribute('target');
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
-      btnOrderLine.onclick = (e) => {
-        window.location.href = liffUrl;
-      };
+      btnOrderLine.onclick = null;
     }
 
     // 3. Setup Package Click Handlers
@@ -978,9 +976,7 @@ document.addEventListener('DOMContentLoaded', function () {
       mobileLineBtn.href = mobileLiffUrl;
       mobileLineBtn.removeAttribute('target');
       mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
-      mobileLineBtn.onclick = (e) => {
-        window.location.href = mobileLiffUrl;
-      };
+      mobileLineBtn.onclick = null;
     }
 
     try { SoundEngine.playRevealFanfare(); } catch (err) {}
