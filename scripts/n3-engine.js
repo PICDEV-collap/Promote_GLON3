@@ -1019,6 +1019,7 @@ function showMainMenu() {
   console.log('  [8] Open QR Codes Folder (Open public/qrcodes in Explorer)');
   console.log('  [9] Open Website in Browser (Open index.html)');
   console.log('  [R] Setup / Sync LINE Rich Menu (🎨 อัปเดตริชเมนู 6 ปุ่มด้านล่างหน้าจอแชท LINE)');
+  console.log('  [T] Test All Scenarios (🧪 ตรวจสอบระบบครบ 6 ฉากทัศน์ก่อน Deploy)');
   console.log('  [S] Create Desktop Shortcuts (สร้างไอคอนทางลัด 3 ตัวบนหน้าจอ Desktop)');
   console.log('  [0] Exit');
   console.log('');
@@ -1029,7 +1030,7 @@ function showMainMenu() {
     output: process.stdout
   });
 
-  rl.question('Please select an option [0-9, U, B, or S] (or type bg / stop): ', async (choice) => {
+  rl.question('Please select an option [0-9, U, B, T, or S] (or type bg / stop): ', async (choice) => {
     rl.close();
     const c = choice.trim().toLowerCase();
     if (c === '1' || c === 'start') {
@@ -1074,6 +1075,15 @@ function showMainMenu() {
         execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });
       } catch (e) {
         console.error('[ERROR] Failed to setup rich menu:', e.message);
+      }
+      waitForKeypress();
+    } else if (c === 't' || c === 'test' || c === 'test-all' || c === 'e2e') {
+      console.clear();
+      console.log('Running End-to-End System Tests across All 6 Scenarios...');
+      try {
+        execSync('node scripts/test-all-scenarios.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      } catch (e) {
+        console.error('\n\x1b[31m[ERROR] มีบางฉากทัศน์ไม่ผ่านการทดสอบ กรุณาตรวจสอบรายละเอียดด้านบน\x1b[0m');
       }
       waitForKeypress();
     } else if (c === 's' || c === 'shortcut' || c === 'shortcuts') {
@@ -1132,6 +1142,12 @@ async function main() {
       execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });
     } catch (e) {
       console.error('[ERROR]', e.message);
+    }
+  } else if (mode === 'test-all' || mode === 'test' || mode === 'e2e') {
+    try {
+      execSync('node scripts/test-all-scenarios.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+    } catch (e) {
+      process.exit(1);
     }
   } else {
     showMainMenu();

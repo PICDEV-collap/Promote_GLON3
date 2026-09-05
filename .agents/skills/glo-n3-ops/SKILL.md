@@ -41,7 +41,16 @@ npm run build --prefix bot-service
 node scripts/n3-engine.js restart-bot
 ```
 
-### 3. Run Automated Test Suite (88+ Tests)
+### 3. Run End-to-End System Tests (All 6 Scenarios Dashboard & Pre-Deploy Gate)
+Verify all 6 operational scenarios (Bot Telemetry, 88 Unit Tests, Mobile Deep-Linking, Cross-Browser Image Saving, GLO Portal Invariant, and CSS/Deploy Gate):
+```bash
+npm run test:e2e --prefix bot-service
+# Or directly via CLI / N3-MANAGER:
+node scripts/test-all-scenarios.js
+node scripts/n3-engine.js test-all
+```
+
+### 4. Run Core Unit Test Suite (88+ Tests)
 Verify multi-ticket parsing, cart accumulation, stepper mechanics, and LINE message sanitizer:
 ```bash
 npm test --prefix bot-service
@@ -50,6 +59,15 @@ npm test --prefix bot-service
 ---
 
 ## Utility Scripts & Tools
+
+### `scripts/test-all-scenarios.js`
+All-in-one scenario verification & pre-deploy quality gate:
+- **Scenario 1**: Bot HTTP (3333), CDP (9222), Cloudflare Tunnel, and Quota.
+- **Scenario 2**: LINE Bot Order Core (88 unit test suites).
+- **Scenario 3**: Mobile LINE Deep-Link (Android Intent, `line://`, Desktop QR fallback).
+- **Scenario 4**: Cross-Browser Mobile Image Saving (Samsung direct blob download, LINE Webview `z-index: 10050` modal).
+- **Scenario 5**: GLO Dealer Portal Single Navigation & Zero-Crash Canvas Capture Guard.
+- **Scenario 6**: Production Code Standards, W3C CSS Gradient, and Vercel Config.
 
 ### `scripts/health_check.js`
 CLI diagnostic tool providing instant health telemetry:
