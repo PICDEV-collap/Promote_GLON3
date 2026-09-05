@@ -94,7 +94,7 @@ export class N3OrderService {
           if (await clearBtn.isVisible().catch(() => false)) {
             console.log('[N3 ORDER] กดปุ่ม "ล้างค่า" เพื่อเคลียร์ช่องค้นหาเลขเดิม...');
             await clearBtn.click().catch(() => {});
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(100);
           } else {
             // สำรอง: ลองปุ่มเพิ่มรายการหรือแท็บตำแหน่งถัดไป
             const addMoreSelectors = [
@@ -110,42 +110,75 @@ export class N3OrderService {
               const el = page.locator(sel).first();
               if (await el.isVisible().catch(() => false)) {
                 await el.click().catch(() => {});
-                await page.waitForTimeout(400);
+                await page.waitForTimeout(200);
                 break;
               }
             }
           }
         }
 
-        // ล้างและกรอกตัวเลข 3 ตัว
+        // ล้างและกรอกตัวเลข 3 ตัว (ใช้ Fast DOM Setter ก่อนเพื่อความรวดเร็วระดับเสี้ยววินาที)
         const digits = item.number.split('');
-        const digitInputs = page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible');
-        const visibleCount = await digitInputs.count().catch(() => 0);
+        const filledFast = await page.evaluate((numStr) => {
+          const dg = numStr.split('');
+          const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]'))
+            .filter((inp: any) => inp.offsetParent !== null && !inp.disabled && !inp.readOnly) as HTMLInputElement[];
 
-        if (visibleCount >= 3) {
-          for (let d = 0; d < 3; d++) {
-            await digitInputs.nth(d).fill('');
-            await digitInputs.nth(d).fill(digits[d]);
-          }
-        } else if (visibleCount === 1) {
-          await digitInputs.first().fill('');
-          await digitInputs.first().fill(item.number);
-        } else {
-          // Fallback หากช่องไม่เป็น visible
-          const allInputs = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
-          const allCount = await allInputs.count().catch(() => 0);
-          if (allCount >= 3) {
-            await allInputs.nth(0).fill(digits[0]);
-            await allInputs.nth(1).fill(digits[1]);
-            await allInputs.nth(2).fill(digits[2]);
-          } else if (allCount > 0) {
-            await allInputs.first().fill(item.number);
-          } else {
-            console.error(`[N3 ORDER ERROR] ไม่พบช่องกรอกเลขสลากสำหรับเลข ${item.number} (URL: ${page.url()})`);
-            if (page.url().includes('/login') || page.url().includes('/geolocation')) {
-              return { success: false, error: 'Session หลุดหรือติดการยืนยันพิกัดตำแหน่ง กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+
+          if (inputs.length >= 3) {
+            for (let d = 0; d < 3; d++) {
+              const el = inputs[d];
+              if (nativeSetter) {
+                nativeSetter.call(el, dg[d]);
+              } else {
+                el.value = dg[d];
+              }
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
             }
-            return { success: false, error: `หน้าค้นหาสลากไม่พร้อมใช้งาน (URL: ${page.url()})` };
+            return true;
+          } else if (inputs.length === 1) {
+            const el = inputs[0];
+            if (nativeSetter) {
+              nativeSetter.call(el, numStr);
+            } else {
+              el.value = numStr;
+            }
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+          }
+          return false;
+        }, item.number).catch(() => false);
+
+        if (!filledFast) {
+          // Playwright Fallback
+          const digitInputs = page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible');
+          const visibleCount = await digitInputs.count().catch(() => 0);
+
+          if (visibleCount >= 3) {
+            for (let d = 0; d < 3; d++) {
+              await digitInputs.nth(d).fill(digits[d]);
+            }
+          } else if (visibleCount === 1) {
+            await digitInputs.first().fill(item.number);
+          } else {
+            const allInputs = page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]');
+            const allCount = await allInputs.count().catch(() => 0);
+            if (allCount >= 3) {
+              await allInputs.nth(0).fill(digits[0]);
+              await allInputs.nth(1).fill(digits[1]);
+              await allInputs.nth(2).fill(digits[2]);
+            } else if (allCount > 0) {
+              await allInputs.first().fill(item.number);
+            } else {
+              console.error(`[N3 ORDER ERROR] ไม่พบช่องกรอกเลขสลากสำหรับเลข ${item.number} (URL: ${page.url()})`);
+              if (page.url().includes('/login') || page.url().includes('/geolocation')) {
+                return { success: false, error: 'Session หลุดหรือติดการยืนยันพิกัดตำแหน่ง กรุณาพิมพ์ qr ใน LINE เพื่อสแกนเป๋าตังใหม่' };
+              }
+              return { success: false, error: `หน้าค้นหาสลากไม่พร้อมใช้งาน (URL: ${page.url()})` };
+            }
           }
         }
 
@@ -183,7 +216,7 @@ export class N3OrderService {
           page.locator('button:has-text("เลือก"):visible').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {}),
           page.locator('text=ไม่พบสลาก, text=ไม่พบข้อมูล, text=ปิดการขาย').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
         ]);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(50);
 
         if (page.isClosed()) {
           return { success: false, error: 'หน้าต่างเบราว์เซอร์ถูกปิด กรุณาสั่งซื้อใหม่อีกครั้ง' };
@@ -256,13 +289,13 @@ export class N3OrderService {
           continue;
         }
 
-        // รอปุ่ม Stepper ปรากฏบนการ์ดหลังจากกดเลือกสลากสำเร็จ (GLO N3 แสดง img[src*="plus-icon"])
-        const plusStepperLoc = page.locator('img[src*="plus-icon"]').last();
-        await plusStepperLoc.waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
-        await page.waitForTimeout(400);
-
-        // ปรับจำนวนใบสำหรับรายการสลากเลขนี้ให้ตรงตาม item.quantity
+        // ปรับจำนวนใบสำหรับรายการสลากเลขนี้ให้ตรงตาม item.quantity (หากสั่ง 1 ใบ สลากลงตะกร้าแล้ว ข้ามไปได้ทันที ไม่ต้องรอ Stepper)
         if (item.quantity > 1) {
+          // รอปุ่ม Stepper ปรากฏบนการ์ดหลังจากกดเลือกสลากสำเร็จ (GLO N3 แสดง img[src*="plus-icon"])
+          const plusStepperLoc = page.locator('img[src*="plus-icon"]').last();
+          await plusStepperLoc.waitFor({ state: 'visible', timeout: 4000 }).catch(() => {});
+          await page.waitForTimeout(150);
+
           console.log(`[N3 ORDER QTY] กำลังปรับจำนวนใบเลข ${item.number} เป็น ${item.quantity} ใบ...`);
 
           const numPattern = item.number.split('').join('\\s*');
@@ -284,7 +317,7 @@ export class N3OrderService {
               await qtyInput.fill(String(item.quantity)).catch(() => {});
               await qtyInput.dispatchEvent('change').catch(() => {});
               await qtyInput.dispatchEvent('blur').catch(() => {});
-              await page.waitForTimeout(200);
+              await page.waitForTimeout(150);
 
               const checkVal = await qtyInput.inputValue().catch(() => '1');
               currentCardQty = parseInt(checkVal, 10) || 1;
@@ -300,7 +333,7 @@ export class N3OrderService {
             for (let c = 0; c < neededClicks; c++) {
               if (page.isClosed()) break;
               await plusEl.click({ force: true }).catch(() => {});
-              await page.waitForTimeout(160);
+              await page.waitForTimeout(120);
             }
           }
 
@@ -347,7 +380,7 @@ export class N3OrderService {
             }
           }, { num: item.number, targetQty: item.quantity }).catch(() => {});
 
-          await page.waitForTimeout(300);
+          await page.waitForTimeout(150);
         }
 
         fulfilledItems.push(item);
@@ -363,31 +396,34 @@ export class N3OrderService {
         };
       }
 
-      // ตรวจสอบและปรับปรุงจำนวนสลากในตะกร้าทั้งหมด (Pre-Checkout Cart Audit) ให้ครบถ้วนก่อนกดตรวจสอบสลากฯ
-      console.log('[N3 ORDER STEP 1.5] กำลังตรวจสอบความถูกต้องของจำนวนใบในตะกร้าทั้งหมดก่อนยืนยัน...');
-      for (const it of fulfilledItems) {
-        if (it.quantity <= 1) continue;
-        const numPattern = it.number.split('').join('\\s*');
-        const row = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
-          .filter({ hasText: new RegExp(numPattern) })
-          .filter({ has: page.locator('img[src*="plus-icon"]') })
-          .last();
+      // ตรวจสอบและปรับปรุงจำนวนสลากในตะกร้าทั้งหมด (Pre-Checkout Cart Audit) ให้ครบถ้วนก่อนกดตรวจสอบสลากฯ (เฉพาะเมื่อมีรายการหลายใบ)
+      const hasMultiQty = fulfilledItems.some(it => it.quantity > 1);
+      if (hasMultiQty) {
+        console.log('[N3 ORDER STEP 1.5] กำลังตรวจสอบความถูกต้องของจำนวนใบในตะกร้าทั้งหมดก่อนยืนยัน...');
+        for (const it of fulfilledItems) {
+          if (it.quantity <= 1) continue;
+          const numPattern = it.number.split('').join('\\s*');
+          const row = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
+            .filter({ hasText: new RegExp(numPattern) })
+            .filter({ has: page.locator('img[src*="plus-icon"]') })
+            .last();
 
-        if (await row.isVisible().catch(() => false)) {
-          const inp = row.locator('input[type="number"], input[inputmode="numeric"]').first();
-          const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
-          if (curVal < it.quantity) {
-            const plus = row.locator('img[src*="plus-icon"]').first();
-            const diff = it.quantity - curVal;
-            console.log(`[N3 ORDER AUDIT 1.5] เลข ${it.number} ยังคงมี ${curVal} ใบ -> กดเพิ่มอีก ${diff} ครั้ง`);
-            for (let c = 0; c < diff; c++) {
-              await plus.click({ force: true }).catch(() => {});
-              await page.waitForTimeout(150);
+          if (await row.isVisible().catch(() => false)) {
+            const inp = row.locator('input[type="number"], input[inputmode="numeric"]').first();
+            const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
+            if (curVal < it.quantity) {
+              const plus = row.locator('img[src*="plus-icon"]').first();
+              const diff = it.quantity - curVal;
+              console.log(`[N3 ORDER AUDIT 1.5] เลข ${it.number} ยังคงมี ${curVal} ใบ -> กดเพิ่มอีก ${diff} ครั้ง`);
+              for (let c = 0; c < diff; c++) {
+                await plus.click({ force: true }).catch(() => {});
+                await page.waitForTimeout(100);
+              }
             }
           }
         }
+        await page.waitForTimeout(150);
       }
-      await page.waitForTimeout(400);
 
       // 2. กดปุ่ม "ตรวจสอบสลากฯ" (cw.COMMON_CEHCK_LOTTO_BUTTON) รวมทุกรายการในตะกร้า
       console.log('[N3 ORDER STEP 2] กำลังกดปุ่ม ตรวจสอบสลากฯ รวมทุกรายการในตะกร้า...');
@@ -398,33 +434,36 @@ export class N3OrderService {
       // 3. รอหน้ายืนยันรายการ (/lotto-confirm/)
       console.log('[N3 ORDER STEP 3] รอนำทางสู่หน้า lotto-confirm...');
       await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 });
-      await page.waitForTimeout(1000);
 
       // 3.5 ตรวจสอบความถูกต้องของจำนวนใบในหน้า lotto-confirm อีกครั้ง (Confirm Page Audit)
-      console.log('[N3 ORDER STEP 3.5] ตรวจสอบรายการในหน้า lotto-confirm...');
-      for (const it of fulfilledItems) {
-        if (it.quantity <= 1) continue;
-        const numPattern = it.number.split('').join('\\s*');
-        const confirmRow = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
-          .filter({ hasText: new RegExp(numPattern) })
-          .filter({ has: page.locator('img[src*="plus-icon"]') })
-          .last();
+      if (hasMultiQty) {
+        console.log('[N3 ORDER STEP 3.5] ตรวจสอบรายการในหน้า lotto-confirm...');
+        for (const it of fulfilledItems) {
+          if (it.quantity <= 1) continue;
+          const numPattern = it.number.split('').join('\\s*');
+          const confirmRow = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
+            .filter({ hasText: new RegExp(numPattern) })
+            .filter({ has: page.locator('img[src*="plus-icon"]') })
+            .last();
 
-        if (await confirmRow.isVisible().catch(() => false)) {
-          const inp = confirmRow.locator('input[type="number"], input[inputmode="numeric"]').first();
-          const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
-          if (curVal < it.quantity) {
-            const plus = confirmRow.locator('img[src*="plus-icon"]').first();
-            const diff = it.quantity - curVal;
-            console.log(`[N3 ORDER AUDIT 3.5] ในหน้า lotto-confirm เลข ${it.number} ยังคงมี ${curVal} ใบ -> ปรับเพิ่มอีก ${diff} ครั้ง`);
-            for (let c = 0; c < diff; c++) {
-              await plus.click({ force: true }).catch(() => {});
-              await page.waitForTimeout(150);
+          if (await confirmRow.isVisible().catch(() => false)) {
+            const inp = confirmRow.locator('input[type="number"], input[inputmode="numeric"]').first();
+            const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
+            if (curVal < it.quantity) {
+              const plus = confirmRow.locator('img[src*="plus-icon"]').first();
+              const diff = it.quantity - curVal;
+              console.log(`[N3 ORDER AUDIT 3.5] ในหน้า lotto-confirm เลข ${it.number} ยังคงมี ${curVal} ใบ -> ปรับเพิ่มอีก ${diff} ครั้ง`);
+              for (let c = 0; c < diff; c++) {
+                await plus.click({ force: true }).catch(() => {});
+                await page.waitForTimeout(100);
+              }
             }
           }
         }
+        await page.waitForTimeout(150);
+      } else {
+        await page.waitForTimeout(150);
       }
-      await page.waitForTimeout(500);
 
       // 4. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
       console.log('[N3 ORDER STEP 4] กำลังกดปุ่ม สร้าง QR ซื้อ-ขายสลากฯ...');
@@ -445,7 +484,7 @@ export class N3OrderService {
         const c = document.querySelector('canvas#qr-code-image') as HTMLCanvasElement || document.querySelector('canvas') as HTMLCanvasElement;
         return c && c.width >= 50 && c.height >= 50;
       }, { timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(250); // รอรูป QR Canvas โหลดสมบูรณ์
+      await page.waitForTimeout(100); // รอรูป QR Canvas โหลดสมบูรณ์
 
       // 7. ดึงภาพ QR Code ชำระเงิน คมชัดระดับ Retina HD 800x800px ตัดเฉพาะกรอบ QR Code จัตุรัส 1:1 พร้อม Quiet Zone นิรภัย
       const fileSummary = fulfilledItems.map(i => i.number).join('-');
