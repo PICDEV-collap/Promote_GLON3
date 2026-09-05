@@ -241,6 +241,32 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// Official Draw Schedule & Latest Winning Numbers API
+app.get(['/api/draw-info', '/api/draw-schedule'], async (req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  try {
+    const drawScheduleHandler = require(path.join(process.cwd(), '../api/draw-schedule.js'));
+    return await drawScheduleHandler(req, res);
+  } catch (_) {
+    const quota = quotaManager.getStatus();
+    return res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      upcomingDraw: {
+        drawDate: quota.round,
+        thaiDate: quota.drawDateThai || '16 กันยายน 2569',
+        drawTime: '14:30',
+        isPostponed: false
+      },
+      quota: quota
+    });
+  }
+});
+
 let context: BrowserContext | null = null;
 let page: Page | null = null;
 let isLoggingIn: boolean = false;

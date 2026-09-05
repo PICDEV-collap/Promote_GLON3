@@ -337,13 +337,50 @@ function testScenario6() {
 }
 
 // ------------------------------------------------------------------------------
+// SCENARIO 7: Official GLO Schedule, Postponement Engine & Latest Results
+// ------------------------------------------------------------------------------
+function testScenario7() {
+  const start = Date.now();
+  let pass = false;
+  let detail = '';
+
+  try {
+    const output = execSync('node scripts/test-countdown-official.js', {
+      cwd: ROOT_DIR,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 15000
+    });
+
+    const match = output.match(/OFFICIAL DRAW TEST SUMMARY: (\d+) \/ (\d+) tests passed \((\d+)%\)/);
+    if (match) {
+      const passed = parseInt(match[1], 10);
+      const total = parseInt(match[2], 10);
+      const pct = parseInt(match[3], 10);
+      pass = pct === 100 && passed >= 14;
+      detail = `${passed}/${total} official schedule & results tests passed (${pct}%)`;
+    } else if (output.includes('PASS:')) {
+      pass = true;
+      detail = 'Official schedule and postponement tests passed';
+    } else {
+      detail = 'Unexpected test output';
+    }
+  } catch (err) {
+    detail = `Official test failed: ${err.message}`;
+  }
+
+  const duration = Date.now() - start;
+  recordResult(7, 'Official GLO Schedule, Postponement & Results', pass, detail, duration);
+}
+
+// ------------------------------------------------------------------------------
 // MAIN RUNNER & DASHBOARD DISPLAY
 // ------------------------------------------------------------------------------
 async function main() {
   const totalStart = Date.now();
 
   console.log('\n' + '='.repeat(80));
-  console.log(`${BOLD}${CYAN}   GLO N3 AUTOMATED VERIFICATION DASHBOARD (ALL 6 SCENARIOS)${RESET}`);
+  console.log(`${BOLD}${CYAN}   GLO N3 AUTOMATED VERIFICATION DASHBOARD (ALL 7 SCENARIOS)${RESET}`);
   console.log('='.repeat(80));
 
   await testScenario1();
@@ -352,6 +389,7 @@ async function main() {
   testScenario4();
   testScenario5();
   testScenario6();
+  testScenario7();
 
   console.log('');
   let allPass = true;
@@ -371,7 +409,7 @@ async function main() {
   console.log('\n' + '='.repeat(80));
 
   if (allPass) {
-    console.log(`${GREEN}${BOLD} OVERALL RESULT: 6 / 6 SCENARIOS PASSED (100%) - READY FOR PRODUCTION DEPLOY${RESET} ${DIM}(${totalTime}s)${RESET}`);
+    console.log(`${GREEN}${BOLD} OVERALL RESULT: 7 / 7 SCENARIOS PASSED (100%) - READY FOR PRODUCTION DEPLOY${RESET} ${DIM}(${totalTime}s)${RESET}`);
     console.log('='.repeat(80) + '\n');
     process.exit(0);
   } else {

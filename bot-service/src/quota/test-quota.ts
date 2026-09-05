@@ -31,4 +31,19 @@ console.log('3.2 ตรวจสอบสั่งซื้อเกินโค
 manager.syncFromWeb(1968, 2000, 32);
 console.log('4. สถานะหลัง Sync ยอดจริงจากหน้าเว็บ:', manager.getStatus());
 
+// 5. ทดสอบแกะชื่องวดทางการจากหน้าเว็บ GLO N3 Portal (เช่น "งวดวันที่ 16 ก.ย. 2569")
+const { parseOfficialRoundFromPortal } = require('./quota-manager');
+const round1 = parseOfficialRoundFromPortal('งวดวันที่ 16 ก.ย. 2569');
+console.log('5.1 ผลลัพธ์แกะงวดปกติ (16 ก.ย. 2569):', round1);
+
+const roundMay = parseOfficialRoundFromPortal('งวดวันที่ 2 พ.ค. 2569');
+console.log('5.2 ผลลัพธ์แกะงวดเลื่อนวันแรงงาน (2 พ.ค. 2569):', roundMay);
+
+const roundJan = parseOfficialRoundFromPortal('งวดวันที่ 17 ม.ค. 2569');
+console.log('5.3 ผลลัพธ์แกะงวดเลื่อนวันครู (17 ม.ค. 2569):', roundJan);
+
+// 6. ทดสอบ getCurrentRoundIdentifier กับวันหยุดราชการ
+console.log('6.1 งวดวันแรงงาน (2 พ.ค.):', QuotaManager.getCurrentRoundIdentifier(new Date('2026-05-02T10:00:00+07:00')));
+console.log('6.2 งวดวันครู (17 ม.ค.):', QuotaManager.getCurrentRoundIdentifier(new Date('2026-01-17T10:00:00+07:00')));
+
 console.log('--- สิ้นสุดการทดสอบ Quota Manager สำเร็จ 100% ---');
