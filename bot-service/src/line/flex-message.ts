@@ -1540,7 +1540,7 @@ export class FlexMessageBuilder {
     const comboOrderText = `สั่งซื้อ ` + allComboNums.map(n => `${n} 1 ใบ`).join(', ');
 
     const dreamParam = encodeURIComponent(pred.dreamText || '');
-    const webFullUrl = `${CONFIG.DREAM_PREDICTION_URL}${CONFIG.DREAM_PREDICTION_URL.includes('?') ? '&' : '?'}dream=${dreamParam}&openExternalBrowser=1`;
+    const webFullUrl = `${CONFIG.DREAM_PREDICTION_URL}${CONFIG.DREAM_PREDICTION_URL.includes('?') ? '&' : '?'}dream=${dreamParam}`;
 
     return {
       type: 'flex',

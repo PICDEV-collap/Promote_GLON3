@@ -41,6 +41,11 @@ export class N3OrderService {
 
       console.log(`[N3 ORDER] เริ่มสั่งซื้อสลากจำนวน ${items.length} รายการ: ${items.map(i => `${i.number}x${i.quantity}`).join(', ')}...`);
 
+      // เคลียร์ตะกร้าที่ตกค้างใน sessionStorage ก่อนเริ่มคำสั่งซื้อใหม่เสมอ
+      await page.evaluate(() => {
+        try { sessionStorage.removeItem('cart-store'); } catch {}
+      }).catch(() => {});
+
       // เข้าสู่หน้าค้นหาสลาก lotto-search เพื่อเริ่มต้นบิลใหม่ในตะกร้าเดียวกัน
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
       if (!page.url().includes('lotto-search')) {
@@ -117,43 +122,18 @@ export class N3OrderService {
           }
         }
 
-        // ล้างและกรอกตัวเลข 3 ตัว (ใช้ Fast DOM Setter ก่อนเพื่อความรวดเร็วระดับเสี้ยววินาที)
+        // ล้างและกรอกตัวเลข 3 ตัว (ใช้ Playwright fill ตรงกับ #digit-input-0/1/2 เพื่อกระตุ้น React Synthetic Event อย่างแม่นยำ)
         const digits = item.number.split('');
-        const filledFast = await page.evaluate((numStr) => {
-          const dg = numStr.split('');
-          const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]'))
-            .filter((inp: any) => inp.offsetParent !== null && !inp.disabled && !inp.readOnly) as HTMLInputElement[];
+        const d0 = page.locator('#digit-input-0');
+        const d1 = page.locator('#digit-input-1');
+        const d2 = page.locator('#digit-input-2');
 
-          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-
-          if (inputs.length >= 3) {
-            for (let d = 0; d < 3; d++) {
-              const el = inputs[d];
-              if (nativeSetter) {
-                nativeSetter.call(el, dg[d]);
-              } else {
-                el.value = dg[d];
-              }
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-              el.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            return true;
-          } else if (inputs.length === 1) {
-            const el = inputs[0];
-            if (nativeSetter) {
-              nativeSetter.call(el, numStr);
-            } else {
-              el.value = numStr;
-            }
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
-          }
-          return false;
-        }, item.number).catch(() => false);
-
-        if (!filledFast) {
-          // Playwright Fallback
+        if (await d0.isVisible().catch(() => false)) {
+          await d0.fill(digits[0]);
+          await d1.fill(digits[1]);
+          await d2.fill(digits[2]);
+        } else {
+          // Playwright Fallback กรณีโครงสร้าง DOM แตกต่างออกไป
           const digitInputs = page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible');
           const visibleCount = await digitInputs.count().catch(() => 0);
 
@@ -434,6 +414,15 @@ export class N3OrderService {
       // 3. รอหน้ายืนยันรายการ (/lotto-confirm/)
       console.log('[N3 ORDER STEP 3] รอนำทางสู่หน้า lotto-confirm...');
       await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 });
+      await page.waitForTimeout(600); // รอ React render หน้า lotto-confirm และดึง expect-reward ให้สมบูรณ์
+
+      // จัดการกรณีระบบ GLO ประมวลผลช้าและขึ้นปุ่ม "โหลดอีกครั้ง"
+      const reloadBtn = page.locator('button:has-text("โหลดอีกครั้ง")').first();
+      if (await reloadBtn.isVisible().catch(() => false)) {
+        console.log('[N3 ORDER] ตรวจพบปุ่ม "โหลดอีกครั้ง" บนหน้า lotto-confirm -> กำลังกดโหลดซ้ำ...');
+        await reloadBtn.click().catch(() => {});
+        await page.waitForTimeout(1000);
+      }
 
       // 3.5 ตรวจสอบความถูกต้องของจำนวนใบในหน้า lotto-confirm อีกครั้ง (Confirm Page Audit)
       if (hasMultiQty) {
@@ -460,15 +449,15 @@ export class N3OrderService {
             }
           }
         }
-        await page.waitForTimeout(150);
+        await page.waitForTimeout(200);
       } else {
-        await page.waitForTimeout(150);
+        await page.waitForTimeout(200);
       }
 
       // 4. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
       console.log('[N3 ORDER STEP 4] กำลังกดปุ่ม สร้าง QR ซื้อ-ขายสลากฯ...');
-      const createQrBtn = page.locator('button:has-text("สร้าง QR")').first();
-      await createQrBtn.waitFor({ state: 'visible', timeout: 10000 });
+      const createQrBtn = page.locator('button:has-text("สร้าง QR"), button:has-text("สร้าง QR ซื้อ-ขาย"), button:has-text("สร้าง QR ซื้อ-ขายสลากฯ"), [role="button"]:has-text("สร้าง QR")').first();
+      await createQrBtn.waitFor({ state: 'visible', timeout: 15000 });
       await createQrBtn.click();
 
       // 5. รอป๊อปอัปยืนยัน และกดปุ่ม "ยืนยัน"

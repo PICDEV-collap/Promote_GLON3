@@ -34,7 +34,7 @@ const RICH_MENU_SPEC = {
     },
     {
       bounds: { x: 0, y: ROW_H, width: 833, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/?openExternalBrowser=1' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/' }
     },
     {
       bounds: { x: 833, y: ROW_H, width: 834, height: ROW_H },
