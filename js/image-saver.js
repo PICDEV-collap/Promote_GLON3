@@ -2,10 +2,10 @@
  * GLO N3 Mobile-First Image Saver Utility
  * Solves silent download failures in LINE In-App Browser & mobile webviews.
  * Supports:
- *  1. Desktop direct downloads via <a download>
+ *  1. Desktop & Standard Mobile Direct Downloads (Samsung Internet, Chrome, Safari, Firefox) via Blob Object URL
  *  2. Mobile Native Web Share API (Level 2) with File payload (triggers iOS/Android Save Image sheet)
- *  3. Interactive Long-Press (Touch & Hold) modal with high-contrast Thai guidance
- *  4. External browser redirection (?openExternalBrowser=1)
+ *  3. Interactive Long-Press (Touch & Hold) modal with high-contrast Thai guidance for restricted webviews
+ *  4. External browser redirection (?openExternalBrowser=1) for LINE In-App Browser
  *  5. LINE Webview smart top-banner for 1-tap browser switching
  */
 
@@ -21,18 +21,79 @@ const ImageSaver = (function () {
     return /Line\//i.test(navigator.userAgent || '');
   }
 
+  function isInAppBrowser() {
+    const ua = navigator.userAgent || '';
+    return /Line\/|FBAN|FBAV|Instagram|Twitter|MicroMessenger|Snapchat/i.test(ua);
+  }
+
   /**
-   * Convert Data URL to a Blob
+   * Convert Data URL, Blob URL, or Image Path (relative / absolute) to a real Blob
+   */
+  async function srcToBlob(src) {
+    if (!src) throw new Error('Missing image src');
+
+    // Case 1: Base64 Data URL
+    if (src.startsWith('data:')) {
+      const parts = src.split(';base64,');
+      const contentType = (parts[0].split(':')[1] || 'image/png').split(';')[0];
+      const base64Data = parts[1] || '';
+      const raw = window.atob(base64Data);
+      const uInt8Array = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      return new Blob([uInt8Array], { type: contentType });
+    }
+
+    // Case 2: Fetch image directly (works for same-origin or CORS-enabled URLs and blob: URLs)
+    try {
+      const res = await fetch(src, { mode: 'cors' });
+      if (res.ok) {
+        return await res.blob();
+      }
+    } catch (e) {
+      console.warn('[ImageSaver] fetch blob failed, trying canvas fallback:', e);
+    }
+
+    // Case 3: Canvas drawing fallback for loaded image
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 400;
+          canvas.height = img.naturalHeight || img.height || 400;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas toBlob returned null'));
+          }, 'image/png');
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to load image for blob conversion: ' + src));
+      img.src = src;
+    });
+  }
+
+  /**
+   * Convert Data URL to a Blob (synchronous helper for base64)
    */
   function dataUrlToBlob(dataUrl) {
-    const parts = dataUrl.split(';base64,');
-    const contentType = parts[0].split(':')[1] || 'image/png';
-    const raw = window.atob(parts[1]);
-    const uInt8Array = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; ++i) {
-      uInt8Array[i] = raw.charCodeAt(i);
+    if (dataUrl && dataUrl.startsWith('data:')) {
+      const parts = dataUrl.split(';base64,');
+      const contentType = parts[0].split(':')[1] || 'image/png';
+      const raw = window.atob(parts[1]);
+      const uInt8Array = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      return new Blob([uInt8Array], { type: contentType });
     }
-    return new Blob([uInt8Array], { type: contentType });
+    return null;
   }
 
   /**
@@ -65,35 +126,72 @@ const ImageSaver = (function () {
   }
 
   /**
-   * Trigger classic desktop download
+   * Trigger direct download via Blob Object URL
+   * Fully supported by Samsung Internet, Android Chrome, Safari, Firefox, and Desktop browsers!
+   */
+  async function triggerDirectDownload(src, filename) {
+    const finalFilename = filename || `GLO-N3-${Date.now()}.png`;
+    try {
+      const blob = await srcToBlob(src);
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = finalFilename;
+      link.href = blobUrl;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }, 1500);
+      return true;
+    } catch (err) {
+      console.warn('[ImageSaver] Blob direct download failed, trying standard link fallback:', err);
+      try {
+        const link = document.createElement('a');
+        link.download = finalFilename;
+        link.href = src;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+        }, 500);
+        return true;
+      } catch (fallbackErr) {
+        console.error('[ImageSaver] Fallback link download failed:', fallbackErr);
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Classic trigger download alias
    */
   function triggerDesktopDownload(dataUrl, filename) {
-    const link = document.createElement('a');
-    link.download = filename || `GLO-N3-${Date.now()}.png`;
-    link.href = dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
-      }
-    }, 200);
+    return triggerDirectDownload(dataUrl, filename);
   }
 
   /**
    * Main save entry point
    * @param {Object} options
-   * @param {string} options.dataUrl - Base64 PNG data URL or image source
+   * @param {string} options.dataUrl - Base64 PNG data URL, blob URL, or image source path
    * @param {string} options.filename - Desired filename e.g. GLO-N3-Poster.png
    * @param {string} [options.title] - Title for share sheet / modal
    * @param {string} [options.text] - Description text for share sheet
+   * @param {boolean} [options.forceModal] - Force opening modal instead of direct download
    */
   async function saveImage(options) {
     const {
       dataUrl,
       filename = `GLO-N3-${Date.now()}.png`,
       title = 'รูปภาพสลาก N3',
-      text = 'บันทึกรูปภาพจากร้านสลาก N3 ธนกิจนำโชค'
+      text = 'บันทึกรูปภาพจากร้านสลาก N3 ธนกิจนำโชค',
+      forceModal = false
     } = options;
 
     if (!dataUrl) {
@@ -101,18 +199,37 @@ const ImageSaver = (function () {
       return;
     }
 
-    // If running on desktop browser (not mobile, not in-app webview):
-    if (!isMobile()) {
-      triggerDesktopDownload(dataUrl, filename);
-      if (typeof window.showToast === 'function') {
-        window.showToast('กำลังดาวน์โหลดรูปภาพลงเครื่อง...');
-      }
+    const inLine = isLineWebview();
+
+    // 1. Inside LINE In-App Browser:
+    // LINE blocks <a download> and displays download error dialog,
+    // so we MUST guide user with 3-tier mobile modal (touch & hold, Web Share API, or openExternalBrowser)
+    if (inLine || forceModal) {
+      openMobileSaveModal({ dataUrl, filename, title, text });
       return;
     }
 
-    // On mobile / LINE In-App Browser:
-    // Open dedicated mobile modal showing the image with clear long-press guide & quick actions
-    openMobileSaveModal({ dataUrl, filename, title, text });
+    // 2. Standard Mobile & Desktop Browsers (Samsung Internet, Chrome, Safari, Firefox, Edge):
+    // Direct download via Blob object URL works natively and saves file to Downloads / Gallery!
+    try {
+      if (typeof window.showToast === 'function') {
+        window.showToast('📥 กำลังบันทึกรูปภาพลงในเครื่อง...', 'info');
+      }
+      const success = await triggerDirectDownload(dataUrl, filename);
+      if (success) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('✅ บันทึกรูปภาพลงในเครื่องแล้ว! (ดูในแกลเลอรี/ดาวน์โหลด)', 'success');
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn('[ImageSaver] Direct download failed, falling back to modal:', err);
+    }
+
+    // 3. Fallback: If direct download failed on mobile, open the Mobile Save Modal
+    if (isMobile()) {
+      openMobileSaveModal({ dataUrl, filename, title, text });
+    }
   }
 
   /**
@@ -124,6 +241,9 @@ const ImageSaver = (function () {
       modal = createModalDOM();
       document.body.appendChild(modal);
     }
+
+    // Ensure it is always stacked on top of other modals
+    modal.style.zIndex = '10050';
 
     const titleEl = modal.querySelector('#image-saver-title');
     const imgEl = modal.querySelector('#image-saver-img');
@@ -157,15 +277,15 @@ const ImageSaver = (function () {
 
         if (shareSupported) {
           try {
-            const blob = dataUrlToBlob(dataUrl);
-            const file = new File([blob], filename, { type: 'image/png' });
+            const blob = await srcToBlob(dataUrl);
+            const file = new File([blob], filename, { type: blob.type || 'image/png' });
             await navigator.share({
               title: title,
               text: text,
               files: [file]
             });
             if (typeof window.showToast === 'function') {
-              window.showToast('แชร์ / บันทึกรูปภาพสำเร็จ!');
+              window.showToast('แชร์ / บันทึกรูปภาพสำเร็จ!', 'success');
             }
           } catch (err) {
             if (err.name !== 'AbortError') {
@@ -208,8 +328,8 @@ const ImageSaver = (function () {
         }
       } else {
         btnFallbackDl.style.display = 'inline-flex';
-        btnFallbackDl.onclick = () => {
-          triggerDesktopDownload(dataUrl, filename);
+        btnFallbackDl.onclick = async () => {
+          await triggerDirectDownload(dataUrl, filename);
           if (typeof window.showToast === 'function') {
             window.showToast('เริ่มคำสั่งดาวน์โหลดไฟล์...');
           }
@@ -246,6 +366,7 @@ const ImageSaver = (function () {
     const div = document.createElement('div');
     div.id = 'modal-image-saver';
     div.className = 'modal-overlay';
+    div.style.zIndex = '10050';
     div.innerHTML = `
       <div class="modal-card image-saver-card" style="max-width: 480px; width: 92%; max-height: 90vh; overflow-y: auto; text-align: center;">
         <button type="button" class="modal-close" onclick="ImageSaver.closeModal()">&times;</button>
@@ -337,10 +458,13 @@ const ImageSaver = (function () {
   return {
     isMobile,
     isLineWebview,
+    isInAppBrowser,
     canShareFiles,
+    srcToBlob,
     saveImage,
     closeModal,
     openInExternalBrowser,
+    triggerDirectDownload,
     triggerDesktopDownload
   };
 })();

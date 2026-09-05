@@ -2542,6 +2542,10 @@ footer {
 /* ==========================================================================
    MOBILE-FIRST IMAGE SAVER & LONG-PRESS STYLING
    ========================================================================== */
+#modal-image-saver {
+  z-index: 10050 !important;
+}
+
 .image-saver-guide-box {
   display: flex;
   align-items: center;
