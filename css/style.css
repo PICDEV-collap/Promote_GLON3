@@ -145,18 +145,21 @@ h1, h2, h3, h4, h5, h6 {
 .text-gradient-gold {
   background: linear-gradient(135deg, #fff2a3 0%, #ffd700 50%, #ffaa00 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-emerald {
   background: linear-gradient(135deg, #a7f3d0 0%, #10b981 50%, #059669 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-cyan {
   background: linear-gradient(135deg, #a5f3fc 0%, #06b6d4 50%, #0284c7 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
