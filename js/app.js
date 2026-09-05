@@ -13,6 +13,50 @@
 
 document.addEventListener('DOMContentLoaded', function () {
   // -------------------------------------------------------------------------
+  // 0. Direct Deep-Link Utilities (Bypass line.me Intermediary Landing Pages)
+  // -------------------------------------------------------------------------
+  function getLineDeepLink(lineId, message) {
+    const rawLine = (lineId || '@586xxhlx').trim();
+    const formattedLine = rawLine.startsWith('@') ? rawLine : '@' + rawLine;
+    const encodedId = encodeURIComponent(formattedLine);
+    const encodedMsg = encodeURIComponent(message || '');
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+    const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+    const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+    const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+
+    const directUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+
+    return {
+      directUrl,
+      universalUrl,
+      customSchemeUrl,
+      androidIntentUrl,
+      isAndroid,
+      isIOS
+    };
+  }
+
+  function openLineOrder(lineId, message) {
+    const links = getLineDeepLink(lineId, message);
+    if (typeof copyToClipboard === 'function') {
+      copyToClipboard(message);
+    }
+    try {
+      window.location.href = links.directUrl;
+    } catch (err) {
+      console.warn('Direct app navigation failed, falling back to universal link:', err);
+      try { window.location.href = links.universalUrl; } catch (e) {}
+    }
+  }
+
+  window.getLineDeepLink = getLineDeepLink;
+  window.openLineOrder = openLineOrder;
+
+  // -------------------------------------------------------------------------
   // 1. PWA Installation & Service Worker Registrar
   // -------------------------------------------------------------------------
   PWAInstaller.registerServiceWorker();
@@ -274,16 +318,24 @@ document.addEventListener('DOMContentLoaded', function () {
       locationEl.innerText = agent.location || 'จุดจำหน่ายสลากตัวเลขสามหลัก (N3) ดิจิทัล ถูกต้องตามกฎหมาย 100%';
     }
 
-    // 4. ลิงก์ปุ่มแชทสั่งซื้อผ่าน LINE
+    // 4. ลิงก์ปุ่มแชทสั่งซื้อผ่าน LINE (Direct Deep Link)
     const lineBtn = document.getElementById('btn-order-line-direct');
     if (lineBtn) {
       let lineLink = 'https://line.me';
       if (agent.line) {
-        lineLink = agent.line.startsWith('http') 
-          ? agent.line 
-          : `https://line.me/R/ti/p/${agent.line.startsWith('@') ? agent.line : '@' + agent.line}`;
+        const agentLine = (agent.line || '@586xxhlx').trim();
+        const formatted = agentLine.startsWith('@') ? agentLine : '@' + agentLine;
+        const ua = navigator.userAgent || '';
+        const isAndroid = /Android/i.test(ua);
+        const isIOS = /iPhone|iPad|iPod/i.test(ua);
+        const universalChat = `https://line.me/R/ti/p/${formatted}`;
+        const customChat = `line://ti/p/${formatted}`;
+        const intentChat = `intent://ti/p/${formatted}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalChat)};end`;
+
+        lineLink = isAndroid ? intentChat : (isIOS ? customChat : universalChat);
       }
       lineBtn.href = lineLink;
+      lineBtn.removeAttribute('target');
       lineBtn.setAttribute('title', `แชทสั่งซื้อสลาก N3 กับ ${agent.name}`);
     }
 
@@ -804,19 +856,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const currentAgentLine = (window.AgentSystem && typeof window.AgentSystem.getAgentInfo === 'function')
       ? window.AgentSystem.getAgentInfo().line
       : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
-    const rawLine = currentAgentLine || '@586xxhlx';
-    const formattedLine = rawLine.startsWith('@') ? rawLine : '@' + rawLine;
-    const dynamicLineOaId = encodeURIComponent(formattedLine);
+    const dynamicLineOaId = currentAgentLine || '@586xxhlx';
 
-    // 2. Setup Primary LINE Order Button (1-Click Deep Link)
+    // 2. Setup Primary LINE Order Button (Direct Mobile App Deep Link)
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
       const defaultOrderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      btnOrderLine.href = `https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(defaultOrderMsg)}`;
+      const deepLink = getLineDeepLink(dynamicLineOaId, defaultOrderMsg);
+      btnOrderLine.href = deepLink.directUrl;
+      btnOrderLine.removeAttribute('target');
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
-      btnOrderLine.onclick = () => {
-        copyToClipboard(defaultOrderMsg);
-        showToast(`📋 คัดลอกคำสั่งซื้อ "${defaultOrderMsg}" แล้ว! กำลังเปิด LINE...`);
+      btnOrderLine.onclick = (e) => {
+        e.preventDefault();
+        showToast(`📋 คัดลอกคำสั่งซื้อ "${defaultOrderMsg}" แล้ว! กำลังเปิดแอป LINE...`);
+        openLineOrder(dynamicLineOaId, defaultOrderMsg);
       };
     }
 
@@ -828,9 +881,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (pkgBtnDirect) {
       pkgBtnDirect.onclick = () => {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-        copyToClipboard(msg);
-        showToast(`🎯 3 ตัวตรง: คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(msg)}`, '_blank');
+        showToast(`🎯 3 ตัวตรง: คัดลอก "${msg}" แล้ว! กำลังเปิดแอป LINE...`);
+        openLineOrder(dynamicLineOaId, msg);
       };
     }
 
@@ -839,18 +891,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const orderItems = [`${pred.n3Direct} 1 ใบ`];
         todsList.forEach(t => orderItems.push(`${t} 1 ใบ`));
         const msg = `สั่งซื้อ ${orderItems.join(', ')}`;
-        copyToClipboard(msg);
-        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(msg)}`, '_blank');
+        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว! กำลังเปิดแอป LINE...`);
+        openLineOrder(dynamicLineOaId, msg);
       };
     }
 
     if (pkgBtnTwo) {
       pkgBtnTwo.onclick = () => {
         const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-        copyToClipboard(msg);
-        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): คัดลอก "${msg}" แล้ว! กำลังเปิด LINE...`);
-        window.open(`https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(msg)}`, '_blank');
+        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): คัดลอก "${msg}" แล้ว! กำลังเปิดแอป LINE...`);
+        openLineOrder(dynamicLineOaId, msg);
       };
     }
 
@@ -858,11 +908,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
     if (mobileLineBtn) {
       const mobileMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      mobileLineBtn.href = `https://line.me/R/oaMessage/${dynamicLineOaId}/?${encodeURIComponent(mobileMsg)}`;
+      const deepLink = getLineDeepLink(dynamicLineOaId, mobileMsg);
+      mobileLineBtn.href = deepLink.directUrl;
+      mobileLineBtn.removeAttribute('target');
       mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
-      mobileLineBtn.onclick = () => {
-        copyToClipboard(mobileMsg);
-        showToast(`คัดลอกคำสั่งซื้อ "${mobileMsg}" แล้ว!`);
+      mobileLineBtn.onclick = (e) => {
+        e.preventDefault();
+        showToast(`คัดลอกคำสั่งซื้อ "${mobileMsg}" แล้ว! กำลังเปิดแอป LINE...`);
+        openLineOrder(dynamicLineOaId, mobileMsg);
       };
     }
 
@@ -1639,23 +1692,14 @@ document.addEventListener('DOMContentLoaded', function () {
       const items = Array.from(map.entries()).map(([num, qty]) => `${num} ${qty} ใบ`);
       const cmd = `สั่งซื้อ ${items.join(', ')}`;
 
-      copyToClipboard(cmd);
-      showToast(`📋 ส่งคำสั่งซื้อ "${cmd}" เข้าสู่ LINE...`);
-
       const agentLineModal = (window.AgentSystem && typeof window.AgentSystem.getAgentInfo === 'function')
         ? window.AgentSystem.getAgentInfo().line
         : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
       const rawModalLine = agentLineModal || '@586xxhlx';
-      const formattedModalLine = rawModalLine.startsWith('@') ? rawModalLine : '@' + rawModalLine;
-      const encodedId = encodeURIComponent(formattedModalLine);
-      const lineUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodeURIComponent(cmd)}`;
-      if (modalOrderTable) modalOrderTable.classList.remove('active');
 
-      try {
-        window.location.href = lineUrl;
-      } catch (err) {
-        window.open(lineUrl, '_blank');
-      }
+      if (modalOrderTable) modalOrderTable.classList.remove('active');
+      showToast(`📋 ส่งคำสั่งซื้อ "${cmd}" เข้าสู่แอป LINE...`);
+      openLineOrder(rawModalLine, cmd);
     });
   }
 

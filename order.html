@@ -1368,24 +1368,34 @@
       modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
       modalCmdDisplay.textContent = orderCommand;
 
-      // Build Deep Link URL (Official LINE scheme: line.me/R/oaMessage/{%40LINE_ID}/?{message})
+      // Build Direct Deep Link URL (Direct Intent / Custom Scheme to bypass line.me landing page)
       const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID); // '%40586xxhlx'
-      const lineUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodeURIComponent(orderCommand)}`;
-      btnModalOpenLine.href = lineUrl;
+      const encodedMsg = encodeURIComponent(orderCommand);
+      const isAndroid = /Android/i.test(navigator.userAgent || '');
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
-      // Copy to clipboard immediately
+      const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+      const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+      const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+
+      // Priority URL for opening LINE app directly
+      const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+      btnModalOpenLine.href = directAppUrl;
+
+      // Copy to clipboard immediately as safety net
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(orderCommand).catch(() => {});
       }
 
-      // 5. Open Confirmation Modal & Automatically Dispatch to LINE
+      // 5. Open Confirmation Modal & Automatically Dispatch to LINE App
       modalConfirm.classList.add('active');
-      showToast(`🛒 กำลังเปิด LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
+      showToast(`🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
 
       try {
-        window.location.href = lineUrl;
+        window.location.href = directAppUrl;
       } catch (err) {
-        console.warn('Direct redirection failed, modal fallback is displayed:', err);
+        console.warn('Direct redirection failed, falling back to universal link:', err);
+        try { window.location.href = universalUrl; } catch (e) {}
       }
     });
 

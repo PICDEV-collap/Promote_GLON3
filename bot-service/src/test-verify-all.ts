@@ -1419,11 +1419,27 @@ function runTests() {
     assert(content.includes('toArabicDigits(rawOrderList)'), 'Must convert Thai numeral in URL parameter orderList');
     assert(content.includes('Enter'), 'Must support Enter key row navigation');
 
-    // Verify app.js modal table
+    // Verify direct mobile app deep linking (bypass line.me intermediary landing page)
+    assert(content.includes('androidIntentUrl'), 'order.html must construct androidIntentUrl');
+    assert(content.includes('customSchemeUrl'), 'order.html must construct customSchemeUrl');
+    assert(content.includes('jp.naver.line.android'), 'order.html must target LINE Android package');
+
+    // Verify bot-service/public/order.html is in sync
+    const pubOrderHtmlPath = path.resolve(__dirname, '../public/order.html');
+    if (fs.existsSync(pubOrderHtmlPath)) {
+      const pubContent = fs.readFileSync(pubOrderHtmlPath, 'utf-8');
+      assert(pubContent.includes('androidIntentUrl'), 'public/order.html must construct androidIntentUrl');
+      assert(pubContent.includes('jp.naver.line.android'), 'public/order.html must target LINE Android package');
+    }
+
+    // Verify app.js modal table & dream order deep link utilities
     const appJsPath = path.resolve(__dirname, '../../js/app.js');
     const appContent = fs.readFileSync(appJsPath, 'utf-8');
     assert(appContent.includes('modal-order-table'), 'app.js must handle modal-order-table');
     assert(!appContent.includes('?text='), 'app.js must not use non-standard ?text=');
+    assert(appContent.includes('getLineDeepLink'), 'app.js must implement getLineDeepLink');
+    assert(appContent.includes('openLineOrder'), 'app.js must implement openLineOrder');
+    assert(appContent.includes('jp.naver.line.android'), 'app.js must support LINE Android Intent');
   });
 
   test('n3-engine: cleanFiles cleans paotang-login QRs and require.main safeguard exists', () => {
