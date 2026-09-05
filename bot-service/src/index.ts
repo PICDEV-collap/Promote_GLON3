@@ -384,6 +384,112 @@ app.post('/api/campaign/draw-results', async (req: Request, res: Response) => {
   }
 });
 
+// -------------------------------------------------------------------------
+// Direct Order REST API (รองรับการสั่งซื้อผ่านตารางเว็บ / LIFF โดยตรง ไม่ต้องพิมพ์ส่งซ้ำในแชท LINE)
+// -------------------------------------------------------------------------
+app.options('/api/order-direct', (_req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.status(204).end();
+});
+
+app.post('/api/order-direct', async (req: Request, res: Response): Promise<void> => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+
+  const { userId, items } = req.body || {};
+  if (!userId || !items || !Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ success: false, error: 'ข้อมูลคำสั่งซื้อไม่ถูกต้อง (ต้องระบุ userId และรายการ items)' });
+    return;
+  }
+
+  // กรองตัวเลขสลาก 3 หลัก
+  const validItems: OrderItem[] = [];
+  for (const it of items) {
+    const num = String(it.number || '').trim();
+    const qty = parseInt(it.quantity, 10) || 1;
+    if (/^\d{3}$/.test(num) && qty >= 1) {
+      validItems.push({ number: num, quantity: Math.min(qty, 100) });
+    }
+  }
+
+  if (validItems.length === 0) {
+    res.status(400).json({ success: false, error: 'ไม่มีตัวเลขสลาก 3 หลักที่ถูกต้อง' });
+    return;
+  }
+
+  const totalQuantity = validItems.reduce((sum, it) => sum + it.quantity, 0);
+  const totalPrice = totalQuantity * 20;
+
+  // 1. ตรวจสอบระเบียบเวลาจำหน่าย
+  const salesStatus = OperatingHoursGuard.checkSalesStatus();
+  if (!salesStatus.isOpen) {
+    res.status(400).json({
+      success: false,
+      error: 'ไม่อยู่ในเวลาจำหน่ายสลาก N3 (เปิดจำหน่าย 06:00 - 23:00 น.)',
+      reason: salesStatus.reason
+    });
+    return;
+  }
+
+  // 2. ตรวจสอบโควต้าสลากคงเหลือ
+  const quotaCheck = quotaManager.canFulfill(totalQuantity);
+  if (!quotaCheck.allowed) {
+    res.status(400).json({
+      success: false,
+      error: `โควต้าสลากคงเหลือไม่เพียงพอ (เหลือ ${quotaCheck.remaining} ใบ)`,
+      remaining: quotaCheck.remaining
+    });
+    return;
+  }
+
+  // 3. บันทึกข้อมูลลูกค้า
+  customerRegistry.registerOrUpdateUser(userId);
+  customerRegistry.incrementOrderCount(userId);
+
+  const formattedSummary = validItems.map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
+  const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  const orderTask: OrderTask = {
+    orderId,
+    replyToken: '',
+    userId,
+    items: validItems,
+    number: validItems[0].number,
+    quantity: totalQuantity,
+    totalQuantity,
+    totalPrice,
+    timestamp: Date.now(),
+    hasRepliedQueue: false
+  };
+
+  const queuePos = orderQueue.enqueue(orderTask);
+  const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
+
+  const waitingMessage = queuePos > 1
+    ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
+    : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
+
+  // ส่ง Push Message แจ้งเตือนเข้าแชท LINE ของลูกค้าทันที
+  try {
+    await lineHandler.push(userId, [{ type: 'text', text: waitingMessage }]);
+    orderTask.hasRepliedQueue = true;
+  } catch (err) {
+    console.warn('[ORDER DIRECT] ไม่สามารถ push ข้อความยืนยันรับออเดอร์ได้:', err);
+  }
+
+  res.json({
+    success: true,
+    orderId,
+    queuePosition: queuePos,
+    totalQuantity,
+    totalPrice,
+    message: 'รับคำสั่งซื้อเรียบร้อยแล้ว ระบบกำลังสร้าง QR Code ส่งเข้าห้องแชท LINE ของคุณ'
+  });
+});
+
 let context: BrowserContext | null = null;
 let page: Page | null = null;
 let isLoggingIn: boolean = false;
