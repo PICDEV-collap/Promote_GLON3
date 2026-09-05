@@ -9,6 +9,7 @@ export interface QuotaData {
   maxQuota: number;        // โควต้าสูงสุด (2,000 ใบ)
   usedQuota: number;       // ใช้ไปแล้ว (เช่น 32 ใบ)
   remainingQuota: number;  // คงเหลือ (เช่น 1,968 ใบ)
+  pendingQuota?: number;   // รอชำระเงิน (เช่น 1 ใบ)
   lastUpdated: string;
   syncedAt?: string;       // เวลาที่ซิงค์จากหน้าเว็บ GLO N3 Portal ล่าสุด
 }
@@ -17,6 +18,7 @@ export interface ExtractedQuota {
   remainingQuota: number;
   usedQuota: number;
   maxQuota: number;
+  pendingQuota?: number;
 }
 
 export class QuotaManager {
@@ -212,6 +214,7 @@ export class QuotaManager {
     let remainingQuota: number | null = null;
     let usedQuota: number | null = null;
     let maxQuota: number = fallbackMaxQuota || CONFIG.DEFAULT_MAX_QUOTA || 2000;
+    let pendingQuota: number = 0;
 
     // 1. ตรวจสอบยอดขายร้านค้า: "32 / 2,000 ใบ" หรือ "ยอดขาย: 32 / 2,000 ใบ"
     const soldMatch = text.match(/(?:ยอดขาย(?:ร้านค้า)?)?\s*[:：]?\s*([0-9,]+)\s*\/\s*([0-9,]+)\s*ใบ/);
@@ -244,6 +247,15 @@ export class QuotaManager {
       }
     }
 
+    // 4. ตรวจสอบข้อความรอชำระเงิน: "รอชำระเงิน 1 ใบ", "รอชำระเงิน: 1 ใบ" หรือ "รอชำระเงิน1ใบ"
+    const pendingMatch = text.match(/รอชำระเงิน\s*[:：]?\s*([0-9,]+)\s*ใบ/);
+    if (pendingMatch) {
+      const pend = parseInt(pendingMatch[1].replace(/,/g, ''), 10);
+      if (!isNaN(pend)) {
+        pendingQuota = pend;
+      }
+    }
+
     // เติมเต็มค่าที่อนุมานได้หากพบเพียงตัวใดตัวหนึ่ง
     if (remainingQuota !== null && usedQuota === null) {
       usedQuota = Math.max(0, maxQuota - remainingQuota);
@@ -252,10 +264,16 @@ export class QuotaManager {
     }
 
     if (remainingQuota !== null && usedQuota !== null) {
+      // หากไม่มีสลากค้างรอชำระเงิน (pendingQuota === 0) แต่ยอดขายที่แสดงช้ากว่ายอดคงเหลือจริงที่ตัดไปแล้ว
+      // ให้ปรับ usedQuota ให้สอดคล้องกับ (maxQuota - remainingQuota) เพื่อป้องกันยอดขายค้างไม่อัปเดต
+      if (pendingQuota === 0 && (maxQuota - remainingQuota) > usedQuota) {
+        usedQuota = maxQuota - remainingQuota;
+      }
       return {
         remainingQuota,
         usedQuota,
-        maxQuota
+        maxQuota,
+        pendingQuota
       };
     }
 
@@ -279,16 +297,26 @@ export class QuotaManager {
       const cleanUrl = currentUrl.replace(/\/+$/, '');
       const isLanding = cleanUrl.includes('/landing') || cleanUrl === 'https://n3.glolotteryshop.com';
 
-      // หากไม่ได้อยู่ในหน้า landing และต้องการนำทาง ให้เปิดไปที่ /landing/
-      if (!isLanding && navigateIfNeeded) {
-        if (currentUrl.includes('/lotto-search') || currentUrl.includes('/lotto-confirm')) {
+      // หากอยู่ที่หน้า landing แล้ว ให้รีเฟรชหน้าเพื่อให้ Next.js SPA ดึงยอดขายและยอดคงเหลือล่าสุดจาก Server
+      if (isLanding) {
+        if (typeof (page as any).reload === 'function') {
+          console.log('[QUOTA SYNC] หน้าต่างเบราว์เซอร์อยู่ที่หน้า Landing -> กำลังรีเฟรชเพื่อดึงยอดขายและโควต้าล่าสุด...');
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
+          if (typeof page.waitForTimeout === 'function') {
+            await page.waitForTimeout(800);
+          }
+        }
+      } else if (navigateIfNeeded) {
+        if (currentUrl.includes('/lotto-search') || currentUrl.includes('/lotto-confirm') || currentUrl.includes('/qr/')) {
           console.log('[QUOTA SYNC] เบราว์เซอร์กำลังอยู่ในขั้นตอนสั่งซื้อ ข้ามการนำทางเพื่อไม่ให้รบกวนออเดอร์');
           return null;
         }
 
         console.log('[QUOTA SYNC] กำลังนำทางไปหน้าหลักเพื่อซิงค์โควต้า: https://n3.glolotteryshop.com/landing/');
         await page.goto('https://n3.glolotteryshop.com/landing/', { waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
-        await page.waitForTimeout(800);
+        if (typeof page.waitForTimeout === 'function') {
+          await page.waitForTimeout(800);
+        }
       }
 
       const activeUrl = typeof page.url === 'function' ? page.url() : '';
@@ -343,15 +371,19 @@ export class QuotaManager {
         this.data.remainingQuota = extracted.remainingQuota;
         this.data.usedQuota = extracted.usedQuota;
         this.data.maxQuota = extracted.maxQuota;
+        if (extracted.pendingQuota !== undefined) {
+          this.data.pendingQuota = extracted.pendingQuota;
+        }
         this.data.lastUpdated = new Date().toISOString();
         this.data.syncedAt = new Date().toISOString();
         this.saveQuota(this.data);
 
-        console.log(`[QUOTA SYNC SUCCESS] อัปเดตโควต้าจากระบบจริงสำเร็จ: คงเหลือ ${this.data.remainingQuota.toLocaleString()} / ${this.data.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${this.data.usedQuota.toLocaleString()} ใบ)`);
+        console.log(`[QUOTA SYNC SUCCESS] อัปเดตโควต้าจากระบบจริงสำเร็จ: คงเหลือ ${this.data.remainingQuota.toLocaleString()} / ${this.data.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${this.data.usedQuota.toLocaleString()} ใบ${this.data.pendingQuota ? `, รอชำระเงิน ${this.data.pendingQuota} ใบ` : ''})`);
         return {
           remainingQuota: this.data.remainingQuota,
           usedQuota: this.data.usedQuota,
-          maxQuota: this.data.maxQuota
+          maxQuota: this.data.maxQuota,
+          pendingQuota: this.data.pendingQuota
         };
       } else {
         console.warn('[QUOTA SYNC] ไม่พบรูปแบบข้อความโควต้าบนหน้าเว็บ (URL:', activeUrl, ')');

@@ -1,41 +1,91 @@
-# 🎯 N3-MANAGER : ศูนย์ควบคุมระบบตัวแทนสลากดิจิทัล N3 (ธนกิจนำโชค)
+# 🎯 N3-MANAGER : ระบบตัวแทนและบอทจำหน่ายสลากดิจิทัล N3 (ธนกิจนำโชค)
 
-ระบบโปรโมทและสั่งซื้อสลากกินแบ่งรัฐบาล N3 อัตโนมัติผ่าน LINE Official Account เชื่อมต่อกับระบบตัวแทนจำหน่าย N3 และสแกนชำระเงินผ่านแอป "เป๋าตัง"
+[![GLO N3 Verified](https://img.shields.io/badge/GLO%20N3-Verified%20Dealer-0056b3.svg)](#)
+[![LINE Bot Active](https://img.shields.io/badge/LINE%20Bot-%40586xxhlx-06c755.svg)](#)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7.3-3178c6.svg)](#)
+[![Playwright](https://img.shields.io/badge/Playwright-1.50.1-2ead33.svg)](#)
+[![Tests Passing](https://img.shields.io/badge/Tests-92%2F92%20Pass%20(100%25)-success.svg)](#)
+
+ระบบเว็บแอปพลิเคชันและบอทอัตโนมัติครบวงจรสำหรับตัวแทนจำหน่ายสลากกินแบ่งรัฐบาลตัวเลขสามหลัก (GLO N3) ของร้าน **"สลาก N3 ธนกิจนำโชค"** (`@586xxhlx`) รองรับการสั่งซื้อสลากแบบหลายหมายเลขในบิลเดียว ทำนายฝัน AI สุ่มเลขมงคลกระจายไม่ซ้ำรายบุคคล และแจ้งผลการออกรางวัลอัตโนมัติ
 
 ---
 
-## 📂 โครงสร้างโปรเจกต์ (Clean & Organized Structure)
+## 📂 โครงสร้างโปรเจกต์ระดับมืออาชีพ (Professional Directory Structure)
 
 ```
 d:\Promote_GLON3\
 │
-├── 🚀 N3-MANAGER.bat           <-- จุดเริ่มต้นใช้งานจุดเดียว (Master Control Center)
-├── 👻 START-BOT-HIDDEN.vbs     <-- เริ่มต้นบอทโหมดซ่อนหน้าต่าง 100% (ไร้หน้าจอกวนใจ)
-├── 🔕 START-BOT-SILENT.bat     <-- ตัวเปิดโหมดเงียบ (เรียกใช้ START-BOT-HIDDEN.vbs)
-├── 🛑 STOP-BOT.bat             <-- สั่งหยุดการทำงานของบอทและล้างพอร์ต 3333 ทันที
-├── 📌 CREATE-DESKTOP-SHORTCUTS.bat <-- สร้างทางลัดบนหน้าจอ Desktop ให้อัตโนมัติ
-├── 🌐 index.html               <-- เว็บไซต์โปรโมทสลาก N3 / ทำนายฝัน AI / ระบบตัวแทน
-├── 📱 manifest.json            <-- ตั้งค่า Progressive Web App (PWA)
-├── ⚙️ sw.js                    <-- Service Worker สำหรับแคชและออฟไลน์
-├── ☁️ vercel.json              <-- การตั้งค่า Deploy เว็บไซต์บน Vercel
-├── 📄 README.md                <-- เอกสารคู่มือระบบ
+├── 📁 .agents/                  <-- กฎระเบียบและทักษะเฉพาะตัวของระบบอัตโนมัติ (Rules & Ops Skills)
+├── 📁 api/                      <-- Vercel Serverless Function (draw-schedule.js ดึงปฏิทินหวยออกทางการ)
+├── 📁 bot-service/              <-- ระบบแบ็กเอนด์ Node.js + TypeScript + Playwright
+│   ├── src/                     <-- โค้ดต้นฉบับแบ่งโมดูล (automation, line, quota, dream, storage)
+│   ├── data/                    <-- ข้อมูลเรียลไทม์ (customers.json, quota.json)
+│   ├── dist/                    <-- ไฟล์ JavaScript คอมไพล์แล้วพร้อมทำงาน
+│   └── package.json             <-- รายการ Dependencies และสคริปต์ของบอท
 │
-├── 📁 bot-service/             <-- ระบบบอท Node.js + TypeScript + Playwright
-│   ├── src/                    <-- โค้ดต้นฉบับ TypeScript (Automation, LINE, Quota, etc.)
-│   ├── dist/                   <-- ไฟล์ที่คอมไพล์แล้วพร้อมรัน (JavaScript)
-│   ├── data/                   <-- จัดเก็บ Session Login และโควต้า 2,000 ใบ
-│   └── package.json            <-- Dependencies ของระบบบอท
+├── 📁 css/                      <-- สไตล์ชีทโมเดิร์น (style.css รองรับ Dark Mode & Glassmorphism)
+├── 📁 data/                     <-- ข้อมูลสถิติและผลสลากทางการ (latest-lottery.json, official-draw-schedule.json)
+├── 📁 docs/                     <-- 📚 เอกสารคู่มือระบบเชิงลึกระดับมืออาชีพ
+│   ├── ARCHITECTURE.md          <-- แผนผังสถาปัตยกรรมและ Data Flow ระหว่าง Web, Bot, GLO และเป๋าตัง
+│   ├── OPERATIONS_GUIDE.md      <-- คู่มือการใช้งานระบบสำหรับผู้ดูแลร้าน (Run, Stop, Monitor, Troubleshooting)
+│   └── API_REFERENCE.md         <-- เอกสารอ้างอิง REST API และ Webhook Endpoints ทั้งหมด
 │
-├── 📁 scripts/                 <-- สคริปต์การจัดการและเครื่องมือทดสอบ
-│   ├── n3-engine.js            <-- เครื่องยนต์หลักของ N3-MANAGER (Dashboard, Tunnel, Clean, BG)
-│   ├── create-desktop-shortcuts.vbs <-- สร้างชอร์ตคัทบนเดสก์ท็อป
-│   └── test-mock-webhook.ps1   <-- สคริปต์จำลองทดสอบคำสั่งซื้อในเครื่อง
+├── 📁 images/                   <-- ตราสัญลักษณ์และภาพประกอบ (line-qr.png)
+├── 📁 js/                       <-- โมดูล JavaScript ฝั่ง Frontend (14 โมดูล: Dream, Tarot, Countdown, ImageSaver)
+├── 📁 public/                   <-- ไฟล์สาธารณะสำหรับเว็บและบอท
+│   ├── qrcodes/                 <-- แคชเก็บภาพ QR Code ชำระเงินคมชัด 1:1
+│   ├── richmenu.jpg             <-- ภาพ Rich Menu ความละเอียดสูง 2500x1686 px
+│   └── line-qr.png              <-- QR Code สำหรับเพิ่มเพื่อน LINE Official
 │
-├── 📁 css/                     <-- สไตล์ชีทของหน้าเว็บไซต์
-├── 📁 js/                      <-- สคริปต์ระบบทำนายฝัน AI, ระบบตัวแทน, คำนวณรางวัล N3
-└── 📁 public/
-    └── qrcodes/                <-- โฟลเดอร์จัดเก็บภาพ QR Code ชำระเงินคมชัดสูง (2x Retina)
+├── 📁 scripts/                  <-- เครื่องมืออัตโนมัติและ DevOps
+│   ├── n3-engine.js             <-- เครื่องยนต์หลัก (Dashboard, Tunnel, Clean, Watchdog)
+│   ├── setup-richmenu.js        <-- เครื่องมือเรนเดอร์และอัปโหลด LINE Rich Menu ขึ้น LINE CDN
+│   ├── test-all-scenarios.js    <-- ชุดทดสอบระบบรอบด้าน 6 ฉากทัศน์ (End-to-End Test Suite)
+│   ├── test-countdown-official.js <-- ชุดทดสอบนับถอยหลังวันหวยออกทางการ
+│   ├── show-popup.ps1           <-- ป๊อปอัปแจ้งเตือน Webhook บน Windows แบบ Native
+│   └── create-desktop-shortcuts.ps1 <-- ตัวสร้างไอคอนทางลัดบน Desktop อัตโนมัติ
+│
+├── 🌐 index.html                <-- เว็บไซต์โปรโมทสลาก N3 / ทำนายฝัน AI / เช็คผลรางวัล
+├── 🛒 order.html                <-- ตารางกรอกหมายเลขและจำนวนใบ (Multi-ticket Order Table)
+├── 📱 manifest.json             <-- การตั้งค่า Progressive Web App (PWA)
+├── ⚙️ sw.js                     <-- Service Worker สำหรับแคชและรองรับออฟไลน์
+├── ☁️ vercel.json               <-- การตั้งค่า Production Deployment บน Vercel
+├── 📦 package.json              <-- สคริปต์ npm มาตรฐานระดับ Workspace
+├── 📄 README.md                 <-- เอกสารสรุปภาพรวมและวิธีใช้งานระบบ
+│
+└── 🚀 Windows Desktop Launchers (ดับเบิลคลิกใช้งานได้ทันที):
+    ├── N3-MANAGER.bat           <-- แผงควบคุมระบบบอท ตรวจเช็คโควต้า และตั้งค่าระบบสลาก N3
+    ├── START-BOT.bat            <-- เปิดบอทแบบแสดงหน้าจอคอนโซล (ดู Log สด)
+    ├── START-BOT-SILENT.bat     <-- ตัวเปิดโหมดเงียบ (เรียกใช้ START-BOT-HIDDEN.vbs)
+    ├── START-BOT-HIDDEN.vbs     <-- เริ่มต้นบอทโหมดซ่อนหน้าต่าง 100% (ไร้หน้าจอกวนสายตา)
+    ├── STOP-BOT.bat             <-- สั่งหยุดการทำงานของบอทและล้างพอร์ต 3333 ทันที
+    ├── RESTART-BOT.bat          <-- รีสตาร์ทเฉพาะบอทโดยไม่เปลี่ยน Webhook URL เดิม
+    ├── UPDATE-BOT.bat           <-- อัปเดตโค้ดและรีสตาร์ทบอทในเบื้องหลัง
+    └── CREATE-DESKTOP-SHORTCUTS.bat <-- สร้างทางลัด 5 ตัวบน Desktop อัตโนมัติ
 ```
+
+---
+
+## 🌟 ฟังก์ชันเด่นของระบบ (Core Features)
+
+1. **การสั่งซื้อสลาก N3 ทีละหลายเบอร์ในบิลเดียว (`order.html`)**:
+   - ตารางกรอกเลข 3 หลัก พร้อมปุ่มบวกลบจำนวนใบ และปุ่มลบรายการ
+   - คำนวณยอดเงินรวมอัตโนมัติ (ใบละ 20 บาท)
+   - ส่งคำสั่งซื้อเข้าห้องแชท LINE ในรูปแบบ `334=5, 447=6, 778=3`
+2. **ระบบบอทสะสมตะกร้าแบบ Single-Navigation**:
+   - บอทเปิดหน้าจำหน่ายสลากของกองสลาก (`n3.glolotteryshop.com`) เพียงครั้งเดียวและสะสมทุกหมายเลขลงตะกร้าก่อนสร้าง QR ชำระเงิน
+   - จับภาพ Canvas QR Code แบบคมชัด 1:1 ส่งให้ลูกค้าคู่กับการ์ด Flex Message
+   - ลูกค้าบันทึกภาพใน 1 คลิก แล้วเปิดแอป **"เป๋าตัง"** เพื่อสแกนชำระเงิน
+3. **ระบบสุ่มเลขมงคลเปิดดวงเฉพาะบุคคล (Zero-Collision Lucky Teaser)**:
+   - สุ่มเลข 3 หลักกระจายไม่ซ้ำกัน 100% ก่อนวันออกรางวัล ไม่ให้ลูกค้าได้รับเลขชนกัน
+   - พร้อมชุดเลขโต๊ด (สลับหลัก) และเลข 2 ตัวตรง พร้อมปุ่ม "สั่งซื้อเลขนี้ทันที"
+4. **แจ้งผลรางวัลทางการอัตโนมัติ (Official Draw Results)**:
+   - บรอดแคสต์ผลรางวัลครบทั้ง 4 ประเภท: 3 ตัวตรง, 3 ตัวโต๊ด, 2 ตัวตรง, แจ็กพอตพิเศษ และสลาก L6
+   - เมนู **"ผลการออกรางวัล"** บน LINE Rich Menu v2 แตะ 1 ครั้งดูผลรางวัลได้ทันที
+5. **ทำนายฝัน AI & ไพ่ทาโรต์นำโชค**:
+   - วิเคราะห์ความฝัน ตีตัวเลขมงคลแม่นยำ พร้อมคำกลอนทำนายดวงชะตา
+6. **ซิงค์โควต้าเรียลไทม์ (Live Quota Synchronization)**:
+   - ดึงยอดคงเหลือจริงจากหน้าเว็บตัวแทนจำหน่ายของกองสลาก (เต็ม 2,000 ใบ) ป้องกันการสั่งซื้อเกินโควต้า
 
 ---
 
@@ -44,7 +94,7 @@ d:\Promote_GLON3\
 ดับเบิลคลิกที่ไฟล์ **`N3-MANAGER.bat`** เพื่อเปิดเมนูควบคุม (มีสถานะแสดงผลแบบเรียลไทม์):
 
 | เมนู | รายละเอียดการทำงาน |
-|:---|:---|
+| :--- | :--- |
 | **[1] 🚀 เริ่มต้นระบบบอทอัตโนมัติ** | รันบอท (Port 3333) + Cloudflare Tunnel พร้อมสร้าง LINE Webhook URL อัตโนมัติในหน้าต่างเดียว |
 | **[2] 🖥️ เปิดเบราว์เซอร์ Chrome สดๆ** | เปิดหน้าต่าง Chrome บนหน้าจอคอมเพื่อสแกนเป๋าตังสดๆ บันทึก Session ลงเครื่อง |
 | **[3] 🎫 ตรวจสอบสถานะและโควต้า** | ตรวจสอบโควต้าคงเหลือ (เต็ม 2,000 ใบ), พอร์ต 3333, PID, และ LINE Webhook URL |
@@ -54,29 +104,41 @@ d:\Promote_GLON3\
 | **[7] 🛑 หยุดการทำงานของบอท** | ปิดบอทเบื้องหลังและ Tunnel ทั้งหมด พร้อมคืนพอร์ต 3333 สะอาดเรียบร้อย |
 | **[8] 📁 เปิดโฟลเดอร์รูปภาพ QR** | เปิดโฟลเดอร์ `public\qrcodes` บน Windows Explorer |
 | **[9] 🌐 เปิดหน้าเว็บไซต์โปรโมทสลาก** | เปิดหน้าเว็บ `index.html` บนเบราว์เซอร์ |
-| **[S] 📌 สร้างทางลัดบน Desktop** | วางไอคอนทางลัด 3 ตัวบน Desktop เพื่อความสะดวกรวดเร็วในการเปิด/ปิดบอท |
+| **[S] 📌 สร้างทางลัดบน Desktop** | วางไอคอนทางลัดสำหรับเปิด/ปิดบอทบน Desktop เพื่อความสะดวกรวดเร็ว |
 | **[0] ❌ ออกจากโปรแกรม** | ปิดและออกจากหน้าจอควบคุม |
 
 ---
 
-## 👻 การรันบอทในโหมดซ่อนหน้าต่าง (Background / Silent Mode)
+## 💻 คำสั่ง NPM สำหรับนักพัฒนา (Developer CLI)
 
-1. **เริ่มต้นบอทแบบไร้หน้าต่าง**:
-   - ดับเบิลคลิกที่ **`START-BOT-HIDDEN.vbs`** หรือ **`START-BOT-SILENT.bat`** หรือทางลัด **`🚀 เปิดบอท N3 (ซ่อนหน้าต่าง)`** บน Desktop
-   - จะไม่มีหน้าต่าง CMD สีดำ และไม่มีหน้าต่าง Chrome โผล่ขึ้นมาให้เกะกะสายตา
-   - Chrome ทำงานในโหมด `headless: true` เบื้องหลัง บันทึกคุกกี้และแคชใน `data/browser_profile` อัตโนมัติ
-   - บันทึกการทำงานจะถูกส่งไปยังไฟล์ `bot.log` และ `tunnel.log`
-2. **ตรวจเช็คสถานะ / Webhook URL**:
-   - เปิด **`N3-MANAGER.bat`** หรือพิมพ์ตัวเลือก `[3]` เพื่อดูสถานะ PID, โควต้าคงเหลือ และ Webhook URL
-3. **สั่งปิดบอท**:
-   - ดับเบิลคลิกที่ **`STOP-BOT.bat`** หรือทางลัด **`🛑 ปิดบอท N3 (STOP-BOT)`** บน Desktop ได้ทันที
+สามารถสั่งการผ่านเทอร์มินัลได้ที่ Root Directory:
+
+```bash
+# เริ่มต้นบอทและ Cloudflare Tunnel
+npm start
+
+# รันชุดทดสอบความถูกต้องทั้งหมด (92 tests)
+npm test
+
+# รันชุดทดสอบ End-to-End Scenarios
+npm run test:e2e
+
+# คอมไพล์โค้ด TypeScript
+npm run build
+
+# อัปเดตและซิงค์ LINE Rich Menu ขึ้น LINE CDN
+npm run richmenu
+
+# ล้างไฟล์ภาพชั่วคราวและแคช
+npm run clean
+
+# สร้างทางลัดบน Desktop
+npm run shortcuts
+```
 
 ---
 
-## ⌨️ คำสั่งพิมพ์ในหน้าจอ Dashboard (เมนู [1])
-
-ขณะที่เปิดใช้งานระบบบอท (เมนู 1) สามารถพิมพ์คำสั่งในคอนโซลได้โดยตรง:
-- `stop` หรือ `q` : สั่งปิดบอทและอุโมงค์ทั้งหมดอย่างปลอดภัย
-- `clean` : ล้างไฟล์ภาพ QR Code ชั่วคราวเพื่อประหยัดพื้นที่ดิสก์
-- `url` : แสดง LINE Webhook URL ซ้ำอีกครั้ง
-- `status` : ตรวจสอบสถานะการทำงานและโควต้าสลากปัจจุบัน
+## 📚 เอกสารเพิ่มเติมในระบบ
+* [docs/ARCHITECTURE.md](file:///d:/Promote_GLON3/docs/ARCHITECTURE.md) - แผนผังสถาปัตยกรรมระบบโดยละเอียด
+* [docs/OPERATIONS_GUIDE.md](file:///d:/Promote_GLON3/docs/OPERATIONS_GUIDE.md) - คู่มือการใช้งานสำหรับแอดมินร้าน
+* [docs/API_REFERENCE.md](file:///d:/Promote_GLON3/docs/API_REFERENCE.md) - รายละเอียด REST API และ Webhooks

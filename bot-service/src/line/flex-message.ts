@@ -3,6 +3,7 @@ import { CONFIG } from '../config';
 import { OperatingHoursStatus } from '../guard/operating-hours';
 import { OrderItem } from '../queue/order-queue';
 import { DreamPredictionResult } from '../dream/dream-engine';
+import { DistributedLuckyItem } from '../dream/lucky-distributor';
 
 export class FlexMessageBuilder {
   /**
@@ -23,7 +24,8 @@ export class FlexMessageBuilder {
     totalPrice: number = 20,
     expireMinutes: number = 10,
     downloadUrl?: string,
-    outOfStockItems?: string[]
+    outOfStockItems?: string[],
+    includeHeroImage: boolean = false
   ): messagingApi.FlexMessage {
     const targetActionUrl = downloadUrl || qrImageUrl;
 
@@ -170,94 +172,110 @@ export class FlexMessageBuilder {
       }
     );
 
+    const bubble: messagingApi.FlexBubble = {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'สลากกินแบ่งรัฐบาล N3 (ธนกิจนำโชค)',
+            weight: 'bold',
+            color: '#d4af37',
+            size: 'sm'
+          },
+          {
+            type: 'text',
+            text: includeHeroImage ? 'QR Code ชำระเงิน' : 'สรุปคำสั่งซื้อสลาก N3',
+            weight: 'bold',
+            size: 'xl',
+            color: '#ffffff'
+          }
+        ],
+        backgroundColor: '#0c1b33',
+        paddingAll: '16px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: itemContents,
+        paddingAll: '16px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#00c300',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '📥 ดาวน์โหลด / บันทึก QR Code',
+              uri: targetActionUrl
+            }
+          },
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#28a745',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '🛒 สั่งซื้อสลาก N3',
+              uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+            }
+          },
+          {
+            type: 'button',
+            style: 'secondary',
+            color: '#d4af37',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '🔮 ทำนายฝัน หาเลขเด็ด N3',
+              uri: CONFIG.DREAM_PREDICTION_URL
+            }
+          },
+          {
+            type: 'button',
+            style: 'secondary',
+            color: '#555555',
+            height: 'sm',
+            action: {
+              type: 'message',
+              label: '🏠 เมนูหลัก',
+              text: 'เมนู'
+            }
+          }
+        ],
+        paddingAll: '12px'
+      }
+    };
+
+    if (includeHeroImage) {
+      bubble.hero = {
+        type: 'image',
+        url: qrImageUrl,
+        size: 'full',
+        aspectRatio: '1:1',
+        aspectMode: 'cover',
+        backgroundColor: '#ffffff',
+        action: {
+          type: 'uri',
+          label: 'เปิดรูป QR Code',
+          uri: targetActionUrl
+        }
+      };
+    }
+
     return {
       type: 'flex',
       altText,
-      contents: {
-        type: 'bubble',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: 'สลากกินแบ่งรัฐบาล N3 (ธนกิจนำโชค)',
-              weight: 'bold',
-              color: '#d4af37',
-              size: 'sm'
-            },
-            {
-              type: 'text',
-              text: 'QR Code ชำระเงิน',
-              weight: 'bold',
-              size: 'xl',
-              color: '#ffffff'
-            }
-          ],
-          backgroundColor: '#0c1b33',
-          paddingAll: '16px'
-        },
-        hero: {
-          type: 'image',
-          url: qrImageUrl,
-          size: 'full',
-          aspectRatio: '1:1',
-          aspectMode: 'cover',
-          backgroundColor: '#ffffff',
-          action: {
-            type: 'uri',
-            label: 'เปิดรูป QR Code',
-            uri: targetActionUrl
-          }
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: itemContents,
-          paddingAll: '16px'
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              color: '#00c300',
-              height: 'sm',
-              action: {
-                type: 'uri',
-                label: '📥 ดาวน์โหลด / บันทึก QR Code',
-                uri: targetActionUrl
-              }
-            },
-            {
-              type: 'button',
-              style: 'secondary',
-              color: '#d4af37',
-              height: 'sm',
-              action: {
-                type: 'uri',
-                label: '🔮 ทำนายฝัน หาเลขเด็ด N3',
-                uri: CONFIG.DREAM_PREDICTION_URL
-              }
-            },
-            {
-              type: 'button',
-              style: 'secondary',
-              color: '#555555',
-              height: 'sm',
-              action: {
-                type: 'message',
-                label: '🏠 เมนูหลัก',
-                text: 'เมนู'
-              }
-            }
-          ],
-          paddingAll: '12px'
-        }
-      }
+      contents: bubble
     };
   }
 
@@ -398,7 +416,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -604,7 +622,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -737,7 +755,18 @@ export class FlexMessageBuilder {
                   action: {
                     type: 'uri',
                     label: '🛒 สั่งซื้อสลาก N3',
-                    uri: CONFIG.ORDER_FORM_URL
+                    uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                  }
+                },
+                {
+                  type: 'button',
+                  style: 'primary',
+                  color: '#4f46e5',
+                  height: 'sm',
+                  action: {
+                    type: 'message',
+                    label: '🏆 ตรวจผลรางวัล',
+                    text: 'ผลรางวัล'
                   }
                 },
                 {
@@ -968,7 +997,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -1171,7 +1200,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3 (เปิดตาราง)',
-                uri: CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -1306,6 +1335,17 @@ export class FlexMessageBuilder {
           layout: 'vertical',
           spacing: 'sm',
           contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3',
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+              }
+            },
             {
               type: 'button',
               style: 'primary',
@@ -1791,6 +1831,17 @@ export class FlexMessageBuilder {
             },
             {
               type: 'button',
+              style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3',
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+              }
+            },
+            {
+              type: 'button',
               style: 'link',
               color: '#0056b3',
               height: 'sm',
@@ -1939,6 +1990,17 @@ export class FlexMessageBuilder {
             {
               type: 'button',
               style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3',
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
               color: '#7e22ce',
               height: 'sm',
               action: {
@@ -1951,6 +2013,471 @@ export class FlexMessageBuilder {
               type: 'button',
               style: 'secondary',
               color: '#555555',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🏠 เมนูหลัก',
+                text: 'เมนู'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * 11. การ์ดเลขมงคลเฉพาะบุคคล (Pre-Draw Personalized Lucky Teaser)
+   * ส่งให้ลูกค้าแต่ละคนก่อนหวยออก โดยสุ่มเลขกระจายไม่ซ้ำกัน
+   */
+  public static buildPersonalizedLuckyTeaserMessage(item: DistributedLuckyItem): messagingApi.FlexMessage {
+    const todText = item.tods && item.tods.length > 0 ? item.tods.join(', ') : 'เลขเบิ้ล/ไม่มีโต๊ด';
+    const altText = `🌟 เลขมงคลเฉพาะคุณ: ${item.number} (สลาก N3 งวด ${item.drawDateThai})`;
+
+    return {
+      type: 'flex',
+      altText,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0f172a',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🌟 เลขมงคลเฉพาะคุณ',
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#fbbf24',
+                  flex: 1
+                },
+                {
+                  type: 'text',
+                  text: item.element,
+                  size: 'xxs',
+                  color: item.elementColor || '#f59e0b',
+                  align: 'end',
+                  weight: 'bold'
+                }
+              ]
+            },
+            {
+              type: 'text',
+              text: `งวดประจำวันที่ ${item.drawDateThai} • ร้านธนกิจนำโชค`,
+              size: 'xxs',
+              color: '#94a3b8',
+              margin: 'xs'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0b1120',
+          paddingAll: '16px',
+          spacing: 'md',
+          contents: [
+            // กล่องเลขเด็ด 3 ตัวตรง
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#1e293b',
+              cornerRadius: '12px',
+              paddingAll: '16px',
+              alignItems: 'center',
+              borderColor: '#f59e0b',
+              borderWidth: '1.5px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🎯 เลขเด็ด 3 ตัวตรงเปิดดวง',
+                  size: 'xs',
+                  color: '#fbbf24',
+                  weight: 'bold'
+                },
+                {
+                  type: 'text',
+                  text: item.number,
+                  size: '3xl',
+                  weight: 'bold',
+                  color: '#fef08a',
+                  margin: 'sm'
+                },
+                {
+                  type: 'separator',
+                  color: '#334155',
+                  margin: 'md'
+                },
+                // แถบ 3 ตัวโต๊ด & 2 ตัวท้าย
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'md',
+                  contents: [
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 6,
+                      contents: [
+                        {
+                          type: 'text',
+                          text: '🔄 ชุดเลขโต๊ด:',
+                          size: 'xxs',
+                          color: '#38bdf8'
+                        },
+                        {
+                          type: 'text',
+                          text: todText,
+                          size: 'xs',
+                          color: '#ffffff',
+                          weight: 'bold',
+                          wrap: true
+                        }
+                      ]
+                    },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 4,
+                      contents: [
+                        {
+                          type: 'text',
+                          text: '✨ 2 ตัวตรง:',
+                          size: 'xxs',
+                          color: '#34d399',
+                          align: 'end'
+                        },
+                        {
+                          type: 'text',
+                          text: item.n2,
+                          size: 'md',
+                          color: '#34d399',
+                          weight: 'bold',
+                          align: 'end'
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            // กล่องคำทำนายสิริมงคล
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#1e1b4b',
+              cornerRadius: '8px',
+              paddingAll: '10px',
+              borderColor: '#4338ca',
+              borderWidth: '1px',
+              contents: [
+                {
+                  type: 'text',
+                  text: item.blessing,
+                  size: 'xxs',
+                  color: '#c7d2fe',
+                  wrap: true,
+                  align: 'center'
+                }
+              ]
+            },
+            // ข้อความแจ้งเงื่อนไข
+            {
+              type: 'text',
+              text: '👛 สลาก N3 ใบละ 20 บาท | จ่ายผ่านแอปเป๋าตัง รับเงินรางวัลทันที',
+              size: 'xxs',
+              color: '#64748b',
+              align: 'center'
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0f172a',
+          spacing: 'sm',
+          paddingAll: '12px',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#059669',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '⚡ ซื้อเลขนี้ (20บ.)',
+                text: item.quickOrderCommand
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#0284c7',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: `🔄 ซื้อ 3ตรง+ทุกโต๊ด`,
+                text: item.comboOrderCommand
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#28a745',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3',
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#334155',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '🔮 ทำนายฝัน / ขอเลข',
+                text: 'ทำนายฝัน'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * 12. การ์ดแจ้งผลการออกรางวัลสลากกินแบ่ง N3 ทางการ (Official Draw Results Announcement)
+   * ส่งให้ลูกค้าทุกคนหลังผลรางวัลออกครบถ้วน
+   */
+  public static buildDrawResultsMessage(lotteryData: any): messagingApi.FlexMessage {
+    const drawDateThai = lotteryData.drawDateThai || lotteryData.period || 'ล่าสุด';
+    const altText = `🏆 ผลการออกรางวัลสลากกินแบ่ง N3 งวดประจำวันที่ ${drawDateThai}`;
+
+    const n3 = lotteryData.n3 || {};
+    const straight3 = n3.straight3 || { number: '-', prizeText: '-' };
+    const shuffle3 = n3.shuffle3 || { numbers: ['-'], prizeText: '-' };
+    const straight2 = n3.straight2 || { number: '-', prizeText: '-' };
+    const jackpot = n3.specialJackpot || { ticketNumber: '-', prizeText: '-' };
+    const glo = lotteryData.gloStandard || {};
+
+    const shuffleText = Array.isArray(shuffle3.numbers) ? shuffle3.numbers.join(', ') : '-';
+
+    return {
+      type: 'flex',
+      altText,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1e1b4b',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'text',
+              text: '🏆 ผลการออกรางวัลสลาก N3',
+              weight: 'bold',
+              size: 'md',
+              color: '#facc15'
+            },
+            {
+              type: 'text',
+              text: `งวดประจำวันที่ ${drawDateThai} (สำนักงานสลากฯ)`,
+              size: 'xxs',
+              color: '#c7d2fe',
+              margin: 'xs'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#ffffff',
+          paddingAll: '14px',
+          spacing: 'sm',
+          contents: [
+            // 3 ตัวตรง
+            {
+              type: 'box',
+              layout: 'horizontal',
+              backgroundColor: '#fef3c7',
+              cornerRadius: '8px',
+              paddingAll: '10px',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 5,
+                  contents: [
+                    { type: 'text', text: '🎯 3 ตัวตรง', size: 'xs', color: '#b45309', weight: 'bold' },
+                    { type: 'text', text: straight3.number, size: 'xxl', color: '#78350f', weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 5,
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  contents: [
+                    { type: 'text', text: 'รางวัลละ', size: 'xxs', color: '#b45309' },
+                    { type: 'text', text: straight3.prizeText || '-', size: 'sm', color: '#047857', weight: 'bold' }
+                  ]
+                }
+              ]
+            },
+            // 3 ตัวโต๊ด
+            {
+              type: 'box',
+              layout: 'horizontal',
+              backgroundColor: '#e0f2fe',
+              cornerRadius: '8px',
+              paddingAll: '10px',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 6,
+                  contents: [
+                    { type: 'text', text: '🔄 3 ตัวโต๊ด (สลับหลัก)', size: 'xxs', color: '#0369a1', weight: 'bold' },
+                    { type: 'text', text: shuffleText, size: 'sm', color: '#0c4a6e', weight: 'bold', wrap: true }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 4,
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  contents: [
+                    { type: 'text', text: 'รางวัลละ', size: 'xxs', color: '#0369a1' },
+                    { type: 'text', text: shuffle3.prizeText || '-', size: 'sm', color: '#047857', weight: 'bold' }
+                  ]
+                }
+              ]
+            },
+            // 2 ตัวตรง
+            {
+              type: 'box',
+              layout: 'horizontal',
+              backgroundColor: '#ecfdf5',
+              cornerRadius: '8px',
+              paddingAll: '10px',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 5,
+                  contents: [
+                    { type: 'text', text: '✨ 2 ตัวตรง (ท้าย)', size: 'xs', color: '#047857', weight: 'bold' },
+                    { type: 'text', text: straight2.number, size: 'xl', color: '#064e3b', weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 5,
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  contents: [
+                    { type: 'text', text: 'รางวัลละ', size: 'xxs', color: '#047857' },
+                    { type: 'text', text: straight2.prizeText || '-', size: 'sm', color: '#047857', weight: 'bold' }
+                  ]
+                }
+              ]
+            },
+            // แจ็กพอต
+            {
+              type: 'box',
+              layout: 'horizontal',
+              backgroundColor: '#fdf2f8',
+              cornerRadius: '8px',
+              paddingAll: '10px',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 5,
+                  contents: [
+                    { type: 'text', text: '👑 แจ็กพอตพิเศษ', size: 'xxs', color: '#be185d', weight: 'bold' },
+                    { type: 'text', text: jackpot.ticketNumber || '-', size: 'xxs', color: '#831843' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  flex: 5,
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  contents: [
+                    { type: 'text', text: jackpot.prizeText || '-', size: 'sm', color: '#be185d', weight: 'bold' }
+                  ]
+                }
+              ]
+            },
+            // อ้างอิงสลากหกหลัก L6
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#f8fafc',
+              cornerRadius: '6px',
+              paddingAll: '6px',
+              contents: [
+                {
+                  type: 'text',
+                  text: `สลาก L6: รางวัลที่ 1 [${glo.firstPrize?.number || '-'}] • เลขท้าย 2 ตัว [${glo.last2?.number || '-'}]`,
+                  size: 'xxs',
+                  color: '#64748b',
+                  align: 'center'
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#f1f5f9',
+          spacing: 'sm',
+          paddingAll: '12px',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#7e22ce',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔍 ตรวจรางวัลของฉัน',
+                uri: CONFIG.DREAM_PREDICTION_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#059669',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🛒 สั่งซื้อสลาก N3',
+                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#64748b',
               height: 'sm',
               action: {
                 type: 'message',

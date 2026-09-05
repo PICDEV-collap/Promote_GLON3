@@ -8,13 +8,16 @@ import { CONFIG } from './config';
 import { SecurityGuard } from './automation/security-guard';
 import { N3Auth } from './automation/n3-auth';
 import { N3OrderService } from './automation/n3-order';
-import { PersistentBrowserManager } from './automation/browser-context';
+import { PersistentBrowserManager, isCdpAlive } from './automation/browser-context';
 import { QuotaManager } from './quota/quota-manager';
 import { OrderQueue, OrderTask, OrderItem } from './queue/order-queue';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { FlexMessageBuilder } from './line/flex-message';
 import { OperatingHoursGuard } from './guard/operating-hours';
 import { DreamEngine } from './dream/dream-engine';
+import { CustomerRegistry } from './storage/customer-registry';
+import { CampaignService } from './automation/campaign-service';
+import { LuckyDistributor } from './dream/lucky-distributor';
 
 const app = express();
 
@@ -95,8 +98,58 @@ app.use(express.json({
 }));
 
 // -------------------------------------------------------------------------
+// QR Memory Cache (In-Memory Buffer Cache)
+// เก็บไฟล์รูปภาพ QR Code ใน RAM ชั่วคราว (~35 KB ต่อรูป พร้อม auto-expire 10 นาที)
+// เพื่อให้ลบไฟล์ภาพจริงออกจากดิสก์ได้ทันทีหลังส่ง ลดการจัดเก็บค้างบนดิสก์เป็น 0 KB
+// -------------------------------------------------------------------------
+export const qrMemoryCache = new Map<string, { buffer: Buffer; expiresAt: number }>();
+
+export function saveQrToMemoryCache(filename: string, buffer: Buffer, ttlMinutes: number = 10): void {
+  const expiresAt = Date.now() + ttlMinutes * 60 * 1000;
+  qrMemoryCache.set(filename, { buffer, expiresAt });
+}
+
+export function getQrFromMemoryCache(filename: string): Buffer | null {
+  const item = qrMemoryCache.get(filename);
+  if (!item) return null;
+  if (Date.now() > item.expiresAt) {
+    qrMemoryCache.delete(filename);
+    return null;
+  }
+  return item.buffer;
+}
+
+// ล้างไฟล์ภาพ QR Code ตกค้างบนดิสก์ตอนเริ่มต้นระบบ
+try {
+  if (fs.existsSync(CONFIG.QR_OUTPUT_DIR)) {
+    const oldFiles = fs.readdirSync(CONFIG.QR_OUTPUT_DIR).filter(f => f.startsWith('payment-') && f.endsWith('.png'));
+    for (const f of oldFiles) {
+      try { fs.unlinkSync(path.join(CONFIG.QR_OUTPUT_DIR, f)); } catch {}
+    }
+    if (oldFiles.length > 0) {
+      console.log(`[STARTUP STORAGE CLEANUP] ล้างภาพ QR Code ตกค้างบนดิสก์ ${oldFiles.length} ไฟล์เรียบร้อยแล้ว`);
+    }
+  }
+} catch {}
+
+// -------------------------------------------------------------------------
 // Static Asset Whitelist (จำกัดสิทธิ์เฉพาะโฟลเดอร์สาธารณะที่ปลอดภัยเท่านั้น)
 // -------------------------------------------------------------------------
+app.use('/qrcodes/:filename', (req: Request, res: Response, next) => {
+  const rawParam = req.params.filename;
+  const filename = path.basename(Array.isArray(rawParam) ? rawParam[0] : (rawParam || ''));
+  const cachedBuf = getQrFromMemoryCache(filename);
+  if (cachedBuf) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    res.send(cachedBuf);
+    return;
+  }
+  next();
+});
+
 app.use('/qrcodes', (req: Request, res: Response, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
@@ -146,8 +199,11 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     return;
   }
 
+  const cachedBuf = getQrFromMemoryCache(filename);
   const filePath = path.join(CONFIG.QR_OUTPUT_DIR, filename);
-  if (!fs.existsSync(filePath)) {
+  const fileExists = cachedBuf !== null || fs.existsSync(filePath);
+
+  if (!fileExists) {
     res.status(404).send('ไม่พบไฟล์ QR Code หรืออาจหมดอายุแล้ว');
     return;
   }
@@ -158,7 +214,12 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.removeHeader('X-Frame-Options');
-    res.download(filePath, `n3-qr-${filename}`);
+    res.setHeader('Content-Disposition', `attachment; filename="n3-qr-${filename}"`);
+    if (cachedBuf) {
+      res.send(cachedBuf);
+    } else {
+      res.download(filePath, `n3-qr-${filename}`);
+    }
     return;
   }
 
@@ -226,6 +287,8 @@ const quotaManager = QuotaManager.getInstance();
 const orderQueue = new OrderQueue();
 const lineHandler = new LineReplyHandler();
 const securityGuard = new SecurityGuard();
+const customerRegistry = CustomerRegistry.getInstance();
+const campaignService = CampaignService.getInstance();
 
 // Health Check API สำหรับตรวจสอบสถานะและ Telemetry ของระบบ
 app.get('/health', (_req: Request, res: Response) => {
@@ -235,6 +298,7 @@ app.get('/health', (_req: Request, res: Response) => {
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
     quota: quotaManager.getStatus(),
+    customers: customerRegistry.getStats(),
     queue: {
       isBusy: orderQueue.isBusy()
     }
@@ -264,6 +328,59 @@ app.get(['/api/draw-info', '/api/draw-schedule'], async (req: Request, res: Resp
       },
       quota: quota
     });
+  }
+});
+
+// Campaign REST API: สถิติแคมเปญและลูกค้า
+app.get('/api/campaign/stats', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const stats = customerRegistry.getStats();
+  const upcoming = campaignService.getUpcomingDrawInfo();
+  res.json({
+    success: true,
+    stats,
+    upcomingDraw: upcoming,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Campaign REST API: ยิงเลขมงคลกระจายไม่ซ้ำ (รองรับ ?dryRun=true หรือ ?target=userId)
+app.post('/api/campaign/lucky-teaser', async (req: Request, res: Response) => {
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  if (CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
+  const dryRun = req.query.dryRun === 'true' || req.body?.dryRun === true;
+  const targetUserId = (req.query.target as string) || req.body?.targetUserId;
+  const force = req.query.force === 'true' || req.body?.force === true;
+
+  try {
+    const result = await campaignService.sendPersonalizedLuckyTeasers({ dryRun, targetUserId, force });
+    res.json({ success: true, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+// Campaign REST API: บรอดแคสต์ผลรางวัลล่าสุด (รองรับ ?dryRun=true หรือ ?target=userId)
+app.post('/api/campaign/draw-results', async (req: Request, res: Response) => {
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  if (CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
+  const dryRun = req.query.dryRun === 'true' || req.body?.dryRun === true;
+  const targetUserId = (req.query.target as string) || req.body?.targetUserId;
+  const force = req.query.force === 'true' || req.body?.force === true;
+
+  try {
+    const result = await campaignService.broadcastDrawResults({ dryRun, targetUserId, force });
+    res.json({ success: true, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
   }
 });
 
@@ -472,34 +589,40 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const actualQty = result.totalQuantity || totalQty;
       const actualPrice = result.totalPrice || task.totalPrice || actualQty * 20;
 
-      // จัดการอัปเดตโควต้า: หากผลการสั่งซื้อซิงค์จากหน้าเว็บสำเร็จแล้ว ไม่ต้องหักลบซ้ำซ้อน
-      if (result.syncedQuota) {
-        console.log(`[ORDER QUOTA] ซิงค์ยอดโควต้าสดจาก GLO สำเร็จ: คงเหลือ ${result.syncedQuota.remainingQuota.toLocaleString()} / ${result.syncedQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${result.syncedQuota.usedQuota.toLocaleString()} ใบ)`);
-      } else {
-        // หากยังไม่ได้ซิงค์จาก executeOrder ให้ลองซิงค์สดอีกครั้ง
-        const liveSynced = await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => null);
-        if (liveSynced) {
-          console.log(`[ORDER QUOTA] ซิงค์ยอดโควต้าสดจาก GLO สำเร็จ: คงเหลือ ${liveSynced.remainingQuota.toLocaleString()} / ${liveSynced.maxQuota.toLocaleString()} ใบ`);
-        } else {
-          // Fallback: หากไม่สามารถซิงค์สดได้ ให้หักลบตามจำนวนออเดอร์เพื่อป้องกันการสั่งเกิน
-          quotaManager.deductQuota(actualQty);
-          console.log(`[ORDER QUOTA] สำรอง: หักลบโควต้า ${actualQty} ใบ (คงเหลือ ${quotaManager.getStatus().remainingQuota.toLocaleString()} ใบ)`);
+      // 1. แคชภาพ QR Code ใน RAM ทันที และลบไฟล์จริงออกจากดิสก์ทันที เพื่อลดพื้นที่จัดเก็บ (0 KB บนดิสก์)
+      const qrFileName = result.qrFileName || result.qrImageUrl.split(/[\/\\]/).pop() || '';
+      const qrFilePath = result.qrFilePath || path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
+
+      if (fs.existsSync(qrFilePath)) {
+        try {
+          const qrBuf = fs.readFileSync(qrFilePath);
+          saveQrToMemoryCache(qrFileName, qrBuf, 10);
+          fs.unlink(qrFilePath, (unlinkErr) => {
+            if (!unlinkErr) {
+              console.log(`[STORAGE CLEANUP] ลบไฟล์รูปภาพ ${qrFileName} ออกจากดิสก์เรียบร้อยแล้ว (เก็บใน RAM ชั่วคราว 10 นาที)`);
+            }
+          });
+        } catch (e: any) {
+          console.warn('[STORAGE CLEANUP WARNING]', e?.message);
         }
       }
 
+      // 2. หักลบโควต้าในเครื่องทันที ป้องกันคำสั่งซื้อเกิน
+      quotaManager.deductQuota(actualQty);
+      console.log(`[ORDER QUOTA] หักลบโควต้า ${actualQty} ใบ (คงเหลือ ${quotaManager.getStatus().remainingQuota.toLocaleString()} ใบ)`);
+
       const activePublicBase = getPublicBaseUrl();
       const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, activePublicBase);
-      const qrFileName = result.qrImageUrl.split(/[\/\\]/).pop() || '';
       const downloadUrl = `${activePublicBase}/download-qr/${qrFileName}?openExternalBrowser=1`;
 
-      // 1. ส่งรูปภาพ QR Code แบบ Native LINE Image Message (เปิดผ่าน LINE Photo Viewer แล้วมีปุ่ม 📥 บันทึกลงเครื่องแบบภาพสลิป)
+      // 3. ส่งภาพ QR Code แบบ Native LINE Image Message (1 แตะเปิด Photo Viewer บันทึกลงเครื่อง)
       const imageMsg: messagingApi.ImageMessage = {
         type: 'image',
         originalContentUrl: qrPublicUrl,
         previewImageUrl: qrPublicUrl
       };
 
-      // 2. ส่ง Flex Message สรุปคำสั่งซื้อ พร้อมรายละเอียดสลากและปุ่มเปิดแอปเป๋าตัง
+      // 4. ส่ง Flex Message การ์ดสรุปคำสั่งซื้อสลาก N3 (includeHeroImage = false เพื่อไม่ให้แสดงภาพ QR ซ้ำ 2 รูป!)
       const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(
         qrPublicUrl,
         result.fulfilledItems || orderItems,
@@ -507,11 +630,22 @@ orderQueue.setWorker(async (task: OrderTask) => {
         actualPrice,
         10,
         downloadUrl,
-        result.outOfStockItems
+        result.outOfStockItems,
+        false // ไม่ใส่ hero ซ้ำซ้อน
       );
 
+      // 5. ส่งข้อความให้ลูกค้าทันที! ลูกค้าได้รับ QR Code รวดเร็วที่สุด
       await sendCustomerMessage([imageMsg, flexMsg]);
-      console.log(`[SUCCESS] ส่งภาพ QR Code คมชัดสูง (Native Image + Flex Card) ให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
+      console.log(`[SUCCESS] ส่งภาพ QR Code คมชัดสูง (Native Image + การ์ดสรุปคำสั่งซื้อ) ให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
+
+      // 6. ดำเนินการกดกลับหน้าหลักและซิงค์โควต้าสดจาก GLO Portal ในเบื้องหลัง (ไม่ถ่วงเวลาการส่งรูปให้ลูกค้า)
+      N3OrderService.postOrderCleanupAndQuotaSync(currentPage).then(liveSynced => {
+        if (liveSynced) {
+          console.log(`[ORDER QUOTA] ซิงค์ยอดโควต้าสดจาก GLO สำเร็จ: คงเหลือ ${liveSynced.remainingQuota.toLocaleString()} / ${liveSynced.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveSynced.usedQuota.toLocaleString()} ใบ)`);
+        }
+      }).catch(e => {
+        console.warn('[ORDER QUOTA POST-SYNC ERROR]', e?.message);
+      });
     } else {
       const itemsDesc = task.items && task.items.length > 0
         ? task.items.map(i => i.number).join(', ')
@@ -718,11 +852,12 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
   const events = req.body?.events || [];
   for (const event of events) {
-    // 0. ตรวจจับการเพิ่มเพื่อนใหม่ (Follow Event) -> ส่งการ์ดต้อนรับ แนะนำร้าน และสอนวิธีสั่งซื้อทันที
+    // 0. ตรวจจับการเพิ่มเพื่อนใหม่ (Follow Event) -> บันทึกลงระบบ & ส่งการ์ดต้อนรับ
     if (event.type === 'follow') {
       const replyToken: string = event.replyToken;
       const followerId: string = event.source?.userId || 'anonymous';
       console.log(`[NEW FOLLOWER] 🎉 มีลูกค้าใหม่เพิ่มเพื่อน: ${followerId}`);
+      customerRegistry.registerOrUpdateUser(followerId);
 
       try {
         const welcomeMsg = FlexMessageBuilder.buildWelcomeMessage();
@@ -749,12 +884,23 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       continue;
     }
 
+    // ตรวจจับการเลิกติดตาม / บล็อก (Unfollow Event) -> ปรับสถานะเป็น blocked
+    if (event.type === 'unfollow') {
+      const unfollowerId: string = event.source?.userId || 'anonymous';
+      console.log(`[UNFOLLOW] ⚠️ ลูกค้าบล็อกหรือเลิกติดตาม: ${unfollowerId}`);
+      customerRegistry.markBlocked(unfollowerId);
+      continue;
+    }
+
     if (event.type === 'message' && event.message.type === 'text') {
       const userText: string = event.message.text.trim();
       const replyToken: string = event.replyToken;
       const userId: string = event.source?.userId || 'anonymous';
       const adminId = CONFIG.LINE_ADMIN_USER_ID || CONFIG.ADMIN_LINE_USER_ID;
       const isAdmin: boolean = !!(adminId && userId === adminId);
+
+      // บันทึกการติดต่อของลูกค้าเสมอเพื่อใช้อัปเดตสถานะ Active
+      customerRegistry.registerOrUpdateUser(userId);
 
       console.log(`[USER MESSAGE] "${userText}" จาก ${userId} | AdminID=${adminId} | (isAdmin: ${isAdmin})`);
 
@@ -815,7 +961,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       // คำสั่งขอวิธีสั่งซื้อ / ช่วยเหลือ
-      const isHelpCmd = /^(?:help|วิธี|วิธีซื้อ|วิธีสั่ง|วิธีสั่งซื้อ|สั่งยังไง|ซื้อยังไง|ช่วยด้วย)$/i.test(userText);
+      const isHelpCmd = /^(?:help|วิธี|วิธีซื้อ|วิธีสั่ง|วิธีสั่งซื้อ|สั่งยังไง|ซื้อยังไง|ช่วยด้วย|วิธีซื้อ.*จ่ายเงิน.*|วิธีสั่งซื้อ.*จ่ายเงิน.*|วิธีสั่งซื้อ.*ชำระเงิน.*)$/i.test(userText);
       if (isHelpCmd) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
         continue;
@@ -824,14 +970,42 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       // คำสั่งตรวจสอบสถานะและโควต้าคงเหลือจริง (status, quota, โควต้า, เช็คโควต้า, เช็คสถานะ)
       const isStatusQuotaCmd = /^(?:status|quota|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ)$/i.test(userText);
       if (isStatusQuotaCmd) {
+        // หากเบราว์เซอร์เปิดอยู่และไม่ได้กำลังทำรายการ ให้ซิงค์สดจากหน้าเว็บ GLO ทันที เพื่อให้ยอดขายและโควต้าอัปเดตล่าสุดตรงกับกองสลาก 100%
+        try {
+          if (!orderQueue.isBusy()) {
+            let activePage = PersistentBrowserManager.getActivePage();
+            if (!activePage) {
+              const isAlive = await isCdpAlive();
+              if (isAlive) {
+                const browserObj = await PersistentBrowserManager.getPage();
+                activePage = browserObj.page;
+              }
+            }
+            if (activePage && !activePage.isClosed()) {
+              const u = activePage.url();
+              if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login') && !u.includes('/qr/')) {
+                await quotaManager.syncQuotaFromLivePortal(activePage, false);
+              }
+            }
+          }
+        } catch (e: any) {
+          console.warn('[QUOTA CMD SYNC] ไม่สามารถซิงค์สดขณะเรียกเช็คโควต้าได้ ใช้ค่าแคชล่าสุด:', e?.message);
+        }
+
         const qStatus = quotaManager.getStatus();
         const salesStatus = OperatingHoursGuard.checkSalesStatus();
         const syncTime = qStatus.syncedAt
           ? new Date(qStatus.syncedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.'
           : 'ตามระบบเริ่มต้น';
+
+        let soldLine = `🛒 ยอดขายแล้ว: ${qStatus.usedQuota.toLocaleString()} ใบ`;
+        if (qStatus.pendingQuota && qStatus.pendingQuota > 0) {
+          soldLine += ` (รอชำระเงิน ${qStatus.pendingQuota.toLocaleString()} ใบ)`;
+        }
+
         const statusReply = `📊 สถานะโควต้าสลาก N3 (ร้านธนกิจนำโชค)\n\n` +
           `🎫 โควต้าคงเหลือ: ${qStatus.remainingQuota.toLocaleString()} / ${qStatus.maxQuota.toLocaleString()} ใบ\n` +
-          `🛒 ยอดขายแล้ว: ${qStatus.usedQuota.toLocaleString()} ใบ\n` +
+          `${soldLine}\n` +
           `📅 งวดประจำวันที่: ${qStatus.round}\n` +
           `⏱️ ซิงค์ระบบจริง: ${syncTime}\n` +
           `🏪 สถานะร้านค้า: ${salesStatus.isOpen ? '🟢 เปิดจำหน่ายตามปกติ' : '🔴 นอกเวลาทำการ'}`;
@@ -867,6 +1041,130 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         } else {
           await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: ทดสอบส่งเลขมงคลจำลองให้ตัวเองดู (ทดสอบเลขมงคล, พรีวิวเลขมงคล)
+      const isTestTeaserCmd = /^(?:ทดสอบเลขมงคล|พรีวิวเลขมงคล|test\s*lucky|preview\s*lucky)$/i.test(userText);
+      if (isTestTeaserCmd) {
+        if (isAdmin) {
+          const upcoming = campaignService.getUpcomingDrawInfo();
+          const sample = LuckyDistributor.generateSingleLuckyItem(userId, upcoming.drawDate, upcoming.thaiDate, 'คุณแอดมิน');
+          const flexMsg = FlexMessageBuilder.buildPersonalizedLuckyTeaserMessage(sample);
+          await lineHandler.reply(replyToken, [
+            { type: 'text', text: `🧪 [ตัวอย่าง] การ์ดเลขมงคลเฉพาะบุคคลที่จะส่งให้ลูกค้า (แต่ละคนจะได้รับเลขกระจายไม่ซ้ำกัน):` },
+            flexMsg
+          ]);
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: ทดสอบการ์ดประกาศผลรางวัล (ทดสอบผลรางวัล, พรีวิวผลรางวัล)
+      const isTestResultsCmd = /^(?:ทดสอบผลรางวัล|พรีวิวผลรางวัล|test\s*results|preview\s*results)$/i.test(userText);
+      if (isTestResultsCmd) {
+        if (isAdmin) {
+          const lotteryData = campaignService.getLatestLotteryData();
+          if (lotteryData) {
+            const flexMsg = FlexMessageBuilder.buildDrawResultsMessage(lotteryData);
+            await lineHandler.reply(replyToken, [
+              { type: 'text', text: `🧪 [ตัวอย่าง] การ์ดแจ้งผลการออกรางวัลสลาก N3 ทางการที่จะส่งให้ลูกค้า:` },
+              flexMsg
+            ]);
+          } else {
+            await lineHandler.reply(replyToken, [{ type: 'text', text: '⚠️ ไม่พบข้อมูลผลสลากใน latest-lottery.json' }]);
+          }
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: ส่งเลขมงคลกระจายไม่ซ้ำให้ลูกค้าทุกคนทันที (ส่งเลขมงคล, บรอดแคสต์เลขมงคล)
+      const isBroadcastLuckyCmd = /^(?:ส่งเลขมงคล|บรอดแคสต์เลขมงคล|ยิงเลขมงคล|broadcast\s*lucky)$/i.test(userText);
+      if (isBroadcastLuckyCmd) {
+        if (isAdmin) {
+          const stats = customerRegistry.getStats();
+          await lineHandler.reply(replyToken, [{
+            type: 'text',
+            text: `🚀 เริ่มต้นกระบวนการสุ่มเลขมงคลกระจายไม่ซ้ำ และส่งให้ลูกค้าทั้งหมด (${stats.active} ราย) รอผลสรุปสักครู่ครับ...`
+          }]);
+          const result = await campaignService.sendPersonalizedLuckyTeasers({ force: true });
+          await lineHandler.pushToAdmin([{
+            type: 'text',
+            text: `✅ [บรอดแคสต์เลขมงคลสำเร็จ]\n\n• งวดประจำวันที่: ${result.drawDate}\n• ส่งสำเร็จ: ${result.sentCount} ราย\n• ล้มเหลว: ${result.failedCount} ราย\n• รูปแบบ: กระจายเลข 3 หลักไม่ซ้ำกัน 100%`
+          }]);
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: ส่งผลการออกรางวัลให้ลูกค้าทุกคนทันที (ส่งผลรางวัล, บรอดแคสต์ผลรางวัล)
+      const isBroadcastResultsCmd = /^(?:ส่งผลรางวัล|บรอดแคสต์ผลรางวัล|ยิงผลรางวัล|broadcast\s*results)$/i.test(userText);
+      if (isBroadcastResultsCmd) {
+        if (isAdmin) {
+          await lineHandler.reply(replyToken, [{
+            type: 'text',
+            text: `🏆 กำลังเริ่มส่งผลการออกรางวัลสลาก N3 ให้ลูกค้าทุกคน รอสักครู่ครับ...`
+          }]);
+          const result = await campaignService.broadcastDrawResults({ force: true });
+          await lineHandler.pushToAdmin([{
+            type: 'text',
+            text: `✅ [บรอดแคสต์ผลรางวัลสำเร็จ]\n\n• งวดประจำวันที่: ${result.drawDate}\n• ส่งสำเร็จ: ${result.sentCount} ราย\n• ล้มเหลว: ${result.failedCount} ราย`
+          }]);
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: ดูข้อมูลลูกค้าทั้งหมดและสถิติแคมเปญ (ลูกค้าทั้งหมด, สถิติแคมเปญ, สมาชิก)
+      const isCustomerStatsCmd = /^(?:ลูกค้าทั้งหมด|สถิติแคมเปญ|สมาชิก|ดูสถิติ|customer\s*stats|users)$/i.test(userText);
+      if (isCustomerStatsCmd) {
+        if (isAdmin) {
+          const stats = customerRegistry.getStats();
+          const upcoming = campaignService.getUpcomingDrawInfo();
+          await lineHandler.reply(replyToken, [{
+            type: 'text',
+            text: `👥 ข้อมูลลูกค้าและสถิติการส่งแคมเปญ (ร้านธนกิจนำโชค)\n\n` +
+              `• ลูกค้าทั้งหมดในระบบ: ${stats.total.toLocaleString()} ราย\n` +
+              `• สถานะ Active (เปิดรับข้อความ): ${stats.active.toLocaleString()} ราย\n` +
+              `• บล็อกหรือเลิกติดตาม: ${stats.blocked.toLocaleString()} ราย\n` +
+              `• งวดออกรางวัลถัดไป: ${upcoming.thaiDate}\n\n` +
+              `💡 คำสั่งควบคุมแอดมิน:\n` +
+              `• "ทดสอบเลขมงคล" - ดูตัวอย่างการ์ดเลขมงคลกระจาย\n` +
+              `• "ส่งเลขมงคล" - บรอดแคสต์เลขมงคลให้ลูกค้าทุกคน\n` +
+              `• "ทดสอบผลรางวัล" - ดูตัวอย่างการ์ดผลรางวัล\n` +
+              `• "ส่งผลรางวัล" - บรอดแคสต์ผลรางวัลให้ลูกค้าทุกคน`
+          }]);
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับลูกค้าทั่วไป: ตรวจผลรางวัล / ผลสลากล่าสุด
+      const isResultsInquiryCmd = /^(?:ผลรางวัล.*|ผลสลาก.*|ตรวจหวย.*|ตรวจรางวัล.*|หวยออกอะไร.*|ผล\s*n3.*|งวดล่าสุด.*|ผลการออกรางวัล.*)$/i.test(userText);
+      if (isResultsInquiryCmd) {
+        const lotteryData = campaignService.getLatestLotteryData();
+        if (lotteryData) {
+          const flexMsg = FlexMessageBuilder.buildDrawResultsMessage(lotteryData);
+          await lineHandler.reply(replyToken, [flexMsg]);
+        } else {
+          await lineHandler.reply(replyToken, [{
+            type: 'text',
+            text: `🔍 ท่านสามารถตรวจผลรางวัลสลาก N3 ได้ที่เว็บไซต์ร้าน:\n${CONFIG.DREAM_PREDICTION_URL}`
+          }]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับลูกค้าทั่วไป: ขอคำแนะนำสั่งซื้อสลาก N3
+      const isOrderGuidanceCmd = /^(?:สั่งซื้อสลาก|ซื้อสลาก|จองสลาก|สั่งสลาก)$/i.test(userText);
+      if (isOrderGuidanceCmd) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
         continue;
       }
 
@@ -939,6 +1237,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
       // 5. เปิดอนิเมชันจุดกำลังพิมพ์ (LINE Native Loading Indicator)
       await lineHandler.showLoading(userId, 30);
+      customerRegistry.incrementOrderCount(userId);
 
       // 6. นำเข้าคิวสั่งซื้อ & ส่งข้อความต้อนรับอวยพรรอคิวทันที (สไตล์ที่ 3)
       const orderTask: OrderTask = {
@@ -1163,20 +1462,23 @@ function startServerWithPort(targetPort: number) {
       } catch {}
     }, 3000);
 
-    // รอบ Background Sync ทุก 5 นาทีเมื่อเบราว์เซอร์เปิดอยู่ (Active) และไม่ได้กำลังประมวลผลออเดอร์
+    // รอบ Background Sync ทุก 2 นาทีเมื่อเบราว์เซอร์เปิดอยู่ (Active) และไม่ได้กำลังประมวลผลออเดอร์
     const quotaSyncTimer = setInterval(async () => {
       try {
         if (orderQueue.isBusy()) return;
         const activePage = PersistentBrowserManager.getActivePage();
         if (activePage && !activePage.isClosed()) {
           const u = activePage.url();
-          if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login')) {
+          if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login') && !u.includes('/qr/')) {
             await quotaManager.syncQuotaFromLivePortal(activePage, false);
           }
         }
       } catch {}
-    }, 5 * 60 * 1000);
+    }, 2 * 60 * 1000);
     quotaSyncTimer.unref();
+
+    // เริ่มต้นระบบตั้งเวลาส่งเลขมงคลกระจายและส่งผลรางวัลอัตโนมัติ (Campaign Auto Scheduler)
+    campaignService.startAutoScheduler();
 
     // ส่งแจ้งเตือน Admin เมื่อเปิดบอท (หากไม่ได้เปิดผ่าน n3-engine ที่แจ้งเตือนพร้อม URL Tunnel แล้ว)
     if (process.env.ENGINE_NOTIFIES_START !== 'true') {

@@ -22,6 +22,8 @@ export class N3OrderService {
   ): Promise<{
     success: boolean;
     qrImageUrl?: string;
+    qrFilePath?: string;
+    qrFileName?: string;
     error?: string;
     outOfStockItems?: string[];
     fulfilledItems?: OrderItem[];
@@ -41,7 +43,18 @@ export class N3OrderService {
 
       // เข้าสู่หน้าค้นหาสลาก lotto-search เพื่อเริ่มต้นบิลใหม่ในตะกร้าเดียวกัน
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
-      await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      if (!page.url().includes('lotto-search')) {
+        console.log('[N3 ORDER] นำทางเข้าสู่หน้าค้นหาสลาก...');
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        await page.locator('input[type="text"], input[type="tel"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+      } else {
+        console.log('[N3 ORDER] หน้าเว็บอยู่ที่หน้าค้นหาสลากอยู่แล้ว ข้ามการโหลดหน้าใหม่เพื่อความรวดเร็ว');
+        const clearBtn = page.locator('p:has-text("ล้างค่า"), button:has-text("ล้างค่า"), [role="button"]:has-text("ล้างค่า")').first();
+        if (await clearBtn.isVisible().catch(() => false)) {
+          await clearBtn.click().catch(() => {});
+          await page.waitForTimeout(150);
+        }
+      }
 
       // ตรวจสอบว่ามีป๊อปอัปแจ้งเตือนเซสชันหมดอายุ ("ไม่สามารถทำรายการได้") หรือไม่
       if (await N3Auth.checkAndDismissSessionModal(page)) {
@@ -164,7 +177,13 @@ export class N3OrderService {
           }
           throw clickErr;
         }
-        await page.waitForTimeout(1200);
+
+        // รอผลลัพธ์ปรากฏ (ปุ่มเลือกสลาก หรือข้อความไม่พบสลาก) แทนการหน่วงเวลาคงที่
+        await Promise.race([
+          page.locator('button:has-text("เลือก"):visible').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {}),
+          page.locator('text=ไม่พบสลาก, text=ไม่พบข้อมูล, text=ปิดการขาย').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
+        ]);
+        await page.waitForTimeout(200);
 
         if (page.isClosed()) {
           return { success: false, error: 'หน้าต่างเบราว์เซอร์ถูกปิด กรุณาสั่งซื้อใหม่อีกครั้ง' };
@@ -422,7 +441,11 @@ export class N3OrderService {
       // 6. รอหน้าแสดง QR Code (/qr/)
       console.log('[N3 ORDER STEP 6] รอหน้าแสดงผล QR Code ชำระเงิน (/qr/)...');
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
-      await page.waitForTimeout(2000); // รอรูป QR Canvas โหลดชัดเจน
+      await page.waitForFunction(() => {
+        const c = document.querySelector('canvas#qr-code-image') as HTMLCanvasElement || document.querySelector('canvas') as HTMLCanvasElement;
+        return c && c.width >= 50 && c.height >= 50;
+      }, { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(250); // รอรูป QR Canvas โหลดสมบูรณ์
 
       // 7. ดึงภาพ QR Code ชำระเงิน คมชัดระดับ Retina HD 800x800px ตัดเฉพาะกรอบ QR Code จัตุรัส 1:1 พร้อม Quiet Zone นิรภัย
       const fileSummary = fulfilledItems.map(i => i.number).join('-');
@@ -575,31 +598,20 @@ export class N3OrderService {
         console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกล่อง QR จัตุรัส 1:1 สำเร็จ: ${qrFilePath}`);
       }
 
-      // 8. กดปุ่ม "กลับหน้าหลัก" เพื่อเตรียมความพร้อมสำหรับออเดอร์ถัดไป
-      const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
-      if (await backHomeBtn.isVisible().catch(() => false)) {
-        await backHomeBtn.click().catch(() => {});
-        await page.waitForURL(u => {
-          const s = u.toString().replace(/\/+$/, '');
-          return s.includes('/landing') || s === 'https://n3.glolotteryshop.com';
-        }, { timeout: 6000 }).catch(() => {});
-        await page.waitForTimeout(600);
-      }
-
-      // 9. ซิงค์โควต้าคงเหลือจริงจากหน้าเว็บ GLO N3 Portal อัตโนมัติ
-      const syncedQuota = await N3OrderService.syncQuotaFromLivePortal(page, false).catch(() => null);
-
       const totalQty = fulfilledItems.reduce((sum, it) => sum + it.quantity, 0);
       const totalPrice = totalQty * 20;
 
+      // คืนค่าผลลัพธ์ทันที เพื่อให้บอทส่งรูป QR Code ให้ลูกค้าได้อย่างรวดเร็วที่สุดในระดับวินาที
       return {
         success: true,
         qrImageUrl: `${CONFIG.BASE_URL}/qrcodes/${qrFileName}`,
+        qrFilePath,
+        qrFileName,
         fulfilledItems,
         outOfStockItems,
         totalQuantity: totalQty,
         totalPrice,
-        syncedQuota
+        syncedQuota: null
       };
 
     } catch (err: any) {
@@ -646,6 +658,29 @@ export class N3OrderService {
         error: cleanErrorMsg
       };
     }
+  }
+
+  /**
+   * ดำเนินการกดปุ่ม "กลับหน้าหลัก" และซิงค์โควต้าสดจาก GLO Portal หลังส่งข้อความให้ลูกค้าแล้ว
+   */
+  public static async postOrderCleanupAndQuotaSync(page: Page): Promise<{ remainingQuota: number; usedQuota: number; maxQuota: number } | null> {
+    try {
+      if (page && !page.isClosed()) {
+        const backHomeBtn = page.locator('button:has-text("กลับหน้าหลัก")');
+        if (await backHomeBtn.isVisible().catch(() => false)) {
+          await backHomeBtn.click().catch(() => {});
+          await page.waitForURL(u => {
+            const s = u.toString().replace(/\/+$/, '');
+            return s.includes('/landing') || s === 'https://n3.glolotteryshop.com';
+          }, { timeout: 6000 }).catch(() => {});
+          await page.waitForTimeout(300);
+        }
+        return await N3OrderService.syncQuotaFromLivePortal(page, false).catch(() => null);
+      }
+    } catch (e: any) {
+      console.warn('[POST-ORDER CLEANUP WARNING]', e?.message);
+    }
+    return null;
   }
 
   /**

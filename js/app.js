@@ -926,18 +926,17 @@ document.addEventListener('DOMContentLoaded', function () {
       : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
     const dynamicLineOaId = currentAgentLine || '@586xxhlx';
 
-    // 2. Setup Primary LINE Order Button (Direct Mobile App Deep Link)
+    const LIFF_BASE_URL = 'https://liff.line.me/2011462211-WVsuHFk4';
+
+    // 2. Setup Primary LINE Order Button (Direct LIFF App)
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
-      const defaultOrderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      const deepLink = getLineDeepLink(dynamicLineOaId, defaultOrderMsg);
-      btnOrderLine.href = deepLink.directUrl;
+      const liffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
+      btnOrderLine.href = liffUrl;
       btnOrderLine.removeAttribute('target');
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
       btnOrderLine.onclick = (e) => {
-        e.preventDefault();
-        showToast(`📋 คัดลอกคำสั่งซื้อ "${defaultOrderMsg}" แล้ว! กำลังเปิดแอป LINE...`);
-        openLineOrder(dynamicLineOaId, defaultOrderMsg);
+        window.location.href = liffUrl;
       };
     }
 
@@ -948,42 +947,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (pkgBtnDirect) {
       pkgBtnDirect.onclick = () => {
-        const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-        showToast(`🎯 3 ตัวตรง: คัดลอก "${msg}" แล้ว! กำลังเปิดแอป LINE...`);
-        openLineOrder(dynamicLineOaId, msg);
+        const liffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
+        showToast(`🎯 3 ตัวตรง: กำลังเปิดตารางสั่งซื้อใน LINE...`);
+        window.location.href = liffUrl;
       };
     }
 
     if (pkgBtnCombo) {
       pkgBtnCombo.onclick = () => {
-        const orderItems = [`${pred.n3Direct} 1 ใบ`];
-        todsList.forEach(t => orderItems.push(`${t} 1 ใบ`));
-        const msg = `สั่งซื้อ ${orderItems.join(', ')}`;
-        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): คัดลอกคำสั่งซื้อแล้ว! กำลังเปิดแอป LINE...`);
-        openLineOrder(dynamicLineOaId, msg);
+        const orderItems = [`${pred.n3Direct}:1`];
+        todsList.forEach(t => orderItems.push(`${t}:1`));
+        const liffUrl = `${LIFF_BASE_URL}?order=${orderItems.join(',')}`;
+        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): กำลังเปิดตารางสั่งซื้อใน LINE...`);
+        window.location.href = liffUrl;
       };
     }
 
     if (pkgBtnTwo) {
       pkgBtnTwo.onclick = () => {
-        const msg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): คัดลอก "${msg}" แล้ว! กำลังเปิดแอป LINE...`);
-        openLineOrder(dynamicLineOaId, msg);
+        const liffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
+        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): กำลังเปิดตารางสั่งซื้อใน LINE...`);
+        window.location.href = liffUrl;
       };
     }
 
     // 4. Update Floating Mobile Bottom Bar Action
     const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
     if (mobileLineBtn) {
-      const mobileMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
-      const deepLink = getLineDeepLink(dynamicLineOaId, mobileMsg);
-      mobileLineBtn.href = deepLink.directUrl;
+      const mobileLiffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
+      mobileLineBtn.href = mobileLiffUrl;
       mobileLineBtn.removeAttribute('target');
       mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
       mobileLineBtn.onclick = (e) => {
-        e.preventDefault();
-        showToast(`คัดลอกคำสั่งซื้อ "${mobileMsg}" แล้ว! กำลังเปิดแอป LINE...`);
-        openLineOrder(dynamicLineOaId, mobileMsg);
+        window.location.href = mobileLiffUrl;
       };
     }
 
@@ -1576,9 +1572,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Open Order Modal Trigger
+  // Open Order Modal Trigger / Direct LIFF Link
   document.querySelectorAll('.btn-trigger-order-modal').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      // If href points to LIFF URL, allow default browser navigation to LIFF
+      const href = btn.getAttribute('href');
+      if (href && href.includes('liff.line.me')) {
+        return;
+      }
       // If user holds Ctrl or on desktop middle click, allow opening order.html in new tab
       if (e.ctrlKey || e.metaKey) return;
       e.preventDefault();
@@ -1821,8 +1822,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const rawModalLine = agentLineModal || '@586xxhlx';
 
       if (modalOrderTable) modalOrderTable.classList.remove('active');
-      showToast(`📋 ส่งคำสั่งซื้อ "${cmd}" เข้าสู่แอป LINE...`);
-      openLineOrder(rawModalLine, cmd);
+      const orderParam = Array.from(map.entries()).map(([num, qty]) => `${num}:${qty}`).join(',');
+      showToast(`🛒 กำลังเปิดตารางสั่งซื้อใน LINE (LIFF)...`);
+      window.location.href = `https://liff.line.me/2011462211-WVsuHFk4?order=${orderParam}`;
     });
   }
 
