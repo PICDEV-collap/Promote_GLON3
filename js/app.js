@@ -298,18 +298,31 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // QR Download Handler
+  // QR Download Handler (Mobile-first ImageSaver)
   if (btnDownloadShopQr) {
-    btnDownloadShopQr.addEventListener('click', () => {
+    btnDownloadShopQr.addEventListener('click', async () => {
       try { SoundEngine.playClick(); } catch (e) {}
       if (storefrontQrImg && storefrontQrImg.src) {
-        const link = document.createElement('a');
-        link.download = `GLO-N3-Shop-QR-${Date.now()}.png`;
-        link.href = storefrontQrImg.src;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast('กำลังดาวน์โหลดภาพ QR Code ร้านค้า...');
+        const filename = `GLO-N3-Shop-QR-${Date.now()}.png`;
+        const title = 'QR Code ร้านสลาก N3 ธนกิจนำโชค';
+        const text = 'สแกนเพื่อซื้อสลาก N3 หรือเพิ่มเพื่อน LINE ร้านสลาก N3 ธนกิจนำโชค (@586xxhlx)';
+
+        if (typeof window.ImageSaver !== 'undefined') {
+          await window.ImageSaver.saveImage({
+            dataUrl: storefrontQrImg.src,
+            filename,
+            title,
+            text
+          });
+        } else {
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = storefrontQrImg.src;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          showToast('กำลังดาวน์โหลดภาพ QR Code ร้านค้า...');
+        }
       }
     });
   }
@@ -904,11 +917,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (btnDownloadCardPng) {
-    btnDownloadCardPng.addEventListener('click', () => {
+    btnDownloadCardPng.addEventListener('click', async () => {
       try { SoundEngine.playCopySuccess(); } catch (err) {}
       const agentInfo = AgentSystem.getAgentInfo();
-      ShareCardEngine.downloadCard(currentPrediction, agentInfo);
-      showToast('กำลังดาวน์โหลดรูปภาพการ์ดคำทำนาย...');
+      await ShareCardEngine.downloadCard(currentPrediction, agentInfo);
     });
   }
 
@@ -1138,7 +1150,6 @@ document.addEventListener('DOMContentLoaded', function () {
       try { SoundEngine.playCopySuccess(); } catch (e) {}
       const config = getPosterConfig();
       await PosterStudio.downloadPoster(config);
-      showToast('กำลังดาวน์โหลดรูปภาพโปสเตอร์ High-DPI...');
     });
   }
 

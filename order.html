@@ -386,6 +386,7 @@
       border: none;
       outline: none;
       -moz-appearance: textfield;
+      appearance: textfield;
     }
 
     .input-qty::-webkit-outer-spin-button,
@@ -1418,9 +1419,13 @@
       if (lineParam) {
         CONFIG.LINE_OA_ID = lineParam.startsWith('@') ? lineParam : '@' + lineParam;
       }
-      const singleNum = params.get('n') || params.get('number');
-      const singleQty = params.get('q') || params.get('qty') || 1;
-      const orderList = params.get('order') || params.get('numbers');
+      const rawSingleNum = params.get('n') || params.get('number');
+      const rawSingleQty = params.get('q') || params.get('qty') || 1;
+      const rawOrderList = params.get('order') || params.get('numbers');
+
+      const singleNum = rawSingleNum ? toArabicDigits(rawSingleNum) : null;
+      const singleQty = typeof rawSingleQty === 'string' ? parseInt(toArabicDigits(rawSingleQty), 10) || 1 : (rawSingleQty || 1);
+      const orderList = rawOrderList ? toArabicDigits(rawOrderList) : null;
 
       if (orderList) {
         const parts = orderList.split(/[,;]/);

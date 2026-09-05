@@ -42,7 +42,7 @@ async function openLiveBrowserForDealer() {
   } catch (err) {
     console.error('[ERROR]', err);
   } finally {
-    await PersistentBrowserManager.close();
+    await PersistentBrowserManager.terminateBrowserProcess();
     console.log('ปิดเบราว์เซอร์เรียบร้อย ข้อมูลการล็อกอินถูกจำไว้ในเครื่องแล้วครับ');
   }
 }

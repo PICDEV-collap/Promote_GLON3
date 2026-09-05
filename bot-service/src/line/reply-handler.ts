@@ -30,18 +30,42 @@ export class LineReplyHandler {
   }
 
   /**
+   * ป้องกันข้อผิดพลาด HTTP 400 Bad Request จาก LINE Messaging API:
+   * 1. ตรวจสอบข้อความ Text ไม่ให้ยาวเกิน 4,000 ตัวอักษร (LINE กำหนดไม่เกิน 5,000)
+   * 2. ป้องกันข้อความว่างเปล่าหรือมีแต่ Whitespace
+   */
+  public static sanitizeMessages(messages: messagingApi.Message[]): messagingApi.Message[] {
+    if (!Array.isArray(messages)) return [];
+    return messages.map(msg => {
+      if (msg && msg.type === 'text') {
+        let t = (msg as messagingApi.TextMessage).text;
+        if (typeof t !== 'string') t = String(t || '');
+        if (t.length > 4000) {
+          t = t.slice(0, 3950) + '\n... [ข้อความถูกตัดทอนเพื่อให้อยู่ในเกณฑ์ LINE API]';
+        }
+        if (!t.trim()) {
+          t = ' ';
+        }
+        return { ...msg, text: t };
+      }
+      return msg;
+    });
+  }
+
+  /**
    * ส่งข้อความตอบกลับโดยใช้ replyToken (ฟรี ไม่เสียโควต้า Push Message 500 ข้อความ)
    */
   public async reply(replyToken: string, messages: messagingApi.Message[]): Promise<boolean> {
+    const safeMessages = LineReplyHandler.sanitizeMessages(messages);
     if (!this.client) {
-      console.log('[LINE SIMULATE REPLY] (จำลองการส่งเนื่องจากไม่มี Token):', JSON.stringify(messages, null, 2));
+      console.log('[LINE SIMULATE REPLY] (จำลองการส่งเนื่องจากไม่มี Token):', JSON.stringify(safeMessages, null, 2));
       return true;
     }
 
     try {
       await this.client.replyMessage({
         replyToken,
-        messages
+        messages: safeMessages
       });
       console.log('[LINE REPLY SUCCESS] ส่งข้อความผ่าน ReplyToken สำเร็จ (ไม่เสียโควต้าข้อความ)');
       return true;
@@ -55,15 +79,16 @@ export class LineReplyHandler {
    * ส่งภาพ QR Login หรือการแจ้งเตือนด่วนไปยัง Admin
    */
   public async pushToAdmin(messages: messagingApi.Message[]): Promise<boolean> {
+    const safeMessages = LineReplyHandler.sanitizeMessages(messages);
     if (!this.client || !CONFIG.ADMIN_LINE_USER_ID) {
-      console.log('[ADMIN SIMULATE ALERT] ส่งแจ้งเตือนแอดมิน:', JSON.stringify(messages, null, 2));
+      console.log('[ADMIN SIMULATE ALERT] ส่งแจ้งเตือนแอดมิน:', JSON.stringify(safeMessages, null, 2));
       return true;
     }
 
     try {
       await this.client.pushMessage({
         to: CONFIG.ADMIN_LINE_USER_ID,
-        messages
+        messages: safeMessages
       });
       console.log('[ADMIN PUSH SUCCESS] ส่งแจ้งเตือนเข้า LINE แอดมินสำเร็จ');
       return true;
@@ -105,15 +130,16 @@ export class LineReplyHandler {
    * ส่งข้อความ Push โดยตรงไปยัง User ID ของลูกค้า (ใช้เมื่อคิวต้องรอนานจน replyToken หมดอายุ)
    */
   public async push(userId: string, messages: messagingApi.Message[]): Promise<boolean> {
+    const safeMessages = LineReplyHandler.sanitizeMessages(messages);
     if (!this.client || !userId) {
-      console.log(`[LINE SIMULATE PUSH] ส่งให้ ${userId}:`, JSON.stringify(messages, null, 2));
+      console.log(`[LINE SIMULATE PUSH] ส่งให้ ${userId}:`, JSON.stringify(safeMessages, null, 2));
       return true;
     }
 
     try {
       await this.client.pushMessage({
         to: userId,
-        messages
+        messages: safeMessages
       });
       console.log(`[LINE PUSH SUCCESS] ส่งข้อความ Push ให้ลูกค้า ${userId} สำเร็จ`);
       return true;

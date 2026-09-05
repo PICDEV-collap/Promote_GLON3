@@ -97,7 +97,12 @@ app.use(express.json({
 // -------------------------------------------------------------------------
 // Static Asset Whitelist (จำกัดสิทธิ์เฉพาะโฟลเดอร์สาธารณะที่ปลอดภัยเท่านั้น)
 // -------------------------------------------------------------------------
-app.use('/qrcodes', express.static(CONFIG.QR_OUTPUT_DIR, { dotfiles: 'ignore', index: false }));
+app.use('/qrcodes', (req: Request, res: Response, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  next();
+}, express.static(CONFIG.QR_OUTPUT_DIR, { dotfiles: 'ignore', index: false }));
 app.use('/public', express.static(path.join(__dirname, '../../public'), { dotfiles: 'ignore', index: false }));
 app.use('/public', express.static(path.join(__dirname, '../public'), { dotfiles: 'ignore', index: false }));
 app.use('/css', express.static(path.join(__dirname, '../../css'), { dotfiles: 'ignore', index: false }));
@@ -123,10 +128,10 @@ app.get(['/order', '/order.html'], (_req: Request, res: Response) => {
   }
 });
 
-// Endpoint บังคับดาวน์โหลดไฟล์รูปภาพ QR Code โดยตรง (Force Download) พร้อมระบบตรวจสอบและ Rate Limit
+// Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code พร้อมหน้ารองรับทั้ง Direct Download และ Mobile Web View
 app.get('/download-qr/:filename', (req: Request, res: Response): void => {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
-  if (!rateLimiter.check(`download:${ip}`, 30, 60000)) {
+  if (!rateLimiter.check(`download:${ip}`, 60, 60000)) {
     res.status(429).send('คำขอดาวน์โหลดถี่เกินไป กรุณารอ 1 นาที');
     return;
   }
@@ -142,12 +147,78 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
   }
 
   const filePath = path.join(CONFIG.QR_OUTPUT_DIR, filename);
-  if (fs.existsSync(filePath)) {
-    res.setHeader('Content-Type', 'image/png');
-    res.download(filePath, `n3-payment-${filename}`);
-  } else {
+  if (!fs.existsSync(filePath)) {
     res.status(404).send('ไม่พบไฟล์ QR Code หรืออาจหมดอายุแล้ว');
+    return;
   }
+
+  // หากระบุ ?action=dl หรือ ?download=1 ให้ส่งเป็นไฟล์ดาวน์โหลดตรงทันที
+  const isDirectDownload = req.query.action === 'dl' || req.query.download === '1';
+  if (isDirectDownload) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.removeHeader('X-Frame-Options');
+    res.download(filePath, `n3-qr-${filename}`);
+    return;
+  }
+
+  // ส่งหน้าดาวน์โหลดแบบ Responsive สวยงาม รองรับทั้ง Android, iOS, และ LINE In-App Browser
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.removeHeader('X-Frame-Options');
+  res.send(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ดาวน์โหลด QR Code ชำระเงิน N3</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Prompt', 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: #f0f2f5; color: #1c1e21; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+    .card { background: #ffffff; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-width: 420px; width: 100%; padding: 24px; text-align: center; }
+    .header { margin-bottom: 16px; }
+    .header h2 { font-size: 1.25rem; color: #0c1b33; font-weight: 700; margin-bottom: 4px; }
+    .header p { font-size: 0.875rem; color: #65676b; }
+    .qr-container { background: #ffffff; padding: 12px; border: 2px dashed #00c300; border-radius: 16px; margin: 16px 0; display: inline-block; width: 100%; max-width: 280px; }
+    .qr-container img { width: 100%; height: auto; display: block; border-radius: 8px; }
+    .btn-download { display: block; width: 100%; padding: 14px; background: #00c300; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 1rem; margin-bottom: 10px; border: none; cursor: pointer; transition: background 0.2s; }
+    .btn-download:hover { background: #00a000; }
+    .btn-paotang { display: block; width: 100%; padding: 12px; background: #0078d4; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 0.95rem; margin-bottom: 14px; }
+    .tip-box { background: #fff3cd; border-radius: 10px; padding: 12px; font-size: 0.8rem; color: #856404; text-align: left; line-height: 1.4; }
+    .tip-box b { display: block; margin-bottom: 4px; color: #533f03; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h2>ร้านสลาก N3 ธนกิจนำโชค</h2>
+      <p>QR Code สำหรับชำระเงินผ่านแอปเป๋าตัง</p>
+    </div>
+    <div class="qr-container">
+      <img id="qrImg" src="/qrcodes/${filename}" alt="N3 Payment QR Code">
+    </div>
+    <a id="dlLink" href="/download-qr/${filename}?action=dl" class="btn-download" download="n3-qr-${filename}">📥 บันทึกรูป QR ลงเครื่อง</a>
+    <a href="ktbpaotang://" class="btn-paotang">🔵 เปิดแอป "เป๋าตัง" เพื่อสแกนจ่าย</a>
+    <div class="tip-box">
+      <b>💡 เคล็ดลับการบันทึก:</b>
+      • บนมือถือ: สามารถ<b>แตะค้างที่รูป QR ด้านบน</b> แล้วเลือก "บันทึกรูปภาพ" (Save Image) ลงแกลเลอรีได้ทันที<br>
+      • จากนั้นเปิดแอปเป๋าตัง เลือกเมนูสแกน และเลือกรูปจากแกลเลอรีเพื่อชำระเงิน
+    </div>
+  </div>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        const link = document.createElement('a');
+        link.href = '/download-qr/${filename}?action=dl';
+        link.download = 'n3-qr-${filename}';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>`);
 });
 
 // เริ่มต้นระบบหลัก
@@ -155,6 +226,20 @@ const quotaManager = QuotaManager.getInstance();
 const orderQueue = new OrderQueue();
 const lineHandler = new LineReplyHandler();
 const securityGuard = new SecurityGuard();
+
+// Health Check API สำหรับตรวจสอบสถานะและ Telemetry ของระบบ
+app.get('/health', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.json({
+    status: 'ok',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+    quota: quotaManager.getStatus(),
+    queue: {
+      isBusy: orderQueue.isBusy()
+    }
+  });
+});
 
 let context: BrowserContext | null = null;
 let page: Page | null = null;
@@ -168,6 +253,29 @@ try {
     currentPublicBaseUrl = initialWebhook.replace(/\/webhook\/?$/, '');
   }
 } catch {}
+
+/**
+ * ดึง Public Base URL ล่าสุดแบบ Dynamic เสมอ
+ * โดยตรวจสอบทั้งจาก webhook-url.txt และ Memory ป้องกันปัญหารูปภาพไม่แสดงจาก Tunnel URL เก่า
+ */
+export function getPublicBaseUrl(): string {
+  try {
+    const stored = getStoredWebhookUrl();
+    if (stored && stored.startsWith('https://') && !stored.includes('localhost')) {
+      const parsed = stored.replace(/\/webhook\/?$/, '');
+      if (parsed) {
+        currentPublicBaseUrl = parsed;
+        return parsed;
+      }
+    }
+  } catch {}
+
+  if (currentPublicBaseUrl && currentPublicBaseUrl.startsWith('https://') && !currentPublicBaseUrl.includes('localhost')) {
+    return currentPublicBaseUrl;
+  }
+
+  return CONFIG.BASE_URL;
+}
 
 /**
  * ฟังก์ชันเปิดเบราว์เซอร์เฉพาะเมื่อมีงานเข้ามาจริง (On-Demand) ไม่เปิดค้างทิ้งไว้เบื้องหลัง
@@ -220,12 +328,13 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
     console.log(`[ADMIN AUTH] ${reason} -> กำลังสร้าง QR Login ส่งให้แอดมิน...`);
     const { qrImagePath } = await N3Auth.generatePaotangLoginQR(currentPage);
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
-    const qrPublicUrl = `${currentPublicBaseUrl}/qrcodes/${qrFileName}`;
+    const activePublicBase = getPublicBaseUrl();
+    const qrPublicUrl = `${activePublicBase}/qrcodes/${qrFileName}`;
 
     const adminMessages: any[] = [
       {
         type: 'text',
-        text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:`
+        text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:\n🔗 ลิงก์ตรงรูปภาพ: ${qrPublicUrl}`
       },
       {
         type: 'image',
@@ -352,11 +461,19 @@ orderQueue.setWorker(async (task: OrderTask) => {
         }
       }
 
-      const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, currentPublicBaseUrl);
+      const activePublicBase = getPublicBaseUrl();
+      const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, activePublicBase);
       const qrFileName = result.qrImageUrl.split(/[\/\\]/).pop() || '';
-      const downloadUrl = `${currentPublicBaseUrl}/download-qr/${qrFileName}`;
+      const downloadUrl = `${activePublicBase}/download-qr/${qrFileName}?openExternalBrowser=1`;
 
-      // ส่ง Flex Message สรุปคำสั่งซื้อพร้อมรูป QR Code คมชัดสูงในตัว (ส่งข้อความเดียว จบครบ ไม่ขึ้นซ้ำ 2 ภาพ)
+      // 1. ส่งรูปภาพ QR Code แบบ Native LINE Image Message (เปิดผ่าน LINE Photo Viewer แล้วมีปุ่ม 📥 บันทึกลงเครื่องแบบภาพสลิป)
+      const imageMsg: messagingApi.ImageMessage = {
+        type: 'image',
+        originalContentUrl: qrPublicUrl,
+        previewImageUrl: qrPublicUrl
+      };
+
+      // 2. ส่ง Flex Message สรุปคำสั่งซื้อ พร้อมรายละเอียดสลากและปุ่มเปิดแอปเป๋าตัง
       const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(
         qrPublicUrl,
         result.fulfilledItems || orderItems,
@@ -367,21 +484,38 @@ orderQueue.setWorker(async (task: OrderTask) => {
         result.outOfStockItems
       );
 
-      await sendCustomerMessage([flexMsg]);
-      console.log(`[SUCCESS] ส่งการ์ด QR Code ชำระเงินให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
+      await sendCustomerMessage([imageMsg, flexMsg]);
+      console.log(`[SUCCESS] ส่งภาพ QR Code คมชัดสูง (Native Image + Flex Card) ให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
     } else {
       const itemsDesc = task.items && task.items.length > 0
         ? task.items.map(i => i.number).join(', ')
         : (task.number || '');
 
+      const isSessionOrAuthError = !!(result.error && (
+        result.error.includes('Session') ||
+        result.error.includes('Geolocation') ||
+        result.error.includes('พิกัด') ||
+        result.error.includes('ไม่พร้อมใช้งาน') ||
+        result.error.includes('หมดอายุ') ||
+        result.error.includes('เข้าสู่ระบบ') ||
+        result.error.includes('Timeout') ||
+        result.error.includes('intercept') ||
+        result.error.includes('ขัดจังหวะ')
+      ));
+
       let userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc} กรุณาลองใหม่อีกครั้งครับ`;
-      if (result.error && (result.error.includes('Session') || result.error.includes('Geolocation') || result.error.includes('พิกัด') || result.error.includes('ไม่พร้อมใช้งาน'))) {
+      if (isSessionOrAuthError) {
         userMsg = 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อมเข้าระบบ กรุณารอสักครู่แล้วสั่งซื้อใหม่อีกครั้งครับ 🙏';
         triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบแจ้ง: ${result.error}`);
       } else if (result.outOfStockItems && result.outOfStockItems.length > 0) {
         userMsg = `ขออภัยครับ สลากเลข ${result.outOfStockItems.join(', ')} ไม่มีจำหน่ายหรือสลากหมดในระบบแล้วครับ`;
       } else if (result.error && !result.error.includes('Target page') && !result.error.includes('closed') && !result.error.includes('evaluate')) {
-        userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc}: ${result.error}`;
+        const cleanErr = result.error.split('\n')[0].replace(/Call log:.*$/i, '').trim();
+        userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc}: ${cleanErr}`;
+      }
+
+      if (userMsg.length > 400) {
+        userMsg = userMsg.slice(0, 390) + '...';
       }
 
       await sendCustomerMessage([
@@ -419,13 +553,17 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
     clean = clean.replace(new RegExp(thaiDigits[i], 'g'), String(i));
   }
 
+  // 1.5 ตัดคำทักทายสุภาพนำหน้า เช่น "สวัสดีครับ", "สวัสดีค่ะ", "ดีครับ", "หวัดดี", "hello"
+  const greetingPrefix = /^(?:สวัสดี|สว้สดี|หวัดดี|ดีครับ|ดีค่ะ|ดีคับ|ดีจ้า|ดีฮะ|hello|hi|hey)\s*(?:ครับ|ค่ะ|คับ|จ้า|ฮะ|คะ|ค้าบ)?\s*/i;
+  clean = clean.replace(greetingPrefix, '').trim();
+
   // 2. ป้องกันคำสั่งระบบ/แอดมิน/คำถามทั่วไป/ทักทาย/ชำระเงิน
-  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน|เริ่ม.*|start.*|เมนู.*|menu.*|หน้าแรก.*|home.*|สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ทำนาย.*|เลขเด็ด.*|ชำระเงิน.*|จ่ายเงิน.*|วิธีชำระ.*|วิธีการชำระ.*|วิธีจ่าย.*|เป๋าตัง.*|สั่งซื้อ$|ซื้อสลาก$|สั่งสลาก$|เลือกเลข$)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
+  if (/^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|id|myid|help|status|quota|sync|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ|วิธีซื้อ|วิธีสั่ง|วิธี|ขอคิว|ขอ\s*qr|ล็อกอิน|เริ่ม$|start$|เมนู.*|menu.*|หน้าแรก.*|home.*|สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ทำนายฝัน.*|ทำนายความฝัน.*|เลขเด็ด$|ขอเลขเด็ด.*|ชำระเงิน.*|จ่ายเงิน.*|วิธีชำระ.*|วิธีการชำระ.*|วิธีจ่าย.*|เป๋าตัง.*|สั่งซื้อ$|ซื้อสลาก$|สั่งสลาก$|เลือกเลข$)$/i.test(clean) || /^(?:login|signin|help|myid|status|quota)\b/i.test(clean)) {
     return null;
   }
 
-  // กำหนด Regex ตัดคำนำหน้าการสั่งซื้อภาษาไทยออก (เช่น สั่งซื้อ, ขอซื้อ, สั่ง, ซื้อ, เอาเลข, ขอเลข, สลาก, ฯลฯ)
-  const orderPrefixRegex = /^(?:ขอสั่งซื้อ|ขอซื้อสลาก|ซื้อสลาก|สั่งสลาก|ขอสลาก|สั่งซื้อ|ขอซื้อ|ขอสั่ง|เอาเลข|ซื้อเลข|สั่งเลข|เลือกเลข|ขอเลข|สั่ง|ซื้อ|เอา|ขอ|เลือก|สลาก|เลข|\s)+/i;
+  // กำหนด Regex ตัดคำนำหน้าการสั่งซื้อภาษาไทยออก (เช่น สั่งซื้อ, ขอซื้อ, สั่ง, ซื้อ, เอาเลข, ขอเลข, หาเลข, สลาก, ฯลฯ)
+  const orderPrefixRegex = /^(?:ขอสั่งซื้อ|ขอซื้อสลาก|ซื้อสลาก|สั่งสลาก|ขอสลาก|สั่งซื้อ|ขอซื้อ|ขอสั่ง|เอาเลข|ซื้อเลข|สั่งเลข|เลือกเลข|ขอเลข|หาเลข|สั่ง|ซื้อ|เอา|ขอ|เลือก|หา|สลาก|เลข|\s)+/i;
   const normalized = clean.replace(orderPrefixRegex, '').trim();
   if (!normalized) return null;
 
@@ -542,12 +680,12 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
   res.status(200).send('OK');
 
-  // 2. ป้องกัน Host Header Injection: อัปเดต Memory Base URL เฉพาะเมื่อจำเป็น โดยไม่เขียนทับไฟล์ระบบ
+  // 2. ป้องกัน Host Header Injection: อัปเดต Memory Base URL ให้ตรงกับ Host ที่ LINE ส่งเข้ามาเสมอ
   const host = (req.headers['x-forwarded-host'] || req.headers.host) as string;
   const proto = (req.headers['x-forwarded-proto'] || 'https') as string;
   if (host && typeof host === 'string') {
     const lowerHost = host.toLowerCase();
-    if (lowerHost.endsWith('.trycloudflare.com') && !currentPublicBaseUrl.includes('.trycloudflare.com')) {
+    if (lowerHost.endsWith('.trycloudflare.com') || lowerHost.includes('ngrok') || lowerHost.includes('loca.lt')) {
       currentPublicBaseUrl = `${proto}://${host}`;
     }
   }
@@ -610,30 +748,33 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // คำสั่งทักทาย / เริ่มต้นใช้งาน (สวัสดี, สว้สดี, หวัดดี, hello, hi, เริ่ม, ฯลฯ) -> ส่งการ์ดต้อนรับชุดใหญ่
+      // ตรวจจับล่วงหน้าว่าข้อความเป็นคำสั่งซื้อสลากที่ถูกต้องหรือไม่ (ป้องกันไม่ให้คำทักทายหรือคำถามกลืนคำสั่งซื้อ)
+      const preParsedOrder = parseOrderMessage(userText);
+
+      // คำสั่งทักทาย / เริ่มต้นใช้งาน (เฉพาะเมื่อไม่ใช่การสั่งซื้อสลาก) -> ส่งการ์ดต้อนรับชุดใหญ่
       const isGreeting = /^(?:สวัสดี.*|สว้สดี.*|หวัดดี.*|ดีครับ.*|ดีค่ะ.*|ดีคับ.*|ดีจ้า.*|ดีฮะ.*|สวัสดียาม.*|อรุณสวัสดิ์.*|hello.*|hi.*|hey.*|start.*|เริ่ม.*|แนะนำตัว|ยินดีต้อนรับ)$/i.test(userText);
-      if (isGreeting) {
+      if (!preParsedOrder && isGreeting) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildWelcomeMessage()]);
         continue;
       }
 
       // คำสั่งวิธีการชำระเงิน (จ่ายผ่านแอปเป๋าตังเท่านั้น)
       const isPaymentGuideCmd = /^(?:(?:วิธี|วิธีการ)?(?:ชำระเงิน|จ่ายเงิน|จ่าย|ชำระ|สแกน|เป๋าตัง|วิธีจ่าย|วิธีสแกน|จ่ายยังไง|สแกนยังไง)|payment)$/i.test(userText);
-      if (isPaymentGuideCmd) {
+      if (!preParsedOrder && isPaymentGuideCmd) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildPaymentGuideMessage()]);
         continue;
       }
 
       // คำสั่งขั้นตอนสั่งซื้อ / ตารางสั่งซื้อ / สั่งซื้อสลาก N3 / คำว่า สั่งซื้อ เดี่ยวๆ
       const isOrderGuideCmd = /^(?:(?:ตาราง)?(?:สั่งซื้อ|ซื้อสลาก|สั่งสลาก|ขอซื้อ|เลือกเลข|ซื้อ|สั่ง)(?:\s*(?:สลาก)?(?:\s*N3)?)?|order|ตาราง|ตารางสั่งซื้อ)$/i.test(userText);
-      if (isOrderGuideCmd) {
+      if (!preParsedOrder && isOrderGuideCmd) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildOrderGuidanceMessage()]);
         continue;
       }
 
-      // คำสั่งทำนายฝัน / เลขเด็ด AI (รองรับบทสนทนาธรรมชาติ เช่น "เมื่อคืนฝัน...", "เมื่อวานฝันว่า...", "ผมฝันว่า...", "หนูฝันว่า...", "ขอเลขเด็ด...", "ช่วยแปลฝัน...")
-      const isDreamCmd = /^(?:(?:เมื่อคืน(?:นี้)?|เมื่อวาน(?:นี้)?|เมื่อกี้|เมื่อเช้า)?\s*(?:ผม|หนู|ฉัน|เรา|เค้า)?\s*ฝัน.*|ทำนายฝัน.*|ทำนายความฝัน.*|ทำนาย.*|เลขเด็ด.*|หาเลข.*|ขอเลข.*|แปลฝัน.*|แปลความฝัน.*|ช่วยทำนาย.*|ช่วยแปล.*|ช่วยดู.*|ความฝัน.*)$/i.test(userText);
-      if (isDreamCmd) {
+      // คำสั่งทำนายฝัน / เลขเด็ด AI (เฉพาะเมื่อไม่ใช่การสั่งซื้อสลาก เช่น "ขอเลขเด็ด", "เมื่อคืนฝันว่า...")
+      const isDreamCmd = /^(?:(?:เมื่อคืน(?:นี้)?|เมื่อวาน(?:นี้)?|เมื่อกี้|เมื่อเช้า)?\s*(?:ผม|หนู|ฉัน|เรา|เค้า)?\s*ฝัน.*|ทำนายฝัน.*|ทำนายความฝัน.*|ทำนาย.*|เลขเด็ด.*|หาเลขเด็ด.*|ขอเลขเด็ด.*|แปลฝัน.*|แปลความฝัน.*|ช่วยทำนาย.*|ช่วยแปล.*|ช่วยดู.*|ความฝัน.*)$/i.test(userText);
+      if (!preParsedOrder && isDreamCmd) {
         const analysis = DreamEngine.analyzeDreamPrompt(userText);
         if (analysis.hasDreamContent) {
           console.log(`[DREAM IN-CHAT] ทำนายฝันข้อความ: "${analysis.cleanedText}" จาก ${userId}`);
@@ -717,12 +858,12 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       // 2. แกะคำสั่งซื้อสลาก (รองรับทั้งเลขเดี่ยวและหลายเลขในบิลเดียว)
-      const parsedItems = parseOrderMessage(userText);
+      const parsedItems = preParsedOrder || parseOrderMessage(userText);
       if (!parsedItems || parsedItems.length === 0) {
         // ตรวจจับกรณีลูกค้าพยายามสั่งซื้อเลข 2 หลัก (เช่น "89", "89 1", "สั่งซื้อ 89 1 ใบ")
         const thaiConverted = userText.trim().replace(/[๐-๙]/g, (d) => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(d)));
         const twoDigitMatch = thaiConverted
-          .replace(/^(?:ขอสั่งซื้อ|ขอซื้อสลาก|ซื้อสลาก|สั่งสลาก|ขอสลาก|สั่งซื้อ|ขอซื้อ|ขอสั่ง|เอาเลข|ซื้อเลข|สั่งเลข|เลือกเลข|ขอเลข|สั่ง|ซื้อ|เอา|ขอ|เลือก|สลาก|เลข|\s)+/i, '')
+          .replace(/^(?:ขอสั่งซื้อ|ขอซื้อสลาก|ซื้อสลาก|สั่งสลาก|ขอสลาก|สั่งซื้อ|ขอซื้อ|ขอสั่ง|เอาเลข|ซื้อเลข|สั่งเลข|เลือกเลข|ขอเลข|หาเลข|สั่ง|ซื้อ|เอา|ขอ|เลือก|หา|สลาก|เลข|\s)+/i, '')
           .match(/^(\d{2})(?:[\s=\-xX*:]+([0-9]+))?(?:\s*ใบ)?$/);
 
         if (twoDigitMatch) {
@@ -734,35 +875,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
           await lineHandler.reply(replyToken, [
             {
               type: 'text',
-              text: `💡 สลาก N3 เป็นสลากตัวเลข 3 หลัก (000-999) ใบละ 20 บาท\n\nหากท่านต้องการลุ้นรางวัลเลขท้าย 2 ตัว "${twoNum}" ระบบจะตรวจผลจาก 2 ตัวท้ายของสลาก 3 หลักครับ\n\n👉 ท่านสามารถแตะเลือกสั่งซื้อเลข 3 หลักด้านล่างนี้ได้ทันทีครับ:`,
-              quickReply: {
-                items: [
-                  {
-                    type: 'action',
-                    action: {
-                      type: 'message',
-                      label: `🎯 ซื้อ ${s1} 1 ใบ`,
-                      text: `สั่งซื้อ ${s1} ${twoQty} ใบ`
-                    }
-                  },
-                  {
-                    type: 'action',
-                    action: {
-                      type: 'message',
-                      label: `🎯 ซื้อ ${s2} 1 ใบ`,
-                      text: `สั่งซื้อ ${s2} ${twoQty} ใบ`
-                    }
-                  },
-                  {
-                    type: 'action',
-                    action: {
-                      type: 'message',
-                      label: '🏠 เมนูหลัก',
-                      text: 'เมนู'
-                    }
-                  }
-                ]
-              }
+              text: `💡 สลาก N3 เป็นสลากตัวเลข 3 หลัก (000-999) ใบละ 20 บาท\n\nหากท่านต้องการลุ้นรางวัลเลขท้าย 2 ตัว "${twoNum}" ระบบจะตรวจผลจาก 2 ตัวท้ายของสลาก 3 หลักครับ\n\n👉 ตัวอย่างการพิมพ์สั่งซื้อ:\n• สั่งซื้อ ${s1} ${twoQty} ใบ\n• สั่งซื้อ ${s2} ${twoQty} ใบ\n\nหรือเลือกทำรายการผ่าน Rich Menu ด้านล่างได้ตลอดเวลาครับ 🙏`
             }
           ]);
           continue;
@@ -830,12 +943,18 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 });
 
 const requireAdminAuth = (req: Request, res: Response, next: () => void) => {
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '';
+  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
+
   if (CONFIG.ADMIN_API_KEY) {
     const key = req.headers['x-admin-key'] || req.query.key;
     if (key !== CONFIG.ADMIN_API_KEY) {
       res.status(401).json({ error: 'Unauthorized: Invalid Admin API Key' });
       return;
     }
+  } else if (!isLocal) {
+    res.status(401).json({ error: 'Unauthorized: ADMIN_API_KEY is not configured for public access' });
+    return;
   }
   next();
 };

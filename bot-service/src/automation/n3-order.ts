@@ -3,6 +3,7 @@ import { CONFIG } from '../config';
 import path from 'path';
 import fs from 'fs';
 import { OrderItem } from '../queue/order-queue';
+import { N3Auth } from './n3-auth';
 
 export class N3OrderService {
   /**
@@ -41,6 +42,12 @@ export class N3OrderService {
       // เข้าสู่หน้าค้นหาสลาก lotto-search เพื่อเริ่มต้นบิลใหม่ในตะกร้าเดียวกัน
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
       await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
+
+      // ตรวจสอบว่ามีป๊อปอัปแจ้งเตือนเซสชันหมดอายุ ("ไม่สามารถทำรายการได้") หรือไม่
+      if (await N3Auth.checkAndDismissSessionModal(page)) {
+        console.warn('[N3 ORDER] ตรวจพบป๊อปอัปแจ้งเตือนเซสชันหมดอายุหลังเปิดหน้าค้นหา');
+        return { success: false, error: 'Session หมดอายุ (มีป๊อปอัปให้เข้าสู่ระบบใหม่) กรุณาสแกนเป๋าตังใหม่' };
+      }
 
       // หากติดหน้า Geolocation ให้ลองคลิกปุ่มอนุญาต/ยืนยัน
       if (page.url().includes('/geolocation')) {
@@ -129,21 +136,33 @@ export class N3OrderService {
           }
         }
 
+        // ตรวจจับป๊อปอัปเซสชันหมดอายุก่อนกดปุ่มเลือกเลข
+        if (await N3Auth.checkAndDismissSessionModal(page)) {
+          return { success: false, error: 'Session หมดอายุระหว่างค้นหาสลาก กรุณาสแกนเป๋าตังเข้าสู่ระบบใหม่' };
+        }
+
         // กดปุ่ม "เลือกเลข" เพื่อค้นหาสลาก
         const selectBtn = page.locator('button:visible').filter({ hasText: /^เลือกเลข$/ }).first();
-        if (await selectBtn.isVisible().catch(() => false)) {
-          await selectBtn.click();
-        } else {
-          const fallbackBtn = page.locator('button:has-text("เลือกเลข"):visible, button:has-text("ค้นหา"):visible').first();
-          if (await fallbackBtn.isVisible().catch(() => false)) {
-            await fallbackBtn.click();
+        try {
+          if (await selectBtn.isVisible().catch(() => false)) {
+            await selectBtn.click({ timeout: 10000 });
           } else {
-            await page.evaluate(() => {
-              const btns = Array.from(document.querySelectorAll('button'));
-              const b = btns.find(btn => btn.innerText.trim() === 'เลือกเลข' || btn.innerText.trim().includes('เลือกเลข'));
-              if (b) b.click();
-            }).catch(() => {});
+            const fallbackBtn = page.locator('button:has-text("เลือกเลข"):visible, button:has-text("ค้นหา"):visible').first();
+            if (await fallbackBtn.isVisible().catch(() => false)) {
+              await fallbackBtn.click({ timeout: 10000 });
+            } else {
+              await page.evaluate(() => {
+                const btns = Array.from(document.querySelectorAll('button'));
+                const b = btns.find(btn => btn.innerText.trim() === 'เลือกเลข' || btn.innerText.trim().includes('เลือกเลข'));
+                if (b) b.click();
+              }).catch(() => {});
+            }
           }
+        } catch (clickErr: any) {
+          if (await N3Auth.checkAndDismissSessionModal(page)) {
+            return { success: false, error: 'Session หมดอายุขณะกดเลือกเลข กรุณาสแกนเป๋าตังเข้าสู่ระบบใหม่' };
+          }
+          throw clickErr;
         }
         await page.waitForTimeout(1200);
 
@@ -405,59 +424,102 @@ export class N3OrderService {
       await page.waitForURL(url => url.toString().includes('/qr/'), { timeout: 20000 });
       await page.waitForTimeout(2000); // รอรูป QR Canvas โหลดชัดเจน
 
-      // 7. ดึงภาพ QR Code ชำระเงิน คมชัดระดับ Retina ตัดเฉพาะกรอบ QR Code จัตุรัส 1:1 พร้อม Quiet Zone (~28px)
+      // 7. ดึงภาพ QR Code ชำระเงิน คมชัดระดับ Retina HD 800x800px ตัดเฉพาะกรอบ QR Code จัตุรัส 1:1 พร้อม Quiet Zone นิรภัย
       const fileSummary = fulfilledItems.map(i => i.number).join('-');
       const qrFileName = `payment-${fileSummary}-${Date.now()}.png`;
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
-      console.log('[N3 ORDER STEP 7] กำลังดึงภาพ QR Code ชำระเงิน (ตัดเฉพาะกรอบจัตุรัส 1:1 พร้อม Quiet Zone)...');
+      console.log('[N3 ORDER STEP 7] กำลังดึงภาพ QR Code ชำระเงิน (ความละเอียดสูงระดับ HD 800x800px จัตุรัส 1:1 พร้อม Quiet Zone)...');
       let isCaptured = false;
 
-      // ทางเลือกที่ 1: ค้นหา Element QR Code ผ่าน id="qr-code-image" หรือ canvas โดยตรง
-      const qrElement = page.locator('#qr-code-image, canvas#qr-code-image, canvas:visible, img[src^="data:image"]:visible').first();
-      if (await qrElement.isVisible({ timeout: 6000 }).catch(() => false)) {
-        await qrElement.scrollIntoViewIfNeeded().catch(() => {});
-        await page.waitForTimeout(300);
-
-        const box = await qrElement.boundingBox().catch(() => null);
-        if (box && box.width >= 80 && box.height >= 80) {
-          const pad = 28; // Quiet Zone Margin 24-32px ตามมาตรฐานสแกน QR Code
-          const qrSize = Math.max(box.width, box.height);
-          const totalSize = qrSize + pad * 2;
-          const centerX = box.x + box.width / 2;
-          const centerY = box.y + box.height / 2;
-
-          const clipX = Math.max(0, Math.round(centerX - totalSize / 2));
-          const clipY = Math.max(0, Math.round(centerY - totalSize / 2));
-          const clipSize = Math.round(totalSize);
-
-          console.log(`[QR CAPTURE SUCCESS] ตรวจพบ QR Code ที่พิกัด (${Math.round(box.x)}, ${Math.round(box.y)}) ขนาด ${Math.round(box.width)}x${Math.round(box.height)}px -> บันทึกจัตุรัส 1:1 ขนาด ${clipSize}x${clipSize}px (Quiet zone ${pad}px)`);
-
-          await page.screenshot({
-            path: qrFilePath,
-            clip: { x: clipX, y: clipY, width: clipSize, height: clipSize }
-          });
-          isCaptured = true;
-        }
-      }
-
-      // ทางเลือกที่ 2: ดึงภาพตรงจาก canvas.toDataURL (หาก canvas สมบูรณ์และไม่ tainted)
-      if (!isCaptured) {
-        const canvasDataUrl = await page.evaluate(() => {
-          const canvas = (document.querySelector('canvas#qr-code-image') || document.querySelector('canvas')) as HTMLCanvasElement | null;
-          if (canvas) {
-            try {
-              return canvas.toDataURL('image/png');
-            } catch {}
+      // ทางเลือกที่ 1: ดึงภาพและเรนเดอร์ความละเอียดสูงตรงจาก Canvas (HD 800x800px, Nearest-Neighbor, Quiet Zone มาตรฐาน)
+      try {
+        const highResResult = await page.evaluate(() => {
+          const canvases = Array.from(document.querySelectorAll('canvas')) as HTMLCanvasElement[];
+          let targetCanvas = document.querySelector('canvas#qr-code-image') as HTMLCanvasElement | null;
+          if (!targetCanvas) {
+            targetCanvas = canvases.find(c => {
+              const rect = c.getBoundingClientRect();
+              return rect.width >= 60 && rect.height >= 60;
+            }) || canvases[0] || null;
           }
-          return null;
+
+          if (!targetCanvas) {
+            const img = document.querySelector('#qr-code-image img, img[src^="data:image"]') as HTMLImageElement | null;
+            if (img && img.src.startsWith('data:image/')) {
+              return { type: 'img', src: img.src };
+            }
+            return null;
+          }
+
+          const targetSize = 800;
+          const outCanvas = document.createElement('canvas');
+          outCanvas.width = targetSize;
+          outCanvas.height = targetSize;
+          const ctx = outCanvas.getContext('2d');
+          if (!ctx) return null;
+
+          // 1. เติมพื้นหลังสีขาวบริสุทธิ์ 100%
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, targetSize, targetSize);
+
+          // 2. ปิด Image Smoothing เพื่อให้ขอบโมดูล QR Code คมกริบ 100% (Nearest-Neighbor)
+          ctx.imageSmoothingEnabled = false;
+          (ctx as any).mozImageSmoothingEnabled = false;
+          (ctx as any).webkitImageSmoothingEnabled = false;
+          (ctx as any).msImageSmoothingEnabled = false;
+
+          // 3. ขอบนิรภัย Quiet Zone (~48px บน 800px)
+          const margin = 48;
+          const drawSize = targetSize - margin * 2; // 704px
+
+          ctx.drawImage(targetCanvas, margin, margin, drawSize, drawSize);
+          return { type: 'canvas', data: outCanvas.toDataURL('image/png') };
         }).catch(() => null);
 
-        if (canvasDataUrl && canvasDataUrl.startsWith('data:image/')) {
-          const base64Data = canvasDataUrl.split(',')[1];
+        if (highResResult?.data && highResResult.data.startsWith('data:image/')) {
+          const base64Data = highResResult.data.split(',')[1];
           fs.writeFileSync(qrFilePath, Buffer.from(base64Data, 'base64'));
-          console.log(`[QR CAPTURE SUCCESS] ดึงภาพ QR Code ตรงจาก Canvas สำเร็จ: ${qrFilePath}`);
+          console.log(`[QR CAPTURE SUCCESS] สร้างภาพ QR Code ความละเอียดสูงระดับ HD 800x800px (Quiet Zone 48px, คมกริบ ไร้รอยเบลอ) สำเร็จ: ${qrFilePath}`);
           isCaptured = true;
+        } else if (highResResult?.src && highResResult.src.startsWith('data:image/')) {
+          const base64Data = highResResult.src.split(',')[1];
+          fs.writeFileSync(qrFilePath, Buffer.from(base64Data, 'base64'));
+          await upscaleQrImageToHD(page, qrFilePath, 800);
+          isCaptured = true;
+        }
+      } catch (err: any) {
+        console.warn('[QR CAPTURE WARNING] ดึงภาพตรงจาก Canvas ล้มเหลว กำลังใช้ทางเลือกถัดไป...', err.message);
+      }
+
+      // ทางเลือกที่ 2: ค้นหา Element QR Code ผ่าน Selector และแคปเจอร์กรอบ 1:1 พร้อมอัปสเกลเป็น HD 800x800
+      if (!isCaptured) {
+        const qrElement = page.locator('#qr-code-image, canvas#qr-code-image, canvas:visible, img[src^="data:image"]:visible').first();
+        if (await qrElement.isVisible({ timeout: 4000 }).catch(() => false)) {
+          await qrElement.scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+
+          const box = await qrElement.boundingBox().catch(() => null);
+          if (box && box.width >= 40 && box.height >= 40) {
+            const pad = 28;
+            const qrSize = Math.max(box.width, box.height);
+            const totalSize = qrSize + pad * 2;
+            const centerX = box.x + box.width / 2;
+            const centerY = box.y + box.height / 2;
+
+            const clipX = Math.max(0, Math.round(centerX - totalSize / 2));
+            const clipY = Math.max(0, Math.round(centerY - totalSize / 2));
+            const clipSize = Math.round(totalSize);
+
+            console.log(`[QR CAPTURE SUCCESS] ตรวจพบ QR Code ที่พิกัด (${Math.round(box.x)}, ${Math.round(box.y)}) ขนาด ${Math.round(box.width)}x${Math.round(box.height)}px -> บันทึกจัตุรัส 1:1 ขนาด ${clipSize}x${clipSize}px`);
+
+            await page.screenshot({
+              path: qrFilePath,
+              clip: { x: clipX, y: clipY, width: clipSize, height: clipSize }
+            });
+            await upscaleQrImageToHD(page, qrFilePath, 800);
+            isCaptured = true;
+          }
         }
       }
 
@@ -467,14 +529,14 @@ export class N3OrderService {
           const el = document.querySelector('#qr-code-image, canvas, img[src^="data:image"]');
           if (el) {
             const rect = el.getBoundingClientRect();
-            if (rect.width >= 80 && rect.height >= 80) {
+            if (rect.width >= 40 && rect.height >= 40) {
               return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
             }
           }
           return null;
         }).catch(() => null);
 
-        if (qrBox && qrBox.width >= 80 && qrBox.height >= 80) {
+        if (qrBox && qrBox.width >= 40 && qrBox.height >= 40) {
           const pad = 28;
           const qrSize = Math.max(qrBox.width, qrBox.height);
           const totalSize = qrSize + pad * 2;
@@ -490,11 +552,12 @@ export class N3OrderService {
             path: qrFilePath,
             clip: { x: clipX, y: clipY, width: clipSize, height: clipSize }
           });
+          await upscaleQrImageToHD(page, qrFilePath, 800);
           isCaptured = true;
         }
       }
 
-      // ทางเลือกที่ 4: Fallback พิกัดกึ่งกลางจอมาตรฐานจัตุรัส 1:1 ขนาด 300x300px (พิกัด Y=360 ตามเลย์เอาต์จริงของ GLO)
+      // ทางเลือกที่ 4: Fallback พิกัดกึ่งกลางจอมาตรฐานจัตุรัส 1:1 ขนาด 300x300px พร้อมอัปสเกลเป็น HD 800x800
       if (!isCaptured) {
         console.log('[QR CAPTURE FALLBACK] ใช้พิกัดกล่อง QR จัตุรัส 1:1 กลางจอมาตรฐาน (300x300px)...');
         const vp = page.viewportSize() || { width: 1440, height: 900 };
@@ -508,6 +571,7 @@ export class N3OrderService {
           path: qrFilePath,
           clip: { x: clipX, y: clipY, width: squareSize, height: squareSize }
         });
+        await upscaleQrImageToHD(page, qrFilePath, 800);
         console.log(`[QR CAPTURE SUCCESS] แคปเจอร์พิกัดกล่อง QR จัตุรัส 1:1 สำเร็จ: ${qrFilePath}`);
       }
 
@@ -554,9 +618,32 @@ export class N3OrderService {
         } catch {}
       }
 
+      // ตรวจสอบเซสชันหมดอายุอีกครั้งในกรณีเกิด Exception
+      if (page && !page.isClosed()) {
+        try {
+          if (await N3Auth.checkAndDismissSessionModal(page)) {
+            return {
+              success: false,
+              error: 'Session หมดอายุ กรุณาสแกนเป๋าตังเข้าสู่ระบบใหม่'
+            };
+          }
+        } catch {}
+      }
+
+      let cleanErrorMsg = 'เกิดข้อผิดพลาดในการสร้าง QR Code บนหน้าเว็บ';
+      if (err?.message) {
+        if (err.message.includes('intercepts pointer events') || (err.message.includes('Timeout') && err.message.includes('button'))) {
+          cleanErrorMsg = 'Session หมดอายุหรือมีป๊อปอัปขัดจังหวะ กรุณาสแกนเป๋าตังเพื่อเข้าสู่ระบบใหม่';
+        } else if (err.message.includes('Timeout')) {
+          cleanErrorMsg = 'หมดเวลาการเชื่อมต่อหน้าเว็บ (Timeout)';
+        } else {
+          cleanErrorMsg = err.message.split('\n')[0].replace(/Call log:.*$/i, '').trim();
+        }
+      }
+
       return {
         success: false,
-        error: err?.message || 'เกิดข้อผิดพลาดในการสร้าง QR Code บนหน้าเว็บ'
+        error: cleanErrorMsg
       };
     }
   }
@@ -585,4 +672,62 @@ export async function syncQuotaFromLivePortal(
 ): Promise<{ remainingQuota: number; usedQuota: number; maxQuota: number } | null> {
   return N3OrderService.syncQuotaFromLivePortal(page, navigateIfNeeded);
 }
+
+/**
+ * ขยายขนาดภาพ QR Code ให้เป็นความละเอียดสูงระดับ HD (800x800 พิกเซล)
+ * โดยใช้ Nearest-Neighbor Algorithm (imageSmoothingEnabled = false)
+ * เพื่อคงความคมชัดสูงสุดของตารางพิกเซล QR Code โดยไม่มีรอยเบลอ/ฟุ้ง และเพิ่มขอบขาว Quiet Zone นิรภัย
+ */
+export async function upscaleQrImageToHD(page: Page, filePath: string, targetSize: number = 800): Promise<boolean> {
+  if (!fs.existsSync(filePath)) return false;
+  try {
+    const rawBuffer = fs.readFileSync(filePath);
+    const base64 = rawBuffer.toString('base64');
+    const upscaledDataUrl = await page.evaluate(async ({ b64, size }) => {
+      return new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('no 2d context'));
+
+            // เติมพื้นหลังสีขาวบริสุทธิ์เพื่อ Contrast สูงสุด
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+
+            // ปิด image smoothing เพื่อความคมกริบแบบ Nearest-Neighbor
+            ctx.imageSmoothingEnabled = false;
+            (ctx as any).mozImageSmoothingEnabled = false;
+            (ctx as any).webkitImageSmoothingEnabled = false;
+            (ctx as any).msImageSmoothingEnabled = false;
+
+            // Quiet zone ขอบขาวรอบทิศทาง (~6% ของขนาดรูป)
+            const margin = Math.round(size * 0.06); // 48px บน 800x800
+            const drawSize = size - margin * 2;
+            ctx.drawImage(img, margin, margin, drawSize, drawSize);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e: any) {
+            reject(e);
+          }
+        };
+        img.onerror = () => reject(new Error('Image failed to load in browser context'));
+        img.src = 'data:image/png;base64,' + b64;
+      });
+    }, { b64: base64, size: targetSize }).catch(() => null);
+
+    if (upscaledDataUrl && upscaledDataUrl.startsWith('data:image/')) {
+      const b64Data = upscaledDataUrl.split(',')[1];
+      fs.writeFileSync(filePath, Buffer.from(b64Data, 'base64'));
+      console.log(`[QR HD RESCALE] อัปสเกลรูปภาพเป็นความคมชัดระดับ HD 1:1 (${targetSize}x${targetSize}px) เรียบร้อยแล้ว: ${filePath}`);
+      return true;
+    }
+  } catch (err: any) {
+    console.warn('[QR HD RESCALE WARNING] อัปสเกลรูปภาพไม่สำเร็จ:', err.message);
+  }
+  return false;
+}
+
 

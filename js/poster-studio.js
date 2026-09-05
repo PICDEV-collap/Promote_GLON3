@@ -264,16 +264,26 @@ const PosterStudio = (function () {
   }
 
   /**
-   * Trigger download of generated poster
+   * Trigger download/save of generated poster
    */
   async function downloadPoster(config) {
     const dataUrl = await renderPosterAsync(config);
+    const filename = `GLO-N3-Poster-${config.ratio || 'square'}-${Date.now()}.png`;
+    const title = 'โปสเตอร์โปรโมทร้านสลาก N3';
+    const text = 'โปสเตอร์ประชาสัมพันธ์จุดจำหน่ายสลาก N3 ร้านสลาก N3 ธนกิจนำโชค ใบละ 20 บาท';
+
+    if (typeof window !== 'undefined' && window.ImageSaver) {
+      await window.ImageSaver.saveImage({ dataUrl, filename, title, text });
+      return dataUrl;
+    }
+
     const link = document.createElement('a');
-    link.download = `GLO-N3-Poster-${config.ratio || 'square'}-${Date.now()}.png`;
+    link.download = filename;
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    return dataUrl;
   }
 
   return {
