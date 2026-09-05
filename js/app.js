@@ -928,14 +928,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const LIFF_BASE_URL = 'https://liff.line.me/2011462211-WVsuHFk4';
 
-    // 2. Setup Primary LINE Order Button (Direct LIFF App)
+    // 2. Setup Primary LINE Order Button (Direct LINE App Deep Link)
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
-      const liffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
-      btnOrderLine.href = liffUrl;
+      const orderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+      const deepLink = getLineDeepLink(dynamicLineOaId, orderMsg);
+      btnOrderLine.href = deepLink.directUrl;
       btnOrderLine.removeAttribute('target');
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
-      btnOrderLine.onclick = null;
+      btnOrderLine.onclick = (e) => {
+        e.preventDefault();
+        showToast(`🛒 กำลังเปิดแอป LINE เพื่อสั่งซื้อ ${pred.n3Direct}...`);
+        openLineOrder(dynamicLineOaId, orderMsg);
+      };
     }
 
     // 3. Setup Package Click Handlers
@@ -945,38 +950,43 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (pkgBtnDirect) {
       pkgBtnDirect.onclick = () => {
-        const liffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
-        showToast(`🎯 3 ตัวตรง: กำลังเปิดตารางสั่งซื้อใน LINE...`);
-        window.location.href = liffUrl;
+        const orderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+        showToast(`🎯 3 ตัวตรง: กำลังเปิดแอป LINE สั่งซื้อ ${pred.n3Direct}...`);
+        openLineOrder(dynamicLineOaId, orderMsg);
       };
     }
 
     if (pkgBtnCombo) {
       pkgBtnCombo.onclick = () => {
-        const orderItems = [`${pred.n3Direct}:1`];
-        todsList.forEach(t => orderItems.push(`${t}:1`));
-        const liffUrl = `${LIFF_BASE_URL}?order=${orderItems.join(',')}`;
-        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): กำลังเปิดตารางสั่งซื้อใน LINE...`);
-        window.location.href = liffUrl;
+        const orderItems = [`${pred.n3Direct} 1 ใบ`];
+        todsList.forEach(t => orderItems.push(`${t} 1 ใบ`));
+        const orderMsg = `สั่งซื้อ ${orderItems.join(', ')}`;
+        showToast(`🔄 3 ตรง + ทุกโต๊ด (${comboPrice}บ.): กำลังเปิดแอป LINE สั่งซื้อ...`);
+        openLineOrder(dynamicLineOaId, orderMsg);
       };
     }
 
     if (pkgBtnTwo) {
       pkgBtnTwo.onclick = () => {
-        const liffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
-        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): กำลังเปิดตารางสั่งซื้อใน LINE...`);
-        window.location.href = liffUrl;
+        const orderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+        showToast(`✌️ ลุ้น 2 ตัวท้าย (${pred.n2Digit}): กำลังเปิดแอป LINE สั่งซื้อ...`);
+        openLineOrder(dynamicLineOaId, orderMsg);
       };
     }
 
     // 4. Update Floating Mobile Bottom Bar Action
     const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
     if (mobileLineBtn) {
-      const mobileLiffUrl = `${LIFF_BASE_URL}?n=${pred.n3Direct}&q=1`;
-      mobileLineBtn.href = mobileLiffUrl;
+      const orderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
+      const deepLink = getLineDeepLink(dynamicLineOaId, orderMsg);
+      mobileLineBtn.href = deepLink.directUrl;
       mobileLineBtn.removeAttribute('target');
       mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
-      mobileLineBtn.onclick = null;
+      mobileLineBtn.onclick = (e) => {
+        e.preventDefault();
+        showToast(`🛒 กำลังเปิดแอป LINE เพื่อสั่งซื้อ ${pred.n3Direct}...`);
+        openLineOrder(dynamicLineOaId, orderMsg);
+      };
     }
 
     try { SoundEngine.playRevealFanfare(); } catch (err) {}
