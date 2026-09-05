@@ -695,6 +695,11 @@
           <h3 style="color: var(--color-gold); margin-bottom: 1rem;"><i class="fas fa-image"></i> พรีวิวโปสเตอร์หน้าร้าน</h3>
           <img id="poster-preview-img" class="poster-canvas-img" alt="GLO N3 Marketing Poster Preview">
           
+          <!-- Mobile Touch & Hold Hint -->
+          <div class="mobile-save-hint" style="margin: 0.5rem auto 0.75rem; display: flex; justify-content: center;">
+            <i class="fas fa-hand-pointer"></i> บนมือถือ: แตะค้างที่รูปภาพเพื่อเลือก "บันทึกรูปภาพ" (Save Image)
+          </div>
+
           <div style="display: flex; gap: 0.75rem;">
             <button id="btn-download-poster" class="btn btn-gold" style="flex: 1; padding: 0.9rem 1.25rem;">
               <i class="fas fa-download"></i> ดาวน์โหลดโปสเตอร์ PNG (High-DPI)
@@ -927,6 +932,11 @@
         <img id="share-card-preview-img" class="share-card-img" alt="GLO N3 AI Dream Share Card">
       </div>
 
+      <!-- Mobile Long-press guidance badge -->
+      <div class="mobile-save-hint" style="margin: 0.5rem auto 0.75rem; display: flex; justify-content: center;">
+        <i class="fas fa-hand-pointer"></i> บนมือถือ: แตะค้างที่รูปภาพเพื่อเลือก "บันทึกรูปภาพ" ลงแกลเลอรี
+      </div>
+
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
         <button id="btn-download-card-png" class="btn btn-gold" style="flex: 1;">
           <i class="fas fa-download"></i> ดาวน์โหลดรูป PNG
@@ -937,6 +947,50 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal: Universal Mobile Image Saver & Long-Press Preview -->
+  <div id="modal-image-saver" class="modal-overlay">
+    <div class="modal-card image-saver-card" style="max-width: 480px; width: 92%; max-height: 90vh; overflow-y: auto; text-align: center;">
+      <button type="button" class="modal-close" onclick="ImageSaver.closeModal()">&times;</button>
+      
+      <div style="margin-bottom: 0.5rem;">
+        <span id="image-saver-line-badge" class="badge badge-emerald" style="display: none; font-size: 0.72rem; margin-bottom: 0.4rem;">
+          <i class="fab fa-line"></i> LINE In-App Browser
+        </span>
+        <h3 id="image-saver-title" style="color: var(--color-gold-light); font-size: 1.2rem; margin: 0 0 0.25rem 0;">บันทึกรูปภาพ</h3>
+      </div>
+
+      <!-- High-contrast long-press instruction banner -->
+      <div id="image-saver-guide-banner" class="image-saver-guide-box">
+        <div class="guide-icon-pulse"><i class="fas fa-hand-pointer"></i></div>
+        <div class="guide-text">
+          <strong>วิธีเซฟภาพลงเครื่อง:</strong> แตะค้างที่รูปภาพด้านล่าง (Long-press) แล้วเลือก <span>"บันทึกรูปภาพ" (Save Image)</span> ลงแกลเลอรีโทรศัพท์
+        </div>
+      </div>
+
+      <!-- Preview Image Container (touch callout enabled) -->
+      <div class="image-saver-img-wrapper">
+        <img id="image-saver-img" class="image-saver-img" src="" alt="GLO N3 Preview Image" />
+      </div>
+
+      <!-- Action buttons -->
+      <div class="image-saver-actions">
+        <button type="button" id="btn-image-saver-share" class="btn btn-emerald" style="width: 100%; padding: 0.8rem; font-size: 0.95rem; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <i class="fas fa-share-alt"></i> 📲 เซฟ / แชร์ด้วยระบบมือถือ
+        </button>
+        
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+          <button type="button" id="btn-image-saver-external" class="btn btn-glass" style="flex: 1; font-size: 0.78rem; padding: 0.55rem; color: var(--text-secondary); border-color: rgba(255,255,255,0.15);">
+            <i class="fas fa-external-link-alt"></i> เปิดใน Safari/Chrome
+          </button>
+          <button type="button" id="btn-image-saver-dl" class="btn btn-glass" style="flex: 1; font-size: 0.78rem; padding: 0.55rem; color: var(--text-secondary); border-color: rgba(255,255,255,0.15);">
+            <i class="fas fa-download"></i> ดาวน์โหลดตรง
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Modals: Enhanced Shop & Agent Management Modal -->
   <div id="modal-shop-config" class="modal-overlay">
@@ -976,6 +1030,11 @@
             <div class="qr-countdown-badge">
               <i class="fas fa-wallet"></i> ใบละ 20 บาท ไม่มีเลขอั้น
             </div>
+          </div>
+
+          <!-- Mobile Touch & Hold Hint -->
+          <div class="mobile-save-hint" style="margin: 0.4rem auto; display: flex; justify-content: center;">
+            <i class="fas fa-hand-pointer"></i> บนมือถือ: แตะค้างที่รูปภาพ QR เพื่อ "บันทึกรูปภาพ" ลงแกลเลอรี
           </div>
 
           <!-- ปุ่มสั่งซื้อด่วนผ่าน LINE OA -->
@@ -1256,6 +1315,7 @@
   <!-- Application Scripts -->
   <script src="js/sound-effects.js"></script>
   <script src="js/particle-canvas.js"></script>
+  <script src="js/image-saver.js"></script>
   <script src="js/ai-dream-engine.js"></script>
   <script src="js/n3-calculator.js"></script>
   <script src="js/n3-checker.js"></script>

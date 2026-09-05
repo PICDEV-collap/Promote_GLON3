@@ -6,61 +6,11 @@ import { DreamPredictionResult } from '../dream/dream-engine';
 
 export class FlexMessageBuilder {
   /**
-   * 0. แถบปุ่มเมนูด่วน (Quick Reply Buttons) ให้ลูกค้าเลือกทำรายการได้ตลอดเวลา
+   * 0. แถบปุ่มเมนูด่วน (Quick Reply Buttons)
+   * ปิดใช้งานปุ่ม popup ลอย เพื่อไม่ให้แสดงผลซ้ำซ้อนกับ LINE Rich Menu ที่อยู่ด้านล่าง
    */
-  public static getDefaultQuickReply(): messagingApi.QuickReply {
-    return {
-      items: [
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '🏠 เมนูหลัก',
-            text: 'เมนู'
-          }
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '🛒 สั่งซื้อสลาก N3',
-            text: 'สั่งซื้อสลาก N3'
-          }
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '❓ วิธีสั่งซื้อ',
-            text: 'วิธีสั่งซื้อ'
-          }
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '📲 วิธีชำระเงิน',
-            text: 'วิธีชำระเงิน'
-          }
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'uri',
-            label: '🔮 ทำนายฝัน AI',
-            uri: CONFIG.DREAM_PREDICTION_URL
-          }
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '📊 เช็คโควต้า',
-            text: 'เช็คโควต้า'
-          }
-        }
-      ]
-    };
+  public static getDefaultQuickReply(): messagingApi.QuickReply | undefined {
+    return undefined;
   }
 
   /**
@@ -195,7 +145,7 @@ export class FlexMessageBuilder {
           },
           {
             type: 'text',
-            text: '❌ ไม่สามารถใช้แอปธนาคารทั่วไปสแกนได้\n💡 บันทึกรูป QR แล้วเปิดแอปเป๋าตัง เข้าเมนูสแกนจ่ายเงินได้ทันที',
+            text: '❌ ไม่สามารถใช้แอปธนาคารทั่วไปสแกนได้\n💡 แตะที่รูป QR ด้านบน แล้วกดปุ่ม 📥 ที่มุมขวาล่าง หรือกดปุ่มเขียว "📥 ดาวน์โหลด" ด้านล่างนี้เพื่อบันทึกรูปลงเครื่อง แล้วเปิดแอปเป๋าตังเข้าเมนูสแกนจ่ายเงินได้ทันที',
             size: 'xxs',
             color: '#856404',
             wrap: true,
@@ -223,7 +173,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText,
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -319,7 +268,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: 'ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค - วิธีพิมพ์สั่งซื้อ',
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -500,7 +448,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: '🎉 ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค!',
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -707,7 +654,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: '🏪 เมนูหลักร้านสลาก N3 ธนกิจนำโชค - เลือกทำรายการ',
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -854,7 +800,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: '📲 ขั้นตอนการชำระเงินสลาก N3 ผ่านแอปเป๋าตังเท่านั้น',
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -1062,7 +1007,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: '🛒 วิธีการสั่งซื้อสลาก N3 ร้านธนกิจนำโชค',
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -1288,7 +1232,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: 'แจ้งเตือน: อยู่นอกเวลาจำหน่ายสลาก N3',
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         header: {
@@ -1423,7 +1366,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: `รับออเดอร์เลข ${number} แล้ว (อยู่ในคิวที่ ${queuePosition})`,
-      quickReply: FlexMessageBuilder.getDefaultQuickReply(),
       contents: {
         type: 'bubble',
         size: 'mega',
@@ -1557,55 +1499,12 @@ export class FlexMessageBuilder {
     const comboPrice = comboCount * 20;
     const comboOrderText = `สั่งซื้อ ` + allComboNums.map(n => `${n} 1 ใบ`).join(', ');
 
-    const webFullUrl = `${CONFIG.DREAM_PREDICTION_URL}?dream=${encodeURIComponent(pred.dreamText || '')}`;
+    const dreamParam = encodeURIComponent(pred.dreamText || '');
+    const webFullUrl = `${CONFIG.DREAM_PREDICTION_URL}${CONFIG.DREAM_PREDICTION_URL.includes('?') ? '&' : '?'}dream=${dreamParam}&openExternalBrowser=1`;
 
     return {
       type: 'flex',
       altText: `🔮 ทำนายฝัน AI: "${pred.dreamText}" -> เลขเด็ด 3 ตรง ${directNum} (ใบละ 20 บ. เป๋าตัง)`,
-      quickReply: {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: `🎯 ซื้อ ${directNum} 1 ใบ`,
-              text: `สั่งซื้อ ${directNum} 1 ใบ`
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🔄 ซื้อ 3ตรง+ทุกโต๊ด',
-              text: comboOrderText
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '✌️ ลุ้น 2 ตัวท้าย',
-              text: `สั่งซื้อ ${directNum} 1 ใบ`
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🔮 ทำนายฝันอีก',
-              text: 'ทำนายฝัน'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🏠 เมนูหลัก',
-              text: 'เมนู'
-            }
-          }
-        ]
-      },
       contents: {
         type: 'bubble',
         header: {
@@ -1925,50 +1824,6 @@ export class FlexMessageBuilder {
     return {
       type: 'flex',
       altText: '🔮 บริการทำนายฝัน & คำนวณเลขเด็ด N3 ด้วยระบบ AI',
-      quickReply: {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🐍 ฝันเห็นงู 2 ตัว',
-              text: 'ฝันเห็นงู 2 ตัว'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🐟 ฝันจับปลาตัวใหญ่',
-              text: 'ฝันว่าจับปลาตัวใหญ่'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🚗 ฝันรถชน 954',
-              text: 'ฝันเห็นรถชน ทะเบียน 954'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🐢 ฝันเห็นเต่า',
-              text: 'ฝันเห็นเต่า'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '🏠 เมนูหลัก',
-              text: 'เมนู'
-            }
-          }
-        ]
-      },
       contents: {
         type: 'bubble',
         header: {

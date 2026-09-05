@@ -5,22 +5,87 @@ import path from 'path';
 
 export class N3Auth {
   /**
+   * ตรวจสอบว่ามีป๊อปอัปแจ้งเตือนเซสชันหมดอายุ ("ไม่สามารถทำรายการได้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง") หรือไม่
+   * หากมี ให้คลิก "ตกลง" เพื่อนำทางไปยังหน้า /login/ และคืนค่า true (แสดงว่าเซสชันหมดอายุจริง)
+   */
+  public static async checkAndDismissSessionModal(page: Page): Promise<boolean> {
+    try {
+      if (page.isClosed()) return false;
+      const modalPattern = /ไม่สามารถทำรายการได้|เข้าสู่ระบบใหม่อีกครั้ง|เซสชันหมดอายุ|หมดอายุการใช้งาน|กรุณาเข้าสู่ระบบ/i;
+      
+      const modalLoc = page.locator('div.fixed, div[class*="inset-0"], [role="dialog"], .modal')
+        .filter({ hasText: modalPattern })
+        .first();
+
+      if (await modalLoc.isVisible().catch(() => false)) {
+        console.warn('[N3 AUTH] ตรวจพบป๊อปอัปเซสชันหมดอายุ ("ไม่สามารถทำรายการได้ เข้าสู่ระบบใหม่อีกครั้ง")');
+        const okBtn = modalLoc.locator('button:visible').filter({ hasText: /^ตกลง$|^ยืนยัน$/ }).first();
+        if (await okBtn.isVisible().catch(() => false)) {
+          await okBtn.click().catch(() => {});
+          await page.waitForURL(u => u.toString().includes('/login'), { timeout: 5000 }).catch(() => {});
+          await page.waitForTimeout(500);
+        }
+        return true;
+      }
+
+      // ตรวจจับ Overlay สีดำระดับ z-[200] ที่ดัก Pointer Events
+      const overlayKick = page.locator('div.fixed.inset-0[class*="z-"]').first();
+      if (await overlayKick.isVisible().catch(() => false)) {
+        const overlayText = await overlayKick.innerText().catch(() => '');
+        if (modalPattern.test(overlayText)) {
+          console.warn('[N3 AUTH] ตรวจพบ Overlay สีดำเซสชันหมดอายุ:', overlayText.slice(0, 100));
+          const okBtn = overlayKick.locator('button:visible').filter({ hasText: /^ตกลง$|^ยืนยัน$/ }).first();
+          if (await okBtn.isVisible().catch(() => false)) {
+            await okBtn.click().catch(() => {});
+            await page.waitForURL(u => u.toString().includes('/login'), { timeout: 5000 }).catch(() => {});
+            await page.waitForTimeout(500);
+          }
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * ตรวจสอบว่า Session ที่บันทึกไว้ยังใช้งานได้อยู่หรือไม่
    */
   public static async isSessionValid(page: Page): Promise<boolean> {
     try {
+      if (page.isClosed()) return false;
+
+      // 1. ตรวจสอบว่ามีป๊อปอัปแจ้งเตือนเซสชันหมดอายุหรือไม่
+      const isModalKicked = await this.checkAndDismissSessionModal(page);
+      if (isModalKicked) {
+        return false;
+      }
+
       const currentUrl = page.url();
-      // หากอยู่ในหน้าค้นหาสลากหรือหน้ายืนยันอยู่แล้ว และไม่ใช่หน้า login หรือ geolocation
-      if (!currentUrl.includes('/login') && !currentUrl.includes('/geolocation')) {
-        if (currentUrl.includes('/lotto-search/') || currentUrl.includes('/lotto-confirm/')) {
-          const hasInputs = await page.locator('input[type="text"], input[type="tel"], input[maxlength="1"], input[inputmode="numeric"]').count().catch(() => 0);
-          if (hasInputs > 0) return true;
+      if (currentUrl.includes('/login') || currentUrl.includes('/geolocation')) {
+        return false;
+      }
+
+      // หากอยู่ในหน้าค้นหาสลากหรือยืนยัน ให้ตรวจสอบว่าปุ่มเลือกเลขหรือช่องกรอกใช้งานได้จริง
+      if (currentUrl.includes('/lotto-search/') || currentUrl.includes('/lotto-confirm/')) {
+        const hasInputs = await page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible').count().catch(() => 0);
+        const hasSelectBtn = await page.locator('button:visible').filter({ hasText: /^เลือกเลข$/ }).count().catch(() => 0);
+        if (hasInputs >= 1 && hasSelectBtn >= 1) {
+          // ตรวจสอบอีกครั้งว่าไม่มี Backdrop สีดำบังอยู่
+          const isBlocked = await page.locator('div.fixed.inset-0.bg-black').first().isVisible().catch(() => false);
+          if (!isBlocked) return true;
         }
       }
 
       console.log('[N3 AUTH] กำลังตรวจสอบ Session ผ่านหน้าค้นหาสลาก...');
       await page.goto('https://n3.glolotteryshop.com/lotto-search/?position=1', { waitUntil: 'networkidle', timeout: 15000 });
-      
+
+      // ตรวจจับป๊อปอัปเซสชันหมดอายุหลังโหลดหน้าใหม่
+      if (await this.checkAndDismissSessionModal(page)) {
+        return false;
+      }
+
       // ตรวจสอบหากติดหน้า Geolocation ให้ลองคลิกปุ่มอนุญาต/ยืนยัน
       if (page.url().includes('/geolocation')) {
         console.warn('[N3 AUTH] หน้าเว็บติด Geolocation Guard กำลังลองกู้คืนตำแหน่งที่ตั้ง...');
@@ -41,9 +106,19 @@ export class N3Auth {
         return false;
       }
 
+      // ตรวจจับป๊อปอัปเซสชันหมดอายุอีกครั้ง
+      if (await this.checkAndDismissSessionModal(page)) {
+        return false;
+      }
+
       // ตรวจสอบว่าหน้าเว็บมีองค์ประกอบของระบบค้นหาหรือหน้าหลัก N3 จริง
       const isSearchPage = newUrl.includes('/lotto-search') || newUrl.includes('/landing') || newUrl.includes('/home');
-      return isSearchPage;
+      if (!isSearchPage) return false;
+
+      // ตรวจสอบความพร้อมของอินพุตหรือองค์ประกอบร้านค้า
+      const readyInputs = await page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[inputmode="numeric"]:visible').count().catch(() => 0);
+      const isShopOpen = await page.locator('text=เลือกเลขสลากฯ ในร้าน, text=บริการจำหน่ายสลาก, text=ยอดขายร้านค้า').first().isVisible().catch(() => false);
+      return readyInputs > 0 || isShopOpen;
     } catch {
       return false;
     }

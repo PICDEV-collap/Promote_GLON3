@@ -289,16 +289,26 @@ const ShareCardEngine = (function () {
   }
 
   /**
-   * Download card image as PNG
+   * Download card image as PNG / Save on mobile
    */
-  function downloadCard(pred, shopInfo = {}) {
+  async function downloadCard(pred, shopInfo = {}) {
     const dataUrl = renderCardCanvas(pred, shopInfo);
+    const filename = `GLO-N3-AI-Dream-${pred.n3Direct || 'Lucky'}.png`;
+    const title = `การ์ดคำทำนายฝัน เลขเด็ด N3: ${pred.n3Direct || ''}`;
+    const text = `ทำนายฝัน "${pred.dreamText || ''}" ได้เลขเด็ด N3: ${pred.n3Direct || ''} (3 ตัวตรง) สลากใบละ 20 บาท`;
+
+    if (typeof window !== 'undefined' && window.ImageSaver) {
+      await window.ImageSaver.saveImage({ dataUrl, filename, title, text });
+      return dataUrl;
+    }
+
     const link = document.createElement('a');
-    link.download = `GLO-N3-AI-Dream-${pred.n3Direct || 'Lucky'}.png`;
+    link.download = filename;
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    return dataUrl;
   }
 
   /**
@@ -327,8 +337,8 @@ const ShareCardEngine = (function () {
       }
     }
 
-    // Fallback: Download file
-    downloadCard(pred, shopInfo);
+    // Fallback: Use ImageSaver (shows touch & hold modal on mobile)
+    await downloadCard(pred, shopInfo);
     return false;
   }
 

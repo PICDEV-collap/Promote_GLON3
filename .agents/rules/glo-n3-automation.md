@@ -27,9 +27,10 @@ These rules are permanent invariants learned from operating the GLO N3 Dealer Po
   - Spawn `process.execPath` and native `cloudflared.exe` directly with `detached: true`, `shell: false`, and `windowsHide: true`.
 - Any Windows launcher or GUI dialog must use UTF-8 with BOM (`0xEF, 0xBB, 0xBF`) to prevent mojibake.
 
-## 4. Single Unified LINE Message
-- Never send duplicate images to the customer in LINE (e.g., do not send a raw image bubble alongside a Flex Message containing the image).
-- Deliver only the unified Flex Message card containing the QR code image, ticket breakdown, countdown timer, and download action.
+## 4. Native LINE Image Delivery for 1-Tap Save (📥 Download Button)
+- LINE Flex Messages do NOT support LINE's native in-chat fullscreen photo viewer (`media_1788526737163.jpg`). Opening a Flex Message image triggers a browser/webview preview (`media_1788526737162.jpg`) which lacks the built-in 📥 download button.
+- To allow customers to save the payment QR code directly to their phone gallery in 1 tap (identical to banking slips), ALWAYS deliver the payment QR as a native LINE Image Message (`type: 'image'`) paired with the Flex Message order summary card (`[imageMsg, flexMsg]`).
+- Tapping the native Image Message opens LINE's built-in image viewer where the native 📥 download button is prominently located at the bottom-right corner.
 
 ## 5. Live Quota Synchronization
 - Do not rely solely on local ticket decrementing in `quota.json`.
@@ -39,3 +40,12 @@ These rules are permanent invariants learned from operating the GLO N3 Dealer Po
 ## 6. Lifecycle Notifications
 - When the bot starts, always send a push notification to `CONFIG.LINE_ADMIN_USER_ID` with the active Webhook URL.
 - When the bot stops unexpectedly or crashes, always send an emergency stop alert to the admin LINE chat so failures never go unnoticed.
+
+## 7. Mobile-First Image Saving & LINE Webview Compatibility Invariant
+- **`<a download>` Webview Block Invariant**:
+  In mobile In-App Webviews (especially LINE Webview on iOS & Android), synthetic clicks on `<a href="data:image/png;base64,..." download="...">` or `blob:` URLs fail silently without downloading any file or alerting the user.
+- **3-Tier Mobile Image Saving Strategy**:
+  1. **Direct Touch & Hold (Long-Press)**: Render actual `<img>` elements with `-webkit-touch-callout: default !important;` and `user-select: auto !important;` inside an interactive preview modal (`#modal-image-saver`) with clear high-contrast Thai guidance: *"แตะค้างที่รูปภาพ (Long-press) แล้วเลือก 'บันทึกรูปภาพ' ลงแกลเลอรี"*.
+  2. **Native Web Share API Level 2**: Support `navigator.share({ files: [file] })` so mobile users can open the native OS Share Sheet and tap "Save Image" directly into Photos in 1 tap.
+  3. **External Browser Redirection (`?openExternalBrowser=1`)**: All external promotional and dream links distributed via LINE Rich Menus or Flex Messages must append `?openExternalBrowser=1` to prompt LINE to open the site directly in Safari or Chrome where file downloads work natively.
+

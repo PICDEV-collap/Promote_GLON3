@@ -234,28 +234,73 @@ function isTunnelAlive() {
 
 /**
  * 1. Kill lingering processes on Port 3333, Cloudflare, dist/index.js, and browser_profile
- * @param {Object} options - { keepTunnel: boolean }
+ * @param {Object} options - { keepTunnel: boolean, keepBrowser: boolean }
  */
 function killLingering(options = {}) {
   const keepTunnel = options.keepTunnel === true;
+  const keepBrowser = options.keepBrowser === true;
+
+  // 1. ปิดโปรเซสบอทบน Port 3333
   try {
-    const psParts = [
-      'Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }'
-    ];
-    if (!keepTunnel) {
-      psParts.unshift('Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue');
-      psParts.push('Get-CimInstance Win32_Process | Where-Object { ($_.CommandLine -like "*dist/index.js*" -or $_.CommandLine -like "*dist\\\\index.js*" -or $_.CommandLine -like "*cloudflared*" -or $_.CommandLine -like "*browser_profile*") -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }');
-    } else {
-      psParts.push('Get-CimInstance Win32_Process | Where-Object { ($_.CommandLine -like "*dist/index.js*" -or $_.CommandLine -like "*dist\\\\index.js*" -or $_.CommandLine -like "*browser_profile*") -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }');
+    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
+    const match = netstatOut.match(/:3333\s+.*LISTENING\s+(\d+)/i);
+    if (match && match[1] && match[1] !== '0' && match[1] !== '4' && match[1] !== String(process.pid)) {
+      execSync(`taskkill /F /T /PID ${match[1]}`, { stdio: 'ignore', windowsHide: true });
     }
-    const psCmd = psParts.join('; ');
-    execSync(`powershell -NoProfile -Command "${psCmd}"`, { stdio: 'ignore', windowsHide: true });
   } catch (e) {}
 
+  // 2. ปิด dist/index.js ที่ค้างอยู่
+  try {
+    const wmicOut = execSync('wmic process where "name=\'node.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8' });
+    for (const line of wmicOut.split('\n')) {
+      if ((line.includes('dist/index.js') || line.includes('dist\\index.js')) && !line.includes(String(process.pid))) {
+        const parts = line.trim().split(',');
+        const pid = parts[parts.length - 1];
+        if (pid && /^\d+$/.test(pid) && pid !== String(process.pid)) {
+          try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (e) {}
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 3. ปิด Cloudflare Tunnel หากไม่ได้เลือก keepTunnel
   if (!keepTunnel) {
     try {
       execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore', windowsHide: true });
     } catch (e) {}
+  }
+
+  // 4. ปิด Chrome เบราว์เซอร์ หากไม่ได้เลือก keepBrowser (เช่น ตอนสั่ง STOP-BOT)
+  if (!keepBrowser) {
+    try {
+      const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
+      const match = netstatOut.match(/:9222\s+.*LISTENING\s+(\d+)/i);
+      if (match && match[1] && match[1] !== '0' && match[1] !== '4' && match[1] !== String(process.pid)) {
+        execSync(`taskkill /F /T /PID ${match[1]}`, { stdio: 'ignore', windowsHide: true });
+      }
+    } catch (e) {}
+
+    try {
+      const wmicOut = execSync('wmic process where "name=\'chrome.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8' });
+      for (const line of wmicOut.split('\n')) {
+        if (line.includes('browser_profile') || line.includes('--remote-debugging-port=9222')) {
+          const parts = line.trim().split(',');
+          const pid = parts[parts.length - 1];
+          if (pid && /^\d+$/.test(pid) && pid !== String(process.pid)) {
+            try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Fallback สำหรับ Windows 11 (ที่ไม่มี wmic.exe): ใช้ PowerShell CIM
+    try {
+      const psCmd = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'chrome.exe\'\\" | Where-Object { $_.CommandLine -like \'*browser_profile*\' -or $_.CommandLine -like \'*--remote-debugging-port=9222*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"';
+      execSync(psCmd, { stdio: 'ignore', windowsHide: true });
+    } catch (e) {}
+
+    const modeFile = path.join(BOT_DIR, 'data', 'browser_mode.json');
+    try { if (fs.existsSync(modeFile)) fs.unlinkSync(modeFile); } catch (e) {}
   }
 
   const pidFile = path.join(ROOT_DIR, 'bot.pid');
@@ -286,7 +331,7 @@ function cleanFiles() {
   if (fs.existsSync(QR_DIR)) {
     const files = fs.readdirSync(QR_DIR);
     for (const f of files) {
-      if (f.startsWith('payment-') || f.startsWith('error-') || f.startsWith('login-') || f.startsWith('n3-dealer-')) {
+      if (f.startsWith('payment-') || f.startsWith('error-') || f.startsWith('login-') || f.startsWith('n3-dealer-') || f.startsWith('paotang-login-')) {
         try {
           fs.unlinkSync(path.join(QR_DIR, f));
           count++;
@@ -400,6 +445,16 @@ function checkStatus() {
   if (fs.existsSync(browserProfileDir)) {
     console.log('[SESSION]  Chrome Profile: Present (Persistent login session active in data/browser_profile)');
   }
+
+  try {
+    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
+    const match = netstatOut.match(/:9222\s+.*LISTENING\s+(\d+)/i);
+    if (match && match[1]) {
+      console.log(`[BROWSER]  Chrome Process: \x1b[32m● RUNNING (CDP Port 9222, PID: ${match[1]}, Session Active)\x1b[0m`);
+    } else {
+      console.log('[BROWSER]  Chrome Process: \x1b[33m○ STANDBY (พร้อมเปิดอัตโนมัติเมื่อเริ่มงาน)\x1b[0m');
+    }
+  } catch {}
 
   const logPath = path.join(ROOT_DIR, 'bot.log');
   if (fs.existsSync(logPath)) {
@@ -684,6 +739,7 @@ function waitForKeypress() {
  */
 async function startBackground(options = {}) {
   const forceNewTunnel = options.forceNewTunnel === true;
+  const keepBrowser = options.keepBrowser !== false; // default true (รักษาเบราว์เซอร์ไม่ให้ปิด)
   const tunnelAlreadyRunning = !forceNewTunnel && isTunnelAlive();
 
   console.clear();
@@ -692,11 +748,11 @@ async function startBackground(options = {}) {
   console.log('===============================================================================');
 
   if (tunnelAlreadyRunning) {
-    console.log('\n[1/3] คงสถานะ Cloudflare Tunnel เดิม (Webhook URL จะไม่เปลี่ยน)...');
-    killLingering({ keepTunnel: true });
+    console.log('\n[1/3] คงสถานะ Cloudflare Tunnel และเบราว์เซอร์เดิมไว้ (Webhook URL & Session ไม่เปลี่ยน)...');
+    killLingering({ keepTunnel: true, keepBrowser: keepBrowser });
   } else {
-    console.log('\n[1/3] ล้างโปรเซสเก่าและเตรียมเปิด Tunnel ใหม่...');
-    killLingering({ keepTunnel: false });
+    console.log('\n[1/3] ล้างโปรเซสเก่าและเตรียมเปิดบริการ...');
+    killLingering({ keepTunnel: false, keepBrowser: keepBrowser });
   }
 
   const urlFile = path.join(ROOT_DIR, 'webhook-url.txt');
@@ -887,7 +943,7 @@ async function stopBot(options = {}) {
   }
 
   // 3. จัดการปิดโปรเซส
-  killLingering({ keepTunnel: !stopTunnel });
+  killLingering({ keepTunnel: !stopTunnel, keepBrowser: false });
 
   // ล้างไฟล์ flag หลังโปรเซสปิดตัว
   setTimeout(() => {
@@ -899,17 +955,17 @@ async function stopBot(options = {}) {
 }
 
 /**
- * 10. Restart Bot Service Only (Preserve Webhook URL)
+ * 10. Restart Bot Service Only (Preserve Webhook URL & Browser)
  */
 async function restartBotOnly() {
-  await startBackground({ forceNewTunnel: false });
+  await startBackground({ forceNewTunnel: false, keepBrowser: true });
 }
 
 /**
- * 11. Update Code & Restart Bot (Preserve Webhook URL)
+ * 11. Update Code & Restart Bot (Preserve Webhook URL & Browser)
  */
 async function updateAndRestart() {
-  await startBackground({ forceNewTunnel: false });
+  await startBackground({ forceNewTunnel: false, keepBrowser: true });
 }
 
 /**
@@ -957,9 +1013,9 @@ function showMainMenu() {
   console.log('  [4] Clean Temporary Files & Free Memory (Remove old QR images)');
   console.log('  [5] Build Project (Compile TypeScript to latest version)');
   console.log('  [6] Start Bot in Background (🚀 ซ่อนหน้าต่าง ไร้หน้าจอ - Reuse Tunnel อัตโนมัติ)');
-  console.log('  [U] Update & Restart Bot (⚡ Build ใหม่ + รีสตาร์ทบอท โดยไม่เปลี่ยน Webhook URL)');
-  console.log('  [B] Restart Bot Only (🔄 รีสตาร์ทเฉพาะบอท คง Webhook URL เดิม 100%)');
-  console.log('  [7] Stop Bot Service (🛑 สั่งหยุดการทำงานของบอท / ปิดบอทเบื้องหลัง)');
+  console.log('  [U] Update & Restart Bot (⚡ Build ใหม่ + รีสตาร์ทบอท โดยไม่เปลี่ยน Webhook และไม่ปิดเบราว์เซอร์)');
+  console.log('  [B] Restart Bot Only (🔄 รีสตาร์ทเฉพาะบอท คง Webhook URL & เบราว์เซอร์เดิม 100%)');
+  console.log('  [7] Stop Bot Service (🛑 สั่งหยุดการทำงานของบอท / ปิดเบราว์เซอร์และคืน RAM ทั้งหมด)');
   console.log('  [8] Open QR Codes Folder (Open public/qrcodes in Explorer)');
   console.log('  [9] Open Website in Browser (Open index.html)');
   console.log('  [R] Setup / Sync LINE Rich Menu (🎨 อัปเดตริชเมนู 6 ปุ่มด้านล่างหน้าจอแชท LINE)');
@@ -987,7 +1043,7 @@ function showMainMenu() {
     } else if (c === '4' || c === 'clean') {
       console.clear();
       console.log('Stopping lingering processes and cleaning temporary files...');
-      killLingering();
+      killLingering({ keepTunnel: false, keepBrowser: false });
       const count = cleanFiles();
       console.log(`\x1b[32m[SUCCESS] Cleaned temporary QR images successfully (${count} files)\x1b[0m`);
       waitForKeypress();
@@ -1054,7 +1110,7 @@ async function main() {
     await startBackground();
   } else if (mode === 'restart' || mode === 'restart-bot') {
     await restartBotOnly();
-  } else if (mode === 'update' || mode === 'hot-reload') {
+  } else if (mode === 'update' || mode === 'hot-reload' || mode === 'u') {
     await updateAndRestart();
   } else if (mode === 'stop-bot') {
     await stopBot({ stopTunnel: false });
@@ -1064,7 +1120,7 @@ async function main() {
     await stopBot({ stopTunnel: true });
   } else if (mode === 'clean') {
     console.log('Stopping lingering processes and cleaning files...');
-    killLingering();
+    killLingering({ keepTunnel: false, keepBrowser: false });
     const count = cleanFiles();
     console.log(`[SUCCESS] Cleaned temporary QR images successfully (${count} files)`);
   } else if (mode === 'status') {
@@ -1082,7 +1138,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('[ERROR]', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[ERROR]', err);
+    process.exit(1);
+  });
+}

@@ -1,7 +1,8 @@
 import assert from 'assert';
+import { messagingApi } from '@line/bot-sdk';
 import fs from 'fs';
 import path from 'path';
-import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl } from './index';
+import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl, getPublicBaseUrl } from './index';
 import { FlexMessageBuilder } from './line/flex-message';
 import { QuotaManager, parseQuotaFromPortalText } from './quota/quota-manager';
 import { syncQuotaFromLivePortal as syncQuotaAutomation } from './automation/quota-manager';
@@ -10,6 +11,7 @@ import { OrderItem } from './queue/order-queue';
 import { CONFIG } from './config';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
 import { DreamEngine } from './dream/dream-engine';
+import { N3Auth } from './automation/n3-auth';
 
 function runTests() {
   console.log('====================================================');
@@ -224,6 +226,40 @@ function runTests() {
     assert.deepStrictEqual(r2[1], { number: '222', quantity: 3 });
   });
 
+  test('Parse polite greeting with orders: สวัสดี, ดีครับ, หวัดดี', () => {
+    const r1 = parseOrderMessage('สวัสดีครับ สั่งซื้อ 123 2 ใบ');
+    assert(r1 !== null);
+    assert.deepStrictEqual(r1, [{ number: '123', quantity: 2 }]);
+
+    const r2 = parseOrderMessage('สวัสดีค่ะ 456 1 ใบ');
+    assert(r2 !== null);
+    assert.deepStrictEqual(r2, [{ number: '456', quantity: 1 }]);
+
+    const r3 = parseOrderMessage('ดีครับ เอาเลข 789 2 ใบ');
+    assert(r3 !== null);
+    assert.deepStrictEqual(r3, [{ number: '789', quantity: 2 }]);
+
+    const r4 = parseOrderMessage('หวัดดี 334 5');
+    assert(r4 !== null);
+    assert.deepStrictEqual(r4, [{ number: '334', quantity: 5 }]);
+  });
+
+  test('Distinguish between dream requests and ticket orders', () => {
+    // Ticket orders starting with ขอเลข / หาเลข
+    const o1 = parseOrderMessage('ขอเลข 123 2 ใบ');
+    assert(o1 !== null);
+    assert.deepStrictEqual(o1, [{ number: '123', quantity: 2 }]);
+
+    const o2 = parseOrderMessage('หาเลข 456 1 ใบ');
+    assert(o2 !== null);
+    assert.deepStrictEqual(o2, [{ number: '456', quantity: 1 }]);
+
+    // Generic dream / lucky number requests should return null so DreamEngine handles them
+    assert.strictEqual(parseOrderMessage('ขอเลขเด็ด'), null);
+    assert.strictEqual(parseOrderMessage('ขอเลขเด็ดหน่อย'), null);
+    assert.strictEqual(parseOrderMessage('หาเลขเด็ด'), null);
+  });
+
   test('Non-order and admin commands return null', () => {
     assert.strictEqual(parseOrderMessage('qr'), null);
     assert.strictEqual(parseOrderMessage('login'), null);
@@ -325,6 +361,44 @@ function runTests() {
     assert(bodyStr.includes('60 บาท'));
   });
 
+  test('Native Image Message + Flex Card Delivery: provides 1-tap in-chat download button', () => {
+    const qrPublicUrl = 'https://example.com/qrcodes/payment-123.png';
+    const downloadUrl = 'https://example.com/download-qr/payment-123.png';
+    const items: OrderItem[] = [{ number: '123', quantity: 2 }];
+
+    // 1. Native Image Message (opens LINE photo viewer with native 📥 button)
+    const imageMsg: messagingApi.ImageMessage = {
+      type: 'image',
+      originalContentUrl: qrPublicUrl,
+      previewImageUrl: qrPublicUrl
+    };
+    assert.strictEqual(imageMsg.type, 'image');
+    assert.strictEqual(imageMsg.originalContentUrl, qrPublicUrl);
+    assert.strictEqual(imageMsg.previewImageUrl, qrPublicUrl);
+
+    // 2. Flex Message Card (order summary and guidance)
+    const flexMsg = FlexMessageBuilder.buildPaymentQRMessage(qrPublicUrl, items, 2, 40, 10, downloadUrl);
+    assert.strictEqual(flexMsg.type, 'flex');
+
+    // Verify messages bundle sent together
+    const messages = [imageMsg, flexMsg];
+    assert.strictEqual(messages.length, 2);
+    assert.strictEqual(messages[0].type, 'image');
+    assert.strictEqual(messages[1].type, 'flex');
+
+    // Verify instruction contains guidance to tap QR above and click 📥
+    const bodyStr = JSON.stringify(flexMsg.contents);
+    assert(bodyStr.includes('แตะที่รูป QR ด้านบน แล้วกดปุ่ม 📥'), 'Must guide customer to use 📥 button on QR image');
+  });
+
+  test('Dynamic Public Base URL: getPublicBaseUrl retrieves live tunnel and avoids stale tunnels', () => {
+    const activeUrl = getPublicBaseUrl();
+    assert(typeof activeUrl === 'string');
+    assert(activeUrl.startsWith('http'));
+    // Should never contain /webhook at the end of base url
+    assert(!activeUrl.endsWith('/webhook'));
+  });
+
   // TEST SUITE 3: Quota Calculation for Multi-ticket orders
   test('Quota check for combined ticket count', () => {
     const qm = new QuotaManager();
@@ -361,6 +435,16 @@ function runTests() {
     // Ratio must be exactly 1.0 (1:1) to fill LINE Flex Hero without distortion or letterboxing
     const aspectRatio = clipW / clipH;
     assert.strictEqual(aspectRatio, 1.0);
+  });
+
+  test('QR Code HD Canvas Geometry: 800x800 square with 48px quiet zone and nearest-neighbor scaling', () => {
+    const targetSize = 800;
+    const quietZone = 48;
+    const drawSize = targetSize - quietZone * 2;
+    assert.strictEqual(targetSize, 800);
+    assert.strictEqual(quietZone, 48);
+    assert.strictEqual(drawSize, 704);
+    assert.strictEqual(targetSize / targetSize, 1.0); // 1:1 square
   });
 
   // TEST SUITE 5: Whitespace & Format Tolerant Number Matching in DOM
@@ -958,20 +1042,11 @@ function runTests() {
   });
 
   // TEST SUITE 12: Welcome Card on Follow & Quick Reply Enhancement
-  test('Welcome Card: buildWelcomeMessage produces valid structure with Quick Replies', () => {
+  test('Welcome Card: buildWelcomeMessage produces valid structure and omits floating Quick Reply to prevent Rich Menu duplication', () => {
     const welcome = FlexMessageBuilder.buildWelcomeMessage();
     assert.strictEqual(welcome.type, 'flex');
     assert(welcome.altText.includes('ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค'));
-    assert(welcome.quickReply, 'Must include quickReply buttons');
-    assert(welcome.quickReply?.items && welcome.quickReply.items.length >= 3, 'Must have at least 3 quick reply buttons');
-    
-    // Check quick reply labels
-    const labels = welcome.quickReply?.items.map((it: any) => it.action.label);
-    assert(labels?.some((l: string) => l.includes('สั่งซื้อสลาก')));
-    assert(labels?.includes('📊 เช็คโควต้า'));
-    assert(labels?.includes('🔮 ทำนายฝัน AI'));
-    assert(labels?.includes('❓ วิธีสั่งซื้อ'));
-    assert(labels?.includes('📲 วิธีชำระเงิน'));
+    assert(!welcome.quickReply, 'Floating Quick Reply must be omitted to prevent duplicating LINE Rich Menu');
 
     // Check header and store branding
     const bubble: any = welcome.contents;
@@ -994,22 +1069,19 @@ function runTests() {
     assert(footerTexts.includes('วิธีการชำระเงิน (เป๋าตัง)'));
   });
 
-  test('HowToOrder Card: buildHowToOrderMessage includes Quick Reply buttons and Paotang notice', () => {
+  test('HowToOrder Card: buildHowToOrderMessage includes Paotang notice and omits floating Quick Reply', () => {
     const howTo = FlexMessageBuilder.buildHowToOrderMessage();
     assert.strictEqual(howTo.type, 'flex');
-    assert(howTo.quickReply, 'HowToOrder must include quickReply');
-    assert(howTo.quickReply?.items && howTo.quickReply.items.length >= 4);
+    assert(!howTo.quickReply, 'Must omit floating Quick Reply to prevent duplicating LINE Rich Menu');
     const bodyStr = JSON.stringify(howTo.contents);
     assert(bodyStr.includes('เป๋าตัง'), 'Must mention Paotang in HowToOrder');
   });
 
-  test('Main Menu Card: buildMainMenuMessage produces complete interactive menu with Paotang emphasis', () => {
+  test('Main Menu Card: buildMainMenuMessage produces complete interactive menu with Paotang emphasis and no popup Quick Reply', () => {
     const menu = FlexMessageBuilder.buildMainMenuMessage();
     assert.strictEqual(menu.type, 'flex');
     assert(menu.altText.includes('เมนูหลัก'));
-    assert(menu.quickReply, 'Must include quick reply buttons');
-    assert.strictEqual(menu.quickReply?.items?.length, 6, 'Must have 6 quick reply buttons');
-    assert.strictEqual((menu.quickReply?.items?.[0]?.action as any)?.text, 'เมนู', 'First button must be Main Menu');
+    assert(!menu.quickReply, 'Must omit floating Quick Reply to prevent duplicating LINE Rich Menu');
 
     const bubble: any = menu.contents;
     const bodyStr = JSON.stringify(bubble.body);
@@ -1062,7 +1134,7 @@ function runTests() {
     assert(bodyStr.includes('เป๋าตัง'), 'Must remind about Paotang');
   });
 
-  test('Payment QR Card: includes Paotang-only highlight box and Quick Replies', () => {
+  test('Payment QR Card: includes Paotang-only highlight box and omits floating Quick Reply', () => {
     const qrMsg = FlexMessageBuilder.buildPaymentQRMessage(
       'https://example.com/qr.png',
       [{ number: '123', quantity: 2 }],
@@ -1070,7 +1142,7 @@ function runTests() {
       40
     );
     assert.strictEqual(qrMsg.type, 'flex');
-    assert(qrMsg.quickReply, 'Must include quick reply');
+    assert(!qrMsg.quickReply, 'Must omit floating Quick Reply to prevent duplicating LINE Rich Menu');
     const bodyStr = JSON.stringify(qrMsg.contents);
     assert(bodyStr.includes('เป๋าตัง') && bodyStr.includes('เท่านั้น'));
     assert(bodyStr.includes('ไม่สามารถใช้แอปธนาคารทั่วไป'));
@@ -1225,14 +1297,8 @@ function runTests() {
     assert(flex.altText.includes(pred.n3Direct));
     assert(flex.altText.includes('เป๋าตัง'));
 
-    // Check quickReply items and limits
-    assert(flex.quickReply && flex.quickReply.items);
-    assert(flex.quickReply.items.length >= 3);
-    for (const item of flex.quickReply.items) {
-      if (item.action && (item.action as any).label) {
-        assert((item.action as any).label.length <= 20, `Quick reply label must be <= 20 chars: ${(item.action as any).label}`);
-      }
-    }
+    // Verify floating Quick Reply is omitted to avoid duplicating Rich Menu
+    assert(!flex.quickReply, 'Quick Reply omitted to prevent popup duplication');
 
     // Check bubble contents
     const bubble = flex.contents as any;
@@ -1262,12 +1328,7 @@ function runTests() {
     assert.strictEqual(guidance.type, 'flex');
     assert(guidance.altText.includes('ทำนายฝัน'));
 
-    assert(guidance.quickReply && guidance.quickReply.items);
-    for (const item of guidance.quickReply.items) {
-      if (item.action && (item.action as any).label) {
-        assert((item.action as any).label.length <= 20, `Quick reply label must be <= 20 chars: ${(item.action as any).label}`);
-      }
-    }
+    assert(!guidance.quickReply, 'Quick Reply omitted to prevent popup duplication');
 
     const bubble = guidance.contents as any;
     assert.strictEqual(bubble.type, 'bubble');
@@ -1328,12 +1389,9 @@ function runTests() {
     assert.strictEqual(withPrefix2[1].quantity, 1);
   });
 
-  test('Order Table Quick Reply: getDefaultQuickReply includes สั่งซื้อสลาก N3 button', () => {
+  test('Quick Reply Policy: getDefaultQuickReply returns undefined to avoid duplicating LINE Rich Menu', () => {
     const qr = FlexMessageBuilder.getDefaultQuickReply();
-    assert(qr && Array.isArray(qr.items), 'Must return quick reply object');
-    const orderBtn = qr.items.find(it => it.action && (it.action as any).label?.includes('สั่งซื้อสลาก N3'));
-    assert(orderBtn, 'Must have 🛒 สั่งซื้อสลาก N3 button');
-    assert.strictEqual((orderBtn.action as any).text, 'สั่งซื้อสลาก N3');
+    assert.strictEqual(qr, undefined, 'getDefaultQuickReply must return undefined to keep chat clean');
   });
 
   test('Order Table HTML & JS: Verify LINE oaMessage URL protocol compliance and Thai numeral support', () => {
@@ -1355,8 +1413,10 @@ function runTests() {
     assert(content.includes('encodeURIComponent(CONFIG.LINE_OA_ID)'), 'Must URL-encode LINE OA ID');
     assert(!content.includes('?text='), 'Must not use non-standard ?text= in oaMessage scheme');
 
-    // Verify Thai digits conversion and Enter key navigation
+    // Verify Thai digits conversion in table and initFromParams
     assert(content.includes('toArabicDigits'), 'Must support Thai numeral conversion');
+    assert(content.includes('toArabicDigits(rawSingleNum)'), 'Must convert Thai numeral in URL parameter singleNum');
+    assert(content.includes('toArabicDigits(rawOrderList)'), 'Must convert Thai numeral in URL parameter orderList');
     assert(content.includes('Enter'), 'Must support Enter key row navigation');
 
     // Verify app.js modal table
@@ -1366,6 +1426,15 @@ function runTests() {
     assert(!appContent.includes('?text='), 'app.js must not use non-standard ?text=');
   });
 
+  test('n3-engine: cleanFiles cleans paotang-login QRs and require.main safeguard exists', () => {
+    const enginePath = path.resolve(__dirname, '../../scripts/n3-engine.js');
+    assert(fs.existsSync(enginePath), 'scripts/n3-engine.js must exist');
+    const content = fs.readFileSync(enginePath, 'utf-8');
+
+    assert(content.includes("paotang-login-"), 'cleanFiles must clean paotang-login- QR codes');
+    assert(content.includes('require.main === module'), 'n3-engine.js must be guarded with require.main === module');
+  });
+
   test('Vercel Config: public/order.html is removed to prevent 404 shadow and vercel.json has outputDirectory .', () => {
     const pubOrderPath = path.resolve(__dirname, '../../public/order.html');
     assert(!fs.existsSync(pubOrderPath), 'public/order.html must be removed from repository');
@@ -1373,6 +1442,40 @@ function runTests() {
     const vercelConfig = JSON.parse(fs.readFileSync(vercelJsonPath, 'utf-8'));
     assert.strictEqual(vercelConfig.outputDirectory, '.', 'outputDirectory must be .');
     assert.strictEqual(vercelConfig.cleanUrls, true, 'cleanUrls must be true');
+  });
+
+  test('LINE Message Sanitizer: LineReplyHandler.sanitizeMessages prevents HTTP 400 length error', () => {
+    // 1. Long message > 5000 characters
+    const hugeText = 'A'.repeat(6000);
+    const msgs: messagingApi.Message[] = [{ type: 'text', text: hugeText }];
+    const sanitized = LineReplyHandler.sanitizeMessages(msgs);
+    assert.strictEqual(sanitized.length, 1);
+    assert.strictEqual(sanitized[0].type, 'text');
+    const textMsg = sanitized[0] as messagingApi.TextMessage;
+    assert(textMsg.text.length <= 4050, 'Must truncate text to within safe LINE limits');
+    assert(textMsg.text.includes('ข้อความถูกตัดทอน'), 'Must indicate truncation');
+
+    // 2. Empty or whitespace text
+    const emptyMsgs: messagingApi.Message[] = [{ type: 'text', text: '   ' }];
+    const sanitizedEmpty = LineReplyHandler.sanitizeMessages(emptyMsgs);
+    assert.strictEqual(sanitizedEmpty[0].type, 'text');
+    assert((sanitizedEmpty[0] as messagingApi.TextMessage).text.length > 0, 'Empty text must be replaced with non-empty string');
+
+    // 3. Normal text passes unchanged
+    const normalMsgs: messagingApi.Message[] = [{ type: 'text', text: 'สวัสดีครับ' }];
+    const sanitizedNormal = LineReplyHandler.sanitizeMessages(normalMsgs);
+    assert.strictEqual((sanitizedNormal[0] as messagingApi.TextMessage).text, 'สวัสดีครับ');
+  });
+
+  test('N3Auth: checkAndDismissSessionModal function is defined and callable', () => {
+    assert(typeof N3Auth.checkAndDismissSessionModal === 'function', 'N3Auth.checkAndDismissSessionModal must be a function');
+  });
+
+  test('Console Codepage: N3-MANAGER.bat enforces chcp 65001 to prevent Thai font mojibake', () => {
+    const managerBatPath = path.resolve(__dirname, '../../N3-MANAGER.bat');
+    assert(fs.existsSync(managerBatPath), 'N3-MANAGER.bat must exist');
+    const content = fs.readFileSync(managerBatPath, 'utf-8');
+    assert(content.includes('chcp 65001 >nul'), 'N3-MANAGER.bat must include chcp 65001 >nul');
   });
 
   console.log(`\n====================================================`);

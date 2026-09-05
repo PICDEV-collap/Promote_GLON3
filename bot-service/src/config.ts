@@ -9,6 +9,7 @@ export const CONFIG = {
   PORT: parseInt(process.env.PORT || '3333', 10),
   BASE_URL: process.env.BASE_URL || 'http://localhost:3333',
   HEADLESS: process.env.HEADLESS !== 'false', // ทำงานแบบ Headless (ซ่อนหน้าต่างเบราว์เซอร์ Chrome) เป็นค่าเริ่มต้น
+  CDP_PORT: parseInt(process.env.CHROME_CDP_PORT || '9222', 10),
   LINE_CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
   LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || '',
   LINE_ADMIN_USER_ID: adminId,
