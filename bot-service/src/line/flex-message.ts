@@ -2039,7 +2039,7 @@ export class FlexMessageBuilder {
       altText,
       contents: {
         type: 'bubble',
-        size: 'mega',
+        size: 'giga',
         header: {
           type: 'box',
           layout: 'vertical',
@@ -2049,6 +2049,7 @@ export class FlexMessageBuilder {
             {
               type: 'box',
               layout: 'horizontal',
+              alignItems: 'center',
               contents: [
                 {
                   type: 'text',
@@ -2056,15 +2057,29 @@ export class FlexMessageBuilder {
                   weight: 'bold',
                   size: 'md',
                   color: '#fbbf24',
-                  flex: 1
+                  flex: 7,
+                  wrap: true
                 },
                 {
-                  type: 'text',
-                  text: item.element,
-                  size: 'xxs',
-                  color: item.elementColor || '#f59e0b',
-                  align: 'end',
-                  weight: 'bold'
+                  type: 'box',
+                  layout: 'vertical',
+                  backgroundColor: '#1e293b',
+                  cornerRadius: 'md',
+                  paddingStart: '8px',
+                  paddingEnd: '8px',
+                  paddingTop: '3px',
+                  paddingBottom: '3px',
+                  alignItems: 'center',
+                  flex: 3,
+                  contents: [
+                    {
+                      type: 'text',
+                      text: item.element,
+                      size: 'xxs',
+                      color: item.elementColor || '#f59e0b',
+                      weight: 'bold'
+                    }
+                  ]
                 }
               ]
             },
@@ -2073,7 +2088,8 @@ export class FlexMessageBuilder {
               text: `งวดประจำวันที่ ${item.drawDateThai} • ร้านธนกิจนำโชค`,
               size: 'xxs',
               color: '#94a3b8',
-              margin: 'xs'
+              margin: 'xs',
+              wrap: true
             }
           ]
         },
@@ -2193,8 +2209,9 @@ export class FlexMessageBuilder {
               type: 'text',
               text: '👛 สลาก N3 ใบละ 20 บาท | จ่ายผ่านแอปเป๋าตัง รับเงินรางวัลทันที',
               size: 'xxs',
-              color: '#64748b',
-              align: 'center'
+              color: '#94a3b8',
+              align: 'center',
+              wrap: true
             }
           ]
         },
@@ -2277,7 +2294,7 @@ export class FlexMessageBuilder {
       altText,
       contents: {
         type: 'bubble',
-        size: 'mega',
+        size: 'giga',
         header: {
           type: 'box',
           layout: 'vertical',
@@ -2289,14 +2306,16 @@ export class FlexMessageBuilder {
               text: '🏆 ผลการออกรางวัลสลาก N3',
               weight: 'bold',
               size: 'md',
-              color: '#facc15'
+              color: '#facc15',
+              wrap: true
             },
             {
               type: 'text',
               text: `งวดประจำวันที่ ${drawDateThai} (สำนักงานสลากฯ)`,
               size: 'xxs',
               color: '#c7d2fe',
-              margin: 'xs'
+              margin: 'xs',
+              wrap: true
             }
           ]
         },
