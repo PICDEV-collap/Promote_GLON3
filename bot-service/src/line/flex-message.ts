@@ -2597,7 +2597,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 เปิดตารางสั่งซื้อเลขชุด',
-                uri: CONFIG.ORDER_6PACK_URL
+                uri: `${CONFIG.ORDER_LIFF_URL}?mode=6pack`
               }
             }
           ]

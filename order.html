@@ -1532,6 +1532,12 @@
     // Initialize from URL Query Parameters (e.g. ?n=123&q=2 or ?order=123:2,456:1)
     function initFromParams() {
       const params = new URLSearchParams(window.location.search);
+      const modeParam = params.get('mode') || params.get('type') || params.get('view');
+      if (modeParam === '6pack' || modeParam === 'sixpack' || modeParam === '6-pack') {
+        window.location.href = 'order-6pack.html' + window.location.search;
+        return;
+      }
+
       const lineParam = params.get('line');
       if (lineParam) {
         CONFIG.LINE_OA_ID = lineParam.startsWith('@') ? lineParam : '@' + lineParam;
