@@ -5,10 +5,11 @@
   <script>
     (function() {
       try {
+        var href = window.location.href;
         var params = new URLSearchParams(window.location.search);
         var mode = params.get('mode') || params.get('type') || params.get('view');
-        if (mode === '6pack' || mode === 'sixpack' || mode === '6-pack') {
-          window.location.replace('order-6pack.html' + window.location.search);
+        if (mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
+          document.documentElement.classList.add('mode-6pack');
         }
       } catch (e) {}
     })();
@@ -785,9 +786,298 @@
       .input-qty {
         width: 36px;
       }
-      .prizes-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    }
+
+    /* Mode Tabs */
+    .mode-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.35rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 0.75rem 0.5rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-heading);
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      transition: all 0.2s ease;
+    }
+    .tab-btn.active, html:not(.mode-6pack) #tab-btn-normal {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    }
+    html.mode-6pack #tab-btn-normal {
+      background: transparent !important;
+      color: var(--text-secondary) !important;
+      box-shadow: none !important;
+    }
+    html.mode-6pack #tab-btn-6pack {
+      background: linear-gradient(135deg, #78350f 0%, #d97706 100%) !important;
+      color: #fef08a !important;
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35) !important;
+    }
+
+    #view-6pack { display: none; }
+    html.mode-6pack #view-normal { display: none !important; }
+    html.mode-6pack #view-6pack { display: block !important; }
+
+    /* 6-Pack Specific Component Styles */
+    .hero-card {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%);
+      border: 1.5px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      text-align: center;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #fef08a;
+      margin-bottom: 0.35rem;
+    }
+    .hero-subtitle {
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      line-height: 1.4;
+      margin-bottom: 0.85rem;
+    }
+    .hero-payout-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px dashed rgba(254, 240, 138, 0.4);
+      border-radius: var(--radius-md);
+      padding: 0.65rem 0.85rem;
+      font-size: 0.82rem;
+      color: #fef08a;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 0.5rem;
+    }
+    .payout-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .payout-val {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #ffffff;
+    }
+    .card-6pack {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.15rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .digit-box-wrapper {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .digit-input-box {
+      width: 70px;
+      height: 80px;
+      background: var(--bg-card-alt);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading);
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fef08a;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .digit-input-box.active {
+      border-color: var(--color-emerald);
+      background: rgba(16, 185, 129, 0.15);
+      transform: scale(1.05);
+    }
+    .digit-input-box.empty {
+      color: var(--text-muted);
+      border-color: var(--border-subtle);
+    }
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .key-btn {
+      padding: 0.75rem 0;
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .key-btn:active, .key-btn:hover {
+      background: var(--color-gold);
+      color: #000;
+      border-color: var(--color-gold-light);
+    }
+    .key-btn.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .btn-action-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.85rem;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 0.6rem;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+    }
+    .btn-random {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+    .permutations-header {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .perm-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .perm-card {
+      background: linear-gradient(135deg, #0b192e 0%, #1e293b 100%);
+      border: 1.5px solid var(--border-gold);
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.4rem;
+      text-align: center;
+      position: relative;
+    }
+    .perm-num {
+      font-family: var(--font-heading);
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fef08a;
+      letter-spacing: 1px;
+    }
+    .perm-badge {
+      font-size: 0.7rem;
+      color: var(--color-emerald-light);
+      margin-top: 0.15rem;
+    }
+    .stepper-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.85rem;
+      margin-bottom: 1rem;
+    }
+    .stepper-label {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+    .stepper-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .step-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-gold);
+      color: var(--color-gold-light);
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .step-val {
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      min-width: 24px;
+      text-align: center;
+    }
+    .added-set-item {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 0.85rem;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .set-info-title {
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--color-gold-light);
+    }
+    .set-info-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .btn-del-set {
+      color: var(--color-red);
+      background: transparent;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.3rem;
     }
   </style>
 </head>
@@ -814,109 +1104,238 @@
       </div>
     </div>
 
-    <!-- Operating Hours Banner -->
-    <div class="operating-pill">
-      <div>
-        <i class="fas fa-clock" style="color: var(--color-gold); margin-right: 0.35rem;"></i>
-        <span>เปิดรับคำสั่งซื้ออัตโนมัติ <strong>24 ชั่วโมง</strong></span>
-      </div>
-      <span style="color: var(--color-gold-light); font-weight: 700;">ใบละ 20 บาท</span>
+    <!-- Order Mode Switcher Tabs -->
+    <div class="mode-tabs">
+      <button type="button" id="tab-btn-normal" class="tab-btn active" onclick="switchOrderMode('normal')">
+        <i class="fas fa-table-list"></i> ตารางสั่งซื้อปกติ
+      </button>
+      <button type="button" id="tab-btn-6pack" class="tab-btn" onclick="switchOrderMode('6pack')">
+        <i class="fas fa-dice"></i> 🎲 สูตรเลขชุด 6 กลับ
+      </button>
     </div>
 
-    <!-- Main Order Form Card -->
-    <div class="order-card">
-      <div class="card-header-row">
-        <div class="card-title">
-          <i class="fas fa-table-list"></i>
-          <span>ระบุเลข 3 หลัก &amp; จำนวนใบ</span>
+    <!-- VIEW 1: Normal Order Table -->
+    <div id="view-normal">
+      <!-- Operating Hours Banner -->
+      <div class="operating-pill">
+        <div>
+          <i class="fas fa-clock" style="color: var(--color-gold); margin-right: 0.35rem;"></i>
+          <span>เปิดรับคำสั่งซื้ออัตโนมัติ <strong>24 ชั่วโมง</strong></span>
         </div>
-        <span class="ticket-price-tag">ราคาใบละ 20.-</span>
+        <span style="color: var(--color-gold-light); font-weight: 700;">ใบละ 20 บาท</span>
       </div>
 
-      <!-- Order Table -->
-      <div class="table-container">
-        <table class="order-table">
-          <thead>
-            <tr>
-              <th class="col-num"># &nbsp;เลข 3 หลัก</th>
-              <th class="col-qty">จำนวน (ใบ)</th>
-              <th class="col-subtotal">รวมเงิน</th>
-              <th class="col-del">ลบ</th>
-            </tr>
-          </thead>
-          <tbody id="order-table-body">
-            <!-- Rows injected dynamically via JS -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Table Action Toolbar -->
-      <div class="table-actions">
-        <!-- ปุ่มเพิ่มเมื่อต้องการเลขหลายตัว สร้างแถวเพิ่ม -->
-        <button type="button" id="btn-add-row" class="btn-add-row">
-          <i class="fas fa-plus-circle"></i> เพิ่มแถว (สั่งหลายเลข)
-        </button>
-        <button type="button" id="btn-random-pick" class="btn-quick-tool" title="สุ่มเลข 3 ตัวมงคล">
-          <i class="fas fa-dice"></i> สุ่มเลข
-        </button>
-        <button type="button" id="btn-combo-permute" class="btn-quick-tool" title="เพิ่มเลขโต๊ดทุกประตู (6 กลับ)">
-          <i class="fas fa-sync-alt"></i> กระจายโต๊ด
-        </button>
-        <button type="button" id="btn-clear-table" class="btn-quick-tool" title="ล้างตารางทั้งหมด">
-          <i class="fas fa-trash-can"></i> ล้างค่า
-        </button>
-      </div>
-
-      <!-- Live Order Summary -->
-      <div class="summary-card">
-        <div class="summary-row">
-          <span>จำนวนชุดเลขที่เลือก:</span>
-          <span id="summary-items" class="summary-val-gold">1 ชุด</span>
+      <!-- Main Order Form Card -->
+      <div class="order-card">
+        <div class="card-header-row">
+          <div class="card-title">
+            <i class="fas fa-table-list"></i>
+            <span>ระบุเลข 3 หลัก &amp; จำนวนใบ</span>
+          </div>
+          <span class="ticket-price-tag">ราคาใบละ 20.-</span>
         </div>
-        <div class="summary-row">
-          <span>จำนวนสลากรวม:</span>
-          <span id="summary-tickets" class="summary-val-gold">1 ใบ</span>
+
+        <!-- Order Table -->
+        <div class="table-container">
+          <table class="order-table">
+            <thead>
+              <tr>
+                <th class="col-num"># &nbsp;เลข 3 หลัก</th>
+                <th class="col-qty">จำนวน (ใบ)</th>
+                <th class="col-subtotal">รวมเงิน</th>
+                <th class="col-del">ลบ</th>
+              </tr>
+            </thead>
+            <tbody id="order-table-body">
+              <!-- Rows injected dynamically via JS -->
+            </tbody>
+          </table>
         </div>
-        <div class="summary-row total-row">
-          <span>ยอดชำระเงินรวม:</span>
+
+        <!-- Table Action Toolbar -->
+        <div class="table-actions">
+          <button type="button" id="btn-add-row" class="btn-add-row">
+            <i class="fas fa-plus-circle"></i> เพิ่มแถว (สั่งหลายเลข)
+          </button>
+          <button type="button" id="btn-random-pick" class="btn-quick-tool" title="สุ่มเลข 3 ตัวมงคล">
+            <i class="fas fa-dice"></i> สุ่มเลข
+          </button>
+          <button type="button" id="btn-combo-permute" class="btn-quick-tool" title="เพิ่มเลขโต๊ดทุกประตู (6 กลับ)">
+            <i class="fas fa-sync-alt"></i> กระจายโต๊ด
+          </button>
+          <button type="button" id="btn-clear-table" class="btn-quick-tool" title="ล้างตารางทั้งหมด">
+            <i class="fas fa-trash-can"></i> ล้างค่า
+          </button>
+        </div>
+
+        <!-- Live Order Summary -->
+        <div class="summary-card">
+          <div class="summary-row">
+            <span>จำนวนชุดเลขที่เลือก:</span>
+            <span id="summary-items" class="summary-val-gold">1 ชุด</span>
+          </div>
+          <div class="summary-row">
+            <span>จำนวนสลากรวม:</span>
+            <span id="summary-tickets" class="summary-val-gold">1 ใบ</span>
+          </div>
+          <div class="summary-row total-row">
+            <span>ยอดชำระเงินรวม:</span>
+            <div>
+              <span id="summary-total" class="summary-val-emerald">20</span>
+              <span style="font-size: 0.95rem; color: var(--color-emerald-light);">บาท</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paotang Notice Alert -->
+        <div class="paotang-alert">
+          <i class="fas fa-wallet"></i>
           <div>
-            <span id="summary-total" class="summary-val-emerald">20</span>
-            <span style="font-size: 0.95rem; color: var(--color-emerald-light);">บาท</span>
+            <strong>ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น:</strong><br>
+            เมื่อกดสั่งซื้อ ระบบบอทจะสร้าง QR Code ส่งให้คุณในแชท LINE เพื่อเปิดสแกนจ่ายผ่านแอปเป๋าตังทันที สลากจะเข้ากระเป๋าดิจิทัลของคุณ 100%
+          </div>
+        </div>
+
+        <!-- ปุ่มสั่งซื้อเพื่อส่งคำสั่ง -->
+        <button type="button" id="btn-submit-order" class="btn-submit-order">
+          <i class="fab fa-line"></i> สั่งซื้อสลาก N3 ทันที (ส่งเข้า LINE)
+        </button>
+
+        <!-- Prize Category Info -->
+        <div class="prizes-grid">
+          <div class="prize-tag">
+            <strong>3 ตรง</strong>
+            ตรงเลขตรงหลัก
+          </div>
+          <div class="prize-tag">
+            <strong>3 สลับหลัก</strong>
+            โต๊ดทุกตำแหน่ง
+          </div>
+          <div class="prize-tag">
+            <strong>2 ตรง</strong>
+            ท้าย 2 ตัวตรง
+          </div>
+          <div class="prize-tag">
+            <strong>แจ็กพอต</strong>
+            รางวัลพิเศษ
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: 6-Pack Permutations Order Form -->
+    <div id="view-6pack">
+      <!-- Hero Banner -->
+      <div class="hero-card">
+        <div class="hero-title"><i class="fa-solid fa-bullseye"></i> สูตรเลขชุด 6 กลับ (คอมโบ 3 รางวัล)</div>
+        <div class="hero-subtitle">เลือก 3 เลขไม่ซ้ำ • สลับตำแหน่งให้อัตโนมัติครบ 6 ประตู (ชุดละ 120 บาท)</div>
+        <div class="hero-payout-box">
+          <div class="payout-item">
+            <span style="font-size: 0.72rem; color: #cbd5e1;">ลุ้นสามตรง</span>
+            <span class="payout-val">~4,000 บ.</span>
+          </div>
+          <div style="color: rgba(255,255,255,0.3);">|</div>
+          <div class="payout-item">
+            <span style="font-size: 0.72rem; color: #cbd5e1;">ลุ้นสามโต๊ด (6 ใบ)</span>
+            <span class="payout-val">~4,800 บ.</span>
+          </div>
+          <div style="color: rgba(255,255,255,0.3);">|</div>
+          <div class="payout-item">
+            <span style="font-size: 0.72rem; color: #cbd5e1;">ลุ้นสองตรง</span>
+            <span class="payout-val">~600 บ.</span>
           </div>
         </div>
       </div>
 
-      <!-- Paotang Notice Alert -->
-      <div class="paotang-alert">
-        <i class="fas fa-wallet"></i>
-        <div>
-          <strong>ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น:</strong><br>
-          เมื่อกดสั่งซื้อ ระบบบอทจะสร้าง QR Code ส่งให้คุณในแชท LINE เพื่อเปิดสแกนจ่ายผ่านแอปเป๋าตังทันที สลากจะเข้ากระเป๋าดิจิทัลของคุณ 100%
+      <!-- Section 1: 3-Digit Picker -->
+      <div class="card-6pack">
+        <div class="card-title">
+          <span><i class="fa-solid fa-arrow-pointer" style="color: var(--color-gold-light);"></i> 1. เลือกเลขเด่น 3 ตัวไม่ซ้ำกัน</span>
+          <span style="font-size: 0.78rem; color: var(--text-secondary);" id="digit-step-label">เลือกตำแหน่งที่ 1</span>
+        </div>
+
+        <div class="digit-box-wrapper">
+          <div class="digit-input-box active" id="box-0" onclick="setActiveBox(0)">-</div>
+          <div class="digit-input-box empty" id="box-1" onclick="setActiveBox(1)">-</div>
+          <div class="digit-input-box empty" id="box-2" onclick="setActiveBox(2)">-</div>
+        </div>
+
+        <div class="keypad-grid">
+          <button class="key-btn" onclick="pressDigit(1)">1</button>
+          <button class="key-btn" onclick="pressDigit(2)">2</button>
+          <button class="key-btn" onclick="pressDigit(3)">3</button>
+          <button class="key-btn" onclick="pressDigit(4)">4</button>
+          <button class="key-btn" onclick="pressDigit(5)">5</button>
+          <button class="key-btn" onclick="pressDigit(6)">6</button>
+          <button class="key-btn" onclick="pressDigit(7)">7</button>
+          <button class="key-btn" onclick="pressDigit(8)">8</button>
+          <button class="key-btn" onclick="pressDigit(9)">9</button>
+          <button class="key-btn" onclick="pressDigit(0)">0</button>
+        </div>
+
+        <div class="btn-action-row">
+          <button class="btn-secondary" onclick="clearSelectedDigits()">
+            <i class="fa-solid fa-eraser"></i> ล้างค่า
+          </button>
+          <button class="btn-secondary btn-random" onclick="randomThreeDigits()">
+            <i class="fa-solid fa-dice"></i> สุ่มเลข 3 ตัว
+          </button>
         </div>
       </div>
 
-      <!-- ปุ่มสั่งซื้อเพื่อส่งคำสั่ง -->
-      <button type="button" id="btn-submit-order" class="btn-submit-order">
-        <i class="fab fa-line"></i> สั่งซื้อสลาก N3 ทันที (ส่งเข้า LINE)
-      </button>
+      <!-- Section 2: Generated 6-Permutations Preview -->
+      <div class="card-6pack" id="preview-card" style="display: none;">
+        <div class="permutations-header">
+          <span><i class="fa-solid fa-layer-group" style="color: var(--color-emerald-light);"></i> รายการสลาก 6 กลับที่จะได้รับ</span>
+          <span style="color: var(--color-gold-light); font-weight: 700;" id="perm-count-label">6 ใบ (120 บาท)</span>
+        </div>
 
-      <!-- Prize Category Info -->
-      <div class="prizes-grid">
-        <div class="prize-tag">
-          <strong>3 ตรง</strong>
-          ตรงเลขตรงหลัก
+        <div class="perm-grid" id="perm-grid-container">
+          <!-- 6 Permutation Cards rendered via JS -->
         </div>
-        <div class="prize-tag">
-          <strong>3 สลับหลัก</strong>
-          โต๊ดทุกตำแหน่ง
+
+        <!-- Quantity Stepper for this set -->
+        <div class="stepper-box">
+          <span class="stepper-label">จำนวนชุดของเลขนี้:</span>
+          <div class="stepper-ctrl">
+            <button class="step-btn" onclick="adjustSetQty(-1)"><i class="fa-solid fa-minus"></i></button>
+            <span class="step-val" id="set-qty-val">1</span>
+            <button class="step-btn" onclick="adjustSetQty(1)"><i class="fa-solid fa-plus"></i></button>
+          </div>
         </div>
-        <div class="prize-tag">
-          <strong>2 ตรง</strong>
-          ท้าย 2 ตัวตรง
+
+        <button class="btn-submit-order" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); margin-top: 0.5rem;" onclick="addCurrentSetToList()">
+          <i class="fa-solid fa-plus-circle"></i> บันทึกชุดนี้เข้าบิล
+        </button>
+      </div>
+
+      <!-- Section 3: Sets Added to Order -->
+      <div class="card-6pack" id="added-sets-card" style="display: none;">
+        <div class="card-title">
+          <span><i class="fa-solid fa-receipt" style="color: var(--color-gold-light);"></i> 2. ชุดเลขที่บันทึกแล้วในบิลนี้</span>
+          <span style="font-size: 0.8rem; color: var(--text-muted);" id="added-count-badge">0 ชุด</span>
         </div>
-        <div class="prize-tag">
-          <strong>แจ็กพอต</strong>
-          รางวัลพิเศษ
+
+        <div id="added-sets-container">
+          <!-- Added sets listed here -->
+        </div>
+      </div>
+
+      <!-- Section 4: 6-Pack Order Summary & Action -->
+      <div class="summary-card" style="margin-top: 1rem;">
+        <div class="summary-row">
+          <span>ยอดรวมสลาก 6 กลับทั้งหมด:</span>
+          <span class="summary-val-emerald" id="grand-total-qty" style="font-size: 1.15rem;">0 ใบ (0 บาท)</span>
+        </div>
+        <button type="button" class="btn-submit-order" style="margin-top: 0.75rem;" onclick="submitSixPackOrder()">
+          <i class="fab fa-line"></i> ส่งคำสั่งซื้อเข้า LINE แชทเพื่อรับ QR Code
+        </button>
+        <div class="paotang-alert" style="margin-top: 0.75rem; margin-bottom: 0;">
+          <i class="fas fa-wallet"></i>
+          <div>
+            <strong>ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น:</strong><br>
+            ระบบจะส่งคำสั่งซื้อเข้าห้องแชทและออก QR Code สแกนจ่ายด้วยแอปเป๋าตังทันที
+          </div>
         </div>
       </div>
     </div>
@@ -1540,13 +1959,406 @@
       }
     }
 
-    // Initialize from URL Query Parameters (e.g. ?n=123&q=2 or ?order=123:2,456:1)
+    function switchOrderMode(mode) {
+      const htmlEl = document.documentElement;
+      const btnNormal = document.getElementById('tab-btn-normal');
+      const btn6Pack = document.getElementById('tab-btn-6pack');
+      const viewNormal = document.getElementById('view-normal');
+      const view6Pack = document.getElementById('view-6pack');
+
+      if (mode === '6pack') {
+        htmlEl.classList.add('mode-6pack');
+        if (btnNormal) btnNormal.classList.remove('active');
+        if (btn6Pack) btn6Pack.classList.add('active');
+        if (viewNormal) viewNormal.style.display = 'none';
+        if (view6Pack) view6Pack.style.display = 'block';
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('mode', '6pack');
+          history.replaceState(null, '', url.pathname + url.search);
+        } catch (e) {}
+      } else {
+        htmlEl.classList.remove('mode-6pack');
+        if (btn6Pack) btn6Pack.classList.remove('active');
+        if (btnNormal) btnNormal.classList.add('active');
+        if (viewNormal) viewNormal.style.display = 'block';
+        if (view6Pack) view6Pack.style.display = 'none';
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('mode');
+          history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+        } catch (e) {}
+      }
+    }
+
+    // 6-Pack Interactive Generator Logic
+    let activeBoxIndex = 0;
+    let selectedDigits = ['', '', ''];
+    let currentSetQty = 1;
+    let addedSets = [];
+
+    function setActiveBox(idx) {
+      activeBoxIndex = idx;
+      updateDigitDisplay();
+    }
+
+    function updateDigitDisplay() {
+      for (let i = 0; i < 3; i++) {
+        const box = document.getElementById(`box-${i}`);
+        if (!box) continue;
+        box.innerText = selectedDigits[i] !== '' ? selectedDigits[i] : '-';
+        box.classList.remove('active', 'empty');
+
+        if (i === activeBoxIndex) {
+          box.classList.add('active');
+        } else if (selectedDigits[i] === '') {
+          box.classList.add('empty');
+        }
+      }
+
+      const keyBtns = document.querySelectorAll('.key-btn');
+      keyBtns.forEach(btn => {
+        const numStr = btn.innerText.trim();
+        if (selectedDigits.includes(numStr) && selectedDigits[activeBoxIndex] !== numStr) {
+          btn.classList.add('disabled');
+        } else {
+          btn.classList.remove('disabled');
+        }
+      });
+
+      checkAndGeneratePermutations();
+    }
+
+    function pressDigit(num) {
+      const numStr = String(num);
+
+      if (selectedDigits.includes(numStr) && selectedDigits[activeBoxIndex] !== numStr) {
+        showToast(`เลข ${numStr} ถูกเลือกไปแล้วครับ (สูตร 6 กลับต้องใช้ 3 ตัวไม่ซ้ำกัน)`, 'info');
+        return;
+      }
+
+      selectedDigits[activeBoxIndex] = numStr;
+
+      if (activeBoxIndex < 2) {
+        activeBoxIndex++;
+      }
+
+      updateDigitDisplay();
+    }
+
+    function clearSelectedDigits() {
+      selectedDigits = ['', '', ''];
+      activeBoxIndex = 0;
+      currentSetQty = 1;
+      const setValElem = document.getElementById('set-qty-val');
+      if (setValElem) setValElem.innerText = '1';
+      const prevElem = document.getElementById('preview-card');
+      if (prevElem) prevElem.style.display = 'none';
+      updateDigitDisplay();
+    }
+
+    function randomThreeDigits() {
+      const pool = ['0','1','2','3','4','5','6','7','8','9'];
+      const picked = [];
+      while (picked.length < 3) {
+        const idx = Math.floor(Math.random() * pool.length);
+        picked.push(pool.splice(idx, 1)[0]);
+      }
+      selectedDigits = picked;
+      activeBoxIndex = 2;
+      currentSetQty = 1;
+      const setValElem = document.getElementById('set-qty-val');
+      if (setValElem) setValElem.innerText = '1';
+      updateDigitDisplay();
+    }
+
+    function getPermutations(arr) {
+      if (arr.length <= 1) return [arr];
+      let perms = [];
+      for (let i = 0; i < arr.length; i++) {
+        const current = arr[i];
+        const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+        const remPerms = getPermutations(remaining);
+        for (let j = 0; j < remPerms.length; j++) {
+          perms.push([current].concat(remPerms[j]));
+        }
+      }
+      return perms;
+    }
+
+    function checkAndGeneratePermutations() {
+      const prevElem = document.getElementById('preview-card');
+      if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
+        const perms = getPermutations(selectedDigits).map(p => p.join(''));
+        const uniquePerms = Array.from(new Set(perms));
+
+        renderPermutationPreview(uniquePerms);
+        if (prevElem) prevElem.style.display = 'block';
+      } else {
+        if (prevElem) prevElem.style.display = 'none';
+      }
+      updateGrandTotal();
+    }
+
+    function renderPermutationPreview(perms) {
+      const container = document.getElementById('perm-grid-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      perms.forEach((numStr) => {
+        const card = document.createElement('div');
+        card.className = 'perm-card';
+        card.innerHTML = `
+          <div class="perm-num">${numStr}</div>
+          <div class="perm-badge">${currentSetQty} ใบ (${currentSetQty * 20} บ.)</div>
+        `;
+        container.appendChild(card);
+      });
+
+      const totalItems = perms.length * currentSetQty;
+      const totalPrice = totalItems * 20;
+      const labelElem = document.getElementById('perm-count-label');
+      if (labelElem) labelElem.innerText = `${totalItems} ใบ (${totalPrice.toLocaleString()} บาท)`;
+    }
+
+    function adjustSetQty(delta) {
+      currentSetQty = Math.max(1, currentSetQty + delta);
+      const setValElem = document.getElementById('set-qty-val');
+      if (setValElem) setValElem.innerText = currentSetQty;
+      checkAndGeneratePermutations();
+    }
+
+    function addCurrentSetToList() {
+      if (selectedDigits.includes('')) return;
+
+      const perms = Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))));
+      addedSets.push({
+        digits: [...selectedDigits],
+        perms: perms,
+        qty: currentSetQty
+      });
+
+      clearSelectedDigits();
+      renderAddedSets();
+      updateGrandTotal();
+      showToast('บันทึกชุดเลข 6 กลับเข้าบิลเรียบร้อยแล้ว!', 'success');
+    }
+
+    function removeSet(index) {
+      addedSets.splice(index, 1);
+      renderAddedSets();
+      updateGrandTotal();
+    }
+
+    function renderAddedSets() {
+      const container = document.getElementById('added-sets-container');
+      const card = document.getElementById('added-sets-card');
+      if (!container || !card) return;
+      container.innerHTML = '';
+
+      if (addedSets.length === 0) {
+        card.style.display = 'none';
+        return;
+      }
+
+      card.style.display = 'block';
+      const badge = document.getElementById('added-count-badge');
+      if (badge) badge.innerText = `${addedSets.length} ชุด`;
+
+      addedSets.forEach((setObj, idx) => {
+        const item = document.createElement('div');
+        item.className = 'added-set-item';
+        const totalSetQty = setObj.perms.length * setObj.qty;
+        const totalSetPrice = totalSetQty * 20;
+
+        item.innerHTML = `
+          <div>
+            <div class="set-info-title">ชุดเลข ${setObj.digits.join('-')} (${setObj.perms.length} กลับ)</div>
+            <div class="set-info-sub">${setObj.perms.join(', ')} (อย่างละ ${setObj.qty} ใบ = รวม ${totalSetQty} ใบ / ${totalSetPrice} บ.)</div>
+          </div>
+          <button class="btn-del-set" onclick="removeSet(${idx})">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function updateGrandTotal() {
+      let pendingQty = 0;
+      if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
+        const perms = Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))));
+        pendingQty = perms.length * currentSetQty;
+      }
+
+      let addedQty = 0;
+      addedSets.forEach(s => {
+        addedQty += s.perms.length * s.qty;
+      });
+
+      const totalQty = pendingQty + addedQty;
+      const totalPrice = totalQty * 20;
+
+      const grandElem = document.getElementById('grand-total-qty');
+      if (grandElem) grandElem.innerText = `${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
+    }
+
+    // Shared submission dispatcher helper
+    async function dispatchAggregatedOrder(orderCommand, aggregatedItems, totalTickets, totalPrice) {
+      function executeDeepLinkFallback() {
+        const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
+        modalItemsText.textContent = previewText;
+        modalQtyText.textContent = `${totalTickets} ใบ`;
+        modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
+        modalCmdDisplay.textContent = orderCommand;
+
+        const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID);
+        const encodedMsg = encodeURIComponent(orderCommand);
+        const isAndroid = /Android/i.test(navigator.userAgent || '');
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+        const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+        const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+        const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+
+        const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+        btnModalOpenLine.href = directAppUrl;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(orderCommand).catch(() => {});
+        }
+
+        modalConfirm.classList.add('active');
+        showToast(`🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
+
+        try {
+          window.location.href = directAppUrl;
+        } catch (err) {
+          try { window.location.href = universalUrl; } catch (e) {}
+        }
+      }
+
+      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
+        if (!isLiffReady) {
+          try {
+            await liff.init({ liffId: CONFIG.LIFF_ID });
+            isLiffReady = true;
+          } catch (initErr) {}
+        }
+      }
+
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
+
+        let userId = null;
+        try {
+          const profile = await liff.getProfile();
+          userId = profile?.userId || null;
+        } catch (e) {
+          try {
+            const ctx = liff.getContext();
+            userId = ctx?.userId || null;
+          } catch (_) {}
+        }
+
+        if (userId) {
+          try {
+            const apiEndpoint = window.location.origin + '/api/order-direct';
+            const payloadItems = aggregatedItems.map(it => ({ number: it.number, quantity: it.quantity }));
+            const apiRes = await fetch(apiEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, items: payloadItems })
+            });
+
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.success) {
+                showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
+                setTimeout(() => {
+                  liff.closeWindow();
+                }, 900);
+                return;
+              }
+            }
+          } catch (apiErr) {
+            console.warn('[DIRECT ORDER API] Failed, trying liff.sendMessages:', apiErr);
+          }
+        }
+
+        try {
+          await liff.sendMessages([{ type: 'text', text: orderCommand }]);
+          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชท...', 'success');
+          setTimeout(() => {
+            liff.closeWindow();
+          }, 400);
+          return;
+        } catch (err) {
+          showToast('⚠️ กำลังสลับไปเปิดแอป LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
+          executeDeepLinkFallback();
+          return;
+        }
+      }
+
+      executeDeepLinkFallback();
+    }
+
+    function submitSixPackOrder() {
+      let finalItems = [];
+
+      if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
+        const perms = Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))));
+        perms.forEach(num => {
+          finalItems.push({ number: num, quantity: currentSetQty });
+        });
+      }
+
+      addedSets.forEach(s => {
+        s.perms.forEach(num => {
+          finalItems.push({ number: num, quantity: s.qty });
+        });
+      });
+
+      if (finalItems.length === 0) {
+        showToast('กรุณาเลือกเลข 3 ตัวให้ครบถ้วนก่อนส่งสั่งซื้อครับ', 'error');
+        return;
+      }
+
+      const consolidatedMap = new Map();
+      finalItems.forEach(it => {
+        const prev = consolidatedMap.get(it.number) || 0;
+        consolidatedMap.set(it.number, prev + it.quantity);
+      });
+
+      const aggregatedItems = [];
+      consolidatedMap.forEach((qty, num) => {
+        aggregatedItems.push({ number: num, quantity: qty });
+      });
+
+      const itemStrings = aggregatedItems.map(it => `${it.number} ${it.quantity} ใบ`);
+      const orderCommand = `สั่งซื้อ ${itemStrings.join(', ')}`;
+      const totalTickets = aggregatedItems.reduce((sum, it) => sum + it.quantity, 0);
+      const totalPrice = totalTickets * CONFIG.PRICE_PER_TICKET;
+
+      dispatchAggregatedOrder(orderCommand, aggregatedItems, totalTickets, totalPrice);
+    }
+
+    // Initialize from URL Query Parameters (e.g. ?n=123&q=2 or ?order=123:2,456:1 or ?mode=6pack)
     function initFromParams() {
+      const href = window.location.href;
       const params = new URLSearchParams(window.location.search);
       const modeParam = params.get('mode') || params.get('type') || params.get('view');
-      if (modeParam === '6pack' || modeParam === 'sixpack' || modeParam === '6-pack') {
-        window.location.href = 'order-6pack.html' + window.location.search;
-        return;
+      const is6Pack = (modeParam === '6pack' || modeParam === 'sixpack' || modeParam === '6-pack' || href.includes('order-6pack') || href.includes('6pack'));
+
+      if (is6Pack) {
+        switchOrderMode('6pack');
+      } else {
+        switchOrderMode('normal');
       }
 
       const lineParam = params.get('line');
@@ -1599,6 +2411,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       initFromParams();
       initLiff();
+      updateDigitDisplay();
     });
   </script>
 </body>
