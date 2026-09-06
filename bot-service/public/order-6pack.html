@@ -477,8 +477,103 @@
       pointer-events: none;
       transition: opacity 0.25s ease;
     }
-    .toast.show {
-      opacity: 1;
+    /* Confirmation Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 9999;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      max-width: 480px;
+      width: 100%;
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+    .modal-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid var(--color-emerald);
+      color: var(--color-emerald-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin: 0 auto 0.85rem;
+    }
+    .modal-title {
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+    .modal-order-preview {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      margin: 1rem 0;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+    .modal-cmd-text {
+      font-family: monospace;
+      background: #050a14;
+      padding: 0.5rem 0.65rem;
+      border-radius: var(--radius-sm);
+      color: var(--color-gold-light);
+      word-break: break-all;
+      margin-top: 0.5rem;
+      border: 1px dashed var(--border-gold);
+      font-size: 0.82rem;
+    }
+    .modal-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+    .btn-modal-line {
+      background: #00c300;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 0.85rem;
+      border-radius: var(--radius-md);
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn-modal-close {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 0.65rem;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -614,17 +709,108 @@
 
   </div>
 
+  <!-- Confirmation Modal -->
+  <div id="modal-confirm" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-icon">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <h3 class="modal-title">พร้อมส่งคำสั่งซื้อสลาก N3</h3>
+      <p style="font-size: 0.85rem; color: var(--text-secondary);">
+        ระบบได้จัดเตรียมคำสั่งซื้อของคุณเรียบร้อยแล้ว แตะปุ่มด้านล่างเพื่อเปิดแอป LINE และส่งคำสั่งได้ทันที
+      </p>
+
+      <div class="modal-order-preview">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+          <span style="color: var(--text-secondary);">รายการสลาก:</span>
+          <strong id="modal-items-text" style="color: #fff;">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+          <span style="color: var(--text-secondary);">รวมจำนวน:</span>
+          <strong id="modal-qty-text" style="color: var(--color-gold-light);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-secondary);">ยอดเงินรวม:</span>
+          <strong id="modal-price-text" style="color: var(--color-emerald-light);">-</strong>
+        </div>
+
+        <div style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-secondary);">
+          ข้อความคำสั่งซื้อที่จะส่งเข้า LINE:
+        </div>
+        <div id="modal-cmd-display" class="modal-cmd-text">สั่งซื้อ ...</div>
+      </div>
+
+      <div class="modal-btns">
+        <a id="btn-modal-open-line" href="#" class="btn-modal-line">
+          <i class="fa-brands fa-line" style="font-size: 1.3rem;"></i> เปิดแอป LINE สั่งซื้อทันที
+        </a>
+        <button type="button" id="btn-modal-copy-cmd" class="btn-secondary" style="width: 100%; padding: 0.65rem;">
+          <i class="fa-solid fa-copy"></i> คัดลอกข้อความคำสั่งซื้อ
+        </button>
+        <button type="button" id="btn-modal-close" class="btn-modal-close">
+          ปิดหน้าต่าง
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activeBoxIndex = 0;
     let selectedDigits = ['', '', ''];
     let currentSetQty = 1;
     let addedSets = [];
+    let isLiffReady = false;
+
+    const CONFIG = {
+      LIFF_ID: '2011462211-WVsuHFk4',
+      LINE_OA_ID: '@586xxhlx'
+    };
+
+    async function initLiff() {
+      if (typeof liff === 'undefined' || !CONFIG.LIFF_ID) return;
+      try {
+        await liff.init({ liffId: CONFIG.LIFF_ID });
+        isLiffReady = true;
+        console.log('[LIFF] Initialized. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
+      } catch (err) {
+        console.warn('[LIFF] Init failed:', err);
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
-      if (window.liff) {
-        liff.init({ liffId: '2011462211-WVsuHFk4' }).catch(() => {});
-      }
+      initLiff();
       updateDigitDisplay();
+
+      const modalConfirm = document.getElementById('modal-confirm');
+      const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
+      const btnModalClose = document.getElementById('btn-modal-close');
+
+      if (btnModalCopyCmd) {
+        btnModalCopyCmd.addEventListener('click', () => {
+          const text = document.getElementById('modal-cmd-display').textContent;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+              showToast(`📋 คัดลอกคำสั่งซื้อ "${text}" แล้ว!`);
+            }).catch(() => {
+              showToast('คัดลอกไม่สำเร็จ กรุณากดปุ่มเปิดแอป LINE โดยตรง');
+            });
+          }
+        });
+      }
+
+      if (btnModalClose) {
+        btnModalClose.addEventListener('click', () => {
+          modalConfirm.classList.remove('active');
+        });
+      }
+
+      if (modalConfirm) {
+        modalConfirm.addEventListener('click', (e) => {
+          if (e.target === modalConfirm) {
+            modalConfirm.classList.remove('active');
+          }
+        });
+      }
     });
 
     function showToast(msg) {
@@ -856,51 +1042,136 @@
         consolidatedMap.set(it.number, prev + it.quantity);
       });
 
-      const itemStrings = [];
+      const aggregatedItems = [];
       consolidatedMap.forEach((qty, num) => {
-        itemStrings.push(`${num} ${qty} ใบ`);
+        aggregatedItems.push({ number: num, quantity: qty });
       });
 
+      const itemStrings = aggregatedItems.map(it => `${it.number} ${it.quantity} ใบ`);
       const fullOrderMsg = `สั่งซื้อ ${itemStrings.join(', ')}`;
-      console.log('Dispatching 6-Pack Order:', fullOrderMsg);
+      console.log('Dispatching 6-Pack Order:', fullOrderMsg, aggregatedItems);
 
-      dispatchOrderToLINE(fullOrderMsg);
+      dispatchOrderToLINE(fullOrderMsg, aggregatedItems);
     }
 
-    function dispatchOrderToLINE(orderMsg) {
-      const lineBotId = '@586xxhlx';
-      const cleanBotId = lineBotId.replace('@', '');
-      const encodedMsg = `text=${encodeURIComponent(orderMsg)}`;
+    async function dispatchOrderToLINE(orderMsg, aggregatedItems) {
+      const totalTickets = aggregatedItems.reduce((sum, it) => sum + it.quantity, 0);
+      const totalPrice = totalTickets * 20;
 
-      if (window.liff && liff.isInClient()) {
-        liff.sendMessages([{ type: 'text', text: orderMsg }]).then(() => {
-          liff.closeWindow();
-        }).catch((err) => {
-          console.warn('LIFF sendMessages failed, fallback to scheme:', err);
-          fallbackRedirect(cleanBotId, encodedMsg, orderMsg);
-        });
-        return;
+      function executeDeepLinkFallback() {
+        const modalConfirm = document.getElementById('modal-confirm');
+        const modalItemsText = document.getElementById('modal-items-text');
+        const modalQtyText = document.getElementById('modal-qty-text');
+        const modalPriceText = document.getElementById('modal-price-text');
+        const modalCmdDisplay = document.getElementById('modal-cmd-display');
+        const btnModalOpenLine = document.getElementById('btn-modal-open-line');
+
+        const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
+        if (modalItemsText) modalItemsText.textContent = previewText;
+        if (modalQtyText) modalQtyText.textContent = `${totalTickets} ใบ`;
+        if (modalPriceText) modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
+        if (modalCmdDisplay) modalCmdDisplay.textContent = orderMsg;
+
+        const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID); // '%40586xxhlx'
+        const encodedMsg = encodeURIComponent(orderMsg);
+        const ua = navigator.userAgent || '';
+        const isAndroid = /Android/i.test(ua);
+        const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+        const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+        const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+        const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+
+        const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+        if (btnModalOpenLine) btnModalOpenLine.href = directAppUrl;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(orderMsg).catch(() => {});
+        }
+
+        if (modalConfirm) modalConfirm.classList.add('active');
+        showToast('🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...', 'success');
+
+        try {
+          window.location.href = directAppUrl;
+        } catch (err) {
+          console.warn('Direct redirection failed, falling back to universal link:', err);
+          try { window.location.href = universalUrl; } catch (e) {}
+        }
       }
 
-      fallbackRedirect(cleanBotId, encodedMsg, orderMsg);
-    }
-
-    function fallbackRedirect(cleanBotId, encodedMsg, orderMsg) {
-      const customSchemeUrl = `line://oaMessage/${cleanBotId}/?${encodedMsg}`;
-      const universalUrl = `https://line.me/R/oaMessage/${cleanBotId}/?${encodedMsg}`;
-      const androidIntentUrl = `intent://oaMessage/${cleanBotId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
-
-      const ua = navigator.userAgent || '';
-      const isAndroid = /Android/i.test(ua);
-      const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-      if (isAndroid) {
-        window.location.href = androidIntentUrl;
-      } else if (isIOS) {
-        window.location.href = customSchemeUrl;
-      } else {
-        window.location.href = universalUrl;
+      // 1. Check & init LIFF if needed
+      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
+        if (!isLiffReady) {
+          try {
+            await liff.init({ liffId: CONFIG.LIFF_ID });
+            isLiffReady = true;
+          } catch (initErr) {}
+        }
       }
+
+      // 2. Direct API submission or LIFF sendMessages if inside LINE client
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
+
+        let userId = null;
+        try {
+          const profile = await liff.getProfile();
+          userId = profile?.userId || null;
+        } catch (e) {
+          try {
+            const ctx = liff.getContext();
+            userId = ctx?.userId || null;
+          } catch (_) {}
+        }
+
+        if (userId) {
+          try {
+            const apiEndpoint = window.location.origin + '/api/order-direct';
+            const payloadItems = aggregatedItems.map(it => ({ number: it.number, quantity: it.quantity }));
+            const apiRes = await fetch(apiEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, items: payloadItems })
+            });
+
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.success) {
+                showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
+                setTimeout(() => {
+                  liff.closeWindow();
+                }, 900);
+                return;
+              }
+            }
+          } catch (apiErr) {
+            console.warn('[DIRECT ORDER API] Failed, trying liff.sendMessages:', apiErr);
+          }
+        }
+
+        try {
+          await liff.sendMessages([{ type: 'text', text: orderMsg }]);
+          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชท...', 'success');
+          setTimeout(() => {
+            liff.closeWindow();
+          }, 400);
+          return;
+        } catch (err) {
+          console.error('[LIFF] sendMessages failed:', err);
+          showToast('⚠️ กำลังสลับไปเปิดแอป LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
+          executeDeepLinkFallback();
+          return;
+        }
+      }
+
+      // 3. External browser fallback
+      executeDeepLinkFallback();
     }
   </script>
 </body>
