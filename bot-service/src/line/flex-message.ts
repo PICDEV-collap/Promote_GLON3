@@ -2509,5 +2509,101 @@ export class FlexMessageBuilder {
       }
     };
   }
+
+  /**
+   * การ์ดแนะนำสูตรเลขชุด 6 กลับ (คอมโบ 3 รางวัล 120 บาท)
+   */
+  public static buildSixPermutationGuidanceMessage(): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: '🎯 สูตรเลขชุด 6 กลับ N3 - ลุ้นคอมโบ 3 รางวัลในบิลเดียว (120 บาท)',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0b192e',
+          paddingAll: 'lg',
+          contents: [
+            {
+              type: 'text',
+              text: '🎯 สูตรเลขชุด 6 กลับ (คอมโบ 3 รางวัล)',
+              weight: 'bold',
+              color: '#fef08a',
+              size: 'lg'
+            },
+            {
+              type: 'text',
+              text: 'เลือก 3 เลขไม่ซ้ำ • สลับครบ 6 ตำแหน่ง (ชุดละ 120.-)',
+              color: '#ffffff',
+              size: 'xs',
+              margin: 'xs'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: '✨ เมื่อถูกรางวัล จะได้รับ 3 รางวัลซ้อนทันที:',
+              weight: 'bold',
+              size: 'sm',
+              color: '#1e3a8a'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#f0f9ff',
+              paddingAll: 'md',
+              cornerRadius: 'md',
+              spacing: 'xs',
+              contents: [
+                { type: 'text', text: '1. 🏆 รางวัล 3 ตัวตรง (1 ใบ) ~4,000 บ.', size: 'xs', color: '#0369a1', weight: 'bold' },
+                { type: 'text', text: '2. 🥈 รางวัล 3 ตัวโต๊ด (6 ใบครบ!) ~4,800 บ.', size: 'xs', color: '#0369a1', weight: 'bold' },
+                { type: 'text', text: '3. 🥉 รางวัล 2 ตัวตรง (1 ใบ) ~600 บ.', size: 'xs', color: '#0369a1', weight: 'bold' },
+                { type: 'text', text: '💰 รวมเงินรางวัลคาดการณ์ ~9,400 บาทต่อชุด!', size: 'xs', color: '#15803d', weight: 'bold', margin: 'xs' }
+              ]
+            },
+            {
+              type: 'text',
+              text: '💡 ตัวอย่าง: เลือกเลขเด่น 1, 5, 8 (ซื้อ 6 กลับ):',
+              weight: 'bold',
+              size: 'xs',
+              color: '#475569'
+            },
+            {
+              type: 'text',
+              text: '• 158 1 ใบ, 185 1 ใบ, 518 1 ใบ, 581 1 ใบ, 815 1 ใบ, 851 1 ใบ',
+              size: 'xs',
+              color: '#334155',
+              wrap: true
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#059669',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🛒 เปิดตารางสั่งซื้อเลขชุด',
+                uri: `${CONFIG.ORDER_6PACK_URL}?openExternalBrowser=1`
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
 }
 

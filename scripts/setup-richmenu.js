@@ -17,7 +17,7 @@ const ROW_H = Math.round(HEIGHT / 2); // 843
 const RICH_MENU_SPEC = {
   size: { width: WIDTH, height: HEIGHT },
   selected: true,
-  name: 'N3_Thanakit_MainMenu_v2',
+  name: 'N3_Thanakit_MainMenu_v3',
   chatBarText: '🏠 เมนูหลัก',
   areas: [
     {
@@ -26,23 +26,23 @@ const RICH_MENU_SPEC = {
     },
     {
       bounds: { x: 833, y: 0, width: 834, height: ROW_H },
-      action: { type: 'message', text: 'ผลรางวัล' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/order-6pack.html?openExternalBrowser=1' }
     },
     {
       bounds: { x: 1667, y: 0, width: 833, height: ROW_H },
-      action: { type: 'message', text: 'วิธีสั่งซื้อ' }
+      action: { type: 'message', text: 'ผลรางวัล' }
     },
     {
       bounds: { x: 0, y: ROW_H, width: 833, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/' }
+      action: { type: 'message', text: 'วิธีสั่งซื้อ' }
     },
     {
       bounds: { x: 833, y: ROW_H, width: 834, height: ROW_H },
-      action: { type: 'message', text: 'เช็คโควต้า' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/' }
     },
     {
       bounds: { x: 1667, y: ROW_H, width: 833, height: ROW_H },
-      action: { type: 'message', text: 'เมนู' }
+      action: { type: 'message', text: 'เช็คโควต้า' }
     }
   ]
 };
@@ -81,21 +81,21 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     background: linear-gradient(135deg, #0b192e 0%, #1e3a8a 100%);
   }
   .tile-2 {
+    background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
+    box-shadow: inset 0 0 80px rgba(251, 191, 36, 0.25);
+  }
+  .tile-3 {
     background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%);
     box-shadow: inset 0 0 80px rgba(250, 204, 21, 0.22);
   }
-  .tile-3 {
+  .tile-4 {
     background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
   }
-  .tile-4 {
+  .tile-5 {
     background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
   }
-  .tile-5 {
-    background: linear-gradient(135deg, #064e3b 0%, #059669 100%);
-  }
   .tile-6 {
-    background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
-    box-shadow: inset 0 0 80px rgba(251, 191, 36, 0.25);
+    background: linear-gradient(135deg, #064e3b 0%, #059669 100%);
   }
   .icon-box {
     width: 180px;
@@ -175,15 +175,24 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 <body>
   <!-- TILE 1: สั่งซื้อสลาก N3 -->
   <div class="tile tile-1">
-    <div class="highlight-tag">เปิดตารางสั่งซื้อ</div>
+    <div class="highlight-tag">สั่งซื้อหลัก</div>
     <div class="icon-box">🛒</div>
     <div class="title title-gold">สั่งซื้อสลาก N3</div>
     <div class="subtitle">เปิดตารางกรอกเลข & จำนวนใบ</div>
-    <div class="badge badge-green">ใบละ 20 บาท</div>
+    <div class="badge badge-green">ใบละ 20.- • เลือกเลขง่าย</div>
   </div>
 
-  <!-- TILE 2: ผลการออกรางวัล (NEW!) -->
+  <!-- TILE 2: สูตรเลขชุด 6 กลับ (NEW!) -->
   <div class="tile tile-2">
+    <div class="highlight-tag" style="color: #fef08a;">สูตรฮิต 🎯</div>
+    <div class="icon-box" style="background: rgba(254, 240, 138, 0.25);">🎲</div>
+    <div class="title title-gold">สูตรเลขชุด 6 กลับ</div>
+    <div class="subtitle">คอมโบ 3 รางวัลในบิลเดียว</div>
+    <div class="badge badge-gold">ชุดละ 120.- • ลุ้น 9,400</div>
+  </div>
+
+  <!-- TILE 3: ผลการออกรางวัล -->
+  <div class="tile tile-3">
     <div class="highlight-tag" style="color: #fef08a; border-color: rgba(254, 240, 138, 0.5);">อัปเดตงวดล่าสุด</div>
     <div class="icon-box" style="background: rgba(254, 240, 138, 0.22); border-color: rgba(254, 240, 138, 0.6);">🏆</div>
     <div class="title title-gold">ผลการออกรางวัล</div>
@@ -191,40 +200,31 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     <div class="badge badge-trophy">ตรวจผลสลาก N3</div>
   </div>
 
-  <!-- TILE 3: วิธีสั่งซื้อ & จ่ายเงิน -->
-  <div class="tile tile-3">
-    <div class="highlight-tag" style="color: #fecaca; border-color: rgba(239,68,68,0.4);">สำคัญมาก!</div>
+  <!-- TILE 4: วิธีสั่งซื้อ & จ่ายเงิน -->
+  <div class="tile tile-4">
+    <div class="highlight-tag" style="color: #fecaca; border-color: rgba(239,68,68,0.4);">มือใหม่เริ่มที่นี่</div>
     <div class="icon-box">📲</div>
     <div class="title">วิธีซื้อ & จ่ายเงิน</div>
     <div class="subtitle">ขั้นตอนสั่ง & สแกนจ่ายเป๋าตัง</div>
     <div class="badge badge-red">แอปเป๋าตัง เท่านั้น</div>
   </div>
 
-  <!-- TILE 4: ทำนายฝัน AI -->
-  <div class="tile tile-4">
-    <div class="highlight-tag">แม่นยำ AI</div>
+  <!-- TILE 5: ทำนายฝัน AI -->
+  <div class="tile tile-5">
+    <div class="highlight-tag">แม่นยำ AI 🔮</div>
     <div class="icon-box">🔮</div>
     <div class="title title-gold">ทำนายฝัน AI</div>
     <div class="subtitle">วิเคราะห์ความฝัน หาเลขมงคล</div>
     <div class="badge badge-purple">เปิดเว็บทำนายฝัน</div>
   </div>
 
-  <!-- TILE 5: เช็คโควต้าสลาก -->
-  <div class="tile tile-5">
-    <div class="highlight-tag">เรียลไทม์</div>
+  <!-- TILE 6: เช็คโควต้าสลาก -->
+  <div class="tile tile-6">
+    <div class="highlight-tag">เรียลไทม์ 📊</div>
     <div class="icon-box">📊</div>
     <div class="title">เช็คโควต้า</div>
     <div class="subtitle">ตรวจสอบสลากคงเหลือประจำงวด</div>
     <div class="badge badge-mint">อัปเดตสดจากกองสลาก</div>
-  </div>
-
-  <!-- TILE 6: เมนูหลัก (กดที่นี่ไม่ต้องพิมพ์) -->
-  <div class="tile tile-6">
-    <div class="highlight-tag" style="color: #ffffff;">กดที่นี่ได้เลย</div>
-    <div class="icon-box" style="background: rgba(254, 240, 138, 0.25);">🏠</div>
-    <div class="title title-gold">เมนูหลัก</div>
-    <div class="subtitle" style="color: #ffffff;">กดดูรวมบริการทั้งหมดไม่ต้องพิมพ์</div>
-    <div class="badge badge-gold">⭐ แตะเปิดเมนู ⭐</div>
   </div>
 </body>
 </html>`;
