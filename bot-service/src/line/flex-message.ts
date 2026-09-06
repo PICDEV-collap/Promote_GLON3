@@ -2597,7 +2597,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 เปิดตารางสั่งซื้อเลขชุด',
-                uri: `${CONFIG.ORDER_6PACK_URL}?openExternalBrowser=1`
+                uri: CONFIG.ORDER_6PACK_URL
               }
             }
           ]
