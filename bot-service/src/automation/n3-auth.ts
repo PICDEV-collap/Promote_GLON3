@@ -78,8 +78,8 @@ export class N3Auth {
         }
       }
 
-      // หากอยู่ที่หน้า Landing หรือหน้าหลักของตัวแทน และไม่มีป๊อปอัปหลุดเซสชัน ถือว่า Session ยังใช้งานได้ทันที (ประหยัดเวลา ~3-5 วินาที)
-      if (currentUrl.includes('/landing') || currentUrl.includes('/home') || currentUrl.replace(/\/+$/, '') === 'https://n3.glolotteryshop.com') {
+      // หากอยู่ที่หน้า Landing, Home, QR หรือหน้าหลักของตัวแทน และไม่มีป๊อปอัปหลุดเซสชัน ถือว่า Session ยังใช้งานได้ทันที (ประหยัดเวลา ~3-5 วินาที)
+      if (currentUrl.includes('/landing') || currentUrl.includes('/home') || currentUrl.includes('/qr') || currentUrl.replace(/\/+$/, '') === 'https://n3.glolotteryshop.com') {
         const isBlocked = await page.locator('div.fixed.inset-0.bg-black, div.fixed.inset-0[class*="z-"]').first().isVisible().catch(() => false);
         if (!isBlocked) return true;
       }

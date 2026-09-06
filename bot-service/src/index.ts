@@ -182,6 +182,18 @@ app.get(['/order', '/order.html'], (_req: Request, res: Response) => {
   }
 });
 
+app.get(['/order-6pack', '/order-6pack.html'], (_req: Request, res: Response) => {
+  const root6PackPath = path.join(__dirname, '../../order-6pack.html');
+  const local6PackPath = path.join(__dirname, '../public/order-6pack.html');
+  if (fs.existsSync(root6PackPath)) {
+    res.sendFile(root6PackPath);
+  } else if (fs.existsSync(local6PackPath)) {
+    res.sendFile(local6PackPath);
+  } else {
+    res.redirect(CONFIG.ORDER_6PACK_URL);
+  }
+});
+
 // Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code พร้อมหน้ารองรับทั้ง Direct Download และ Mobile Web View
 app.get('/download-qr/:filename', (req: Request, res: Response): void => {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
@@ -1288,6 +1300,13 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       const isOrderGuidanceCmd = /^(?:สั่งซื้อสลาก|ซื้อสลาก|จองสลาก|สั่งสลาก)$/i.test(userText);
       if (isOrderGuidanceCmd) {
         await lineHandler.reply(replyToken, [FlexMessageBuilder.buildHowToOrderMessage()]);
+        continue;
+      }
+
+      // คำสั่งสำหรับลูกค้าทั่วไป: สูตร 6 กลับ / สูตรเลขชุด 6 กลับ
+      const isSixPermutationCmd = /^(?:สูตร\s*6\s*กลับ|สูตรเลขชุด\s*6\s*กลับ|6\s*กลับ|เลขชุด\s*6\s*กลับ)$/i.test(userText);
+      if (isSixPermutationCmd) {
+        await lineHandler.reply(replyToken, [FlexMessageBuilder.buildSixPermutationGuidanceMessage()]);
         continue;
       }
 
