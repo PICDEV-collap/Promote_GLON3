@@ -2407,8 +2407,48 @@
       renderTable();
     }
 
+    // Mobile Hardware & Gesture Back Button Interceptor for LINE LIFF & Mobile Browsers
+    let hasPushedInitialState = false;
+
+    function setupMobileBackInterceptor() {
+      const backNavBtn = document.querySelector('.btn-back-home');
+      if (backNavBtn) {
+        backNavBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          handleExitOrBack();
+        });
+      }
+
+      if (hasPushedInitialState) return;
+      try {
+        window.history.pushState({ liffApp: true, page: 'order' }, '', window.location.href);
+        hasPushedInitialState = true;
+      } catch (e) {}
+
+      window.addEventListener('popstate', () => {
+        handleExitOrBack();
+      });
+    }
+
+    function handleExitOrBack() {
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        try {
+          liff.closeWindow();
+          return;
+        } catch (err) {
+          console.warn('[LIFF] closeWindow failed:', err);
+        }
+      }
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = 'index.html';
+      }
+    }
+
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {
+      setupMobileBackInterceptor();
       initFromParams();
       initLiff();
       updateDigitDisplay();
