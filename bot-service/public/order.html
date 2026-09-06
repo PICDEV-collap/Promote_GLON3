@@ -2,6 +2,17 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var mode = params.get('mode') || params.get('type') || params.get('view');
+        if (mode === '6pack' || mode === 'sixpack' || mode === '6-pack') {
+          window.location.replace('order-6pack.html' + window.location.search);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="ตารางสั่งซื้อสลากกินแบ่งรัฐบาล N3 ร้านสลาก N3 ธนกิจนำโชค ระบุตัวเลขและจำนวนใบได้หลายเลขในบิลเดียว ใบละ 20 บาท ชำระเงินผ่านแอปเป๋าตัง">
   <title>ตารางสั่งซื้อสลาก N3 | ร้านสลาก N3 ธนกิจนำโชค</title>
