@@ -2408,6 +2408,15 @@
     }
 
     // Mobile Hardware & Gesture Back Button Interceptor for LINE LIFF & Mobile Browsers
+    function isLineBrowser() {
+      const ua = navigator.userAgent || navigator.vendor || '';
+      if (/Line/i.test(ua)) return true;
+      if (typeof liff !== 'undefined') {
+        try { if (liff.isInClient && liff.isInClient()) return true; } catch (e) {}
+      }
+      return false;
+    }
+
     let hasPushedInitialState = false;
 
     function setupMobileBackInterceptor() {
@@ -2421,7 +2430,7 @@
 
       if (hasPushedInitialState) return;
       try {
-        window.history.pushState({ liffApp: true, page: 'order' }, '', window.location.href);
+        window.history.pushState({ liffApp: true, page: 'order', t: Date.now() }, '', window.location.href);
         hasPushedInitialState = true;
       } catch (e) {}
 
@@ -2431,13 +2440,19 @@
     }
 
     function handleExitOrBack() {
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-        try {
-          liff.closeWindow();
-          return;
-        } catch (err) {
-          console.warn('[LIFF] closeWindow failed:', err);
+      if (isLineBrowser()) {
+        if (typeof liff !== 'undefined') {
+          try {
+            liff.closeWindow();
+            return;
+          } catch (err) {
+            console.warn('[LIFF] closeWindow failed:', err);
+          }
         }
+        try {
+          window.close();
+          return;
+        } catch (err) {}
       }
       if (window.history.length > 1) {
         window.history.back();
@@ -2445,6 +2460,9 @@
         window.location.href = 'index.html';
       }
     }
+
+    // Register back interceptor immediately
+    setupMobileBackInterceptor();
 
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {
