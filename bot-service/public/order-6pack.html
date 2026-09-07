@@ -1238,13 +1238,13 @@
           <i class="fas fa-wallet"></i>
           <div>
             <strong>ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น:</strong><br>
-            เมื่อกดสั่งซื้อ ระบบบอทจะสร้าง QR Code ส่งให้คุณในแชท LINE เพื่อเปิดสแกนจ่ายผ่านแอปเป๋าตังทันที สลากจะเข้ากระเป๋าดิจิทัลของคุณ 100%
+            ระบบจะสร้าง QR Code สำหรับเปิดสแกนจ่ายผ่านแอปเป๋าตังทันที สลากจะเข้ากระเป๋าดิจิทัลของคุณ 100%
           </div>
         </div>
 
         <!-- ปุ่มสั่งซื้อเพื่อส่งคำสั่ง -->
         <button type="button" id="btn-submit-order" class="btn-submit-order">
-          <i class="fab fa-line"></i> สั่งซื้อสลาก N3 ทันที (ส่งเข้า LINE)
+          <i class="fas fa-shopping-cart"></i> 🛒 สั่งซื้อสลาก
         </button>
 
         <!-- Prize Category Info -->
@@ -1374,13 +1374,13 @@
           <span class="summary-val-emerald" id="grand-total-qty" style="font-size: 1.15rem;">0 ใบ (0 บาท)</span>
         </div>
         <button type="button" class="btn-submit-order" style="margin-top: 0.75rem;" onclick="submitSixPackOrder()">
-          <i class="fab fa-line"></i> ส่งคำสั่งซื้อเข้า LINE แชทเพื่อรับ QR Code
+          <i class="fas fa-shopping-cart"></i> 🛒 สั่งซื้อสลาก
         </button>
         <div class="paotang-alert" style="margin-top: 0.75rem; margin-bottom: 0;">
           <i class="fas fa-wallet"></i>
           <div>
             <strong>ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น:</strong><br>
-            ระบบจะส่งคำสั่งซื้อเข้าห้องแชทและออก QR Code สแกนจ่ายด้วยแอปเป๋าตังทันที
+            ระบบจะสร้าง QR Code สำหรับเปิดสแกนจ่ายผ่านแอปเป๋าตังทันที สลากจะเข้ากระเป๋าดิจิทัลของคุณ 100%
           </div>
         </div>
       </div>
@@ -1447,15 +1447,15 @@
       <!-- Action Buttons -->
       <div class="modal-btns" id="modal-action-btns">
         <button type="button" id="btn-modal-submit-direct" class="btn-modal-line" style="width: 100%; cursor: pointer; border: none; font-size: 1.08rem; padding: 0.95rem;">
-          <i class="fas fa-cart-shopping"></i> สั่งซื้อสลาก
+          <i class="fas fa-shopping-cart"></i> 🛒 สั่งซื้อสลาก
         </button>
 
-        <a id="btn-modal-save-qr" href="#" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none;">
+        <button type="button" id="btn-modal-save-qr" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none; width: 100%; border: none; cursor: pointer;">
           <i class="fas fa-download"></i> 📥 บันทึกรูป QR ลงเครื่อง
-        </a>
-        <a id="btn-modal-paotang" href="ktbpaotang://" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none;">
+        </button>
+        <button type="button" id="btn-modal-paotang" onclick="openPaotangApp()" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none; width: 100%; border: none; cursor: pointer;">
           <i class="fas fa-wallet"></i> 🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
-        </a>
+        </button>
 
         <a id="btn-modal-open-line" href="#" class="btn-quick-tool" style="width: 100%; padding: 0.65rem; color: #6ee7b7; border-color: rgba(16,185,129,0.3); display: none;">
           <i class="fab fa-line"></i> ส่งคำสั่งซื้อเข้าห้องแชท LINE
@@ -1891,6 +1891,22 @@
       });
     }
 
+    // Save QR Code Button
+    const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
+    if (btnModalSaveQr) {
+      btnModalSaveQr.addEventListener('click', () => {
+        saveCurrentModalQr();
+      });
+    }
+
+    // Open Paotang Button
+    const btnModalPaotang = document.getElementById('btn-modal-paotang');
+    if (btnModalPaotang) {
+      btnModalPaotang.addEventListener('click', () => {
+        openPaotangApp();
+      });
+    }
+
     // Copy Command from Modal
     btnModalCopyCmd.addEventListener('click', () => {
       const text = modalCmdDisplay.textContent;
@@ -2308,6 +2324,61 @@
         // Tier 3: External window or direct link navigation
         window.open(url, '_blank');
       }
+
+      // Highlight QR Container to prompt touch & hold
+      const qrContainer = document.querySelector('#modal-qr-area > div');
+      if (qrContainer) {
+        qrContainer.style.border = '3px solid #f59e0b';
+        qrContainer.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+          qrContainer.style.border = '2.5px dashed #10b981';
+          qrContainer.style.transform = 'none';
+        }, 1800);
+      }
+    }
+
+    function saveCurrentModalQr() {
+      const qrImg = document.getElementById('modal-qr-img');
+      const src = qrImg ? qrImg.src : '';
+      if (src) {
+        handleDownloadQr(src, 'n3-payment-qr.png');
+      } else {
+        showToast('ไม่พบรูปภาพ QR Code', 'error');
+      }
+    }
+
+    // Smart Multi-OS Paotang Launcher
+    function openPaotangApp() {
+      const isAndroid = /Android/i.test(navigator.userAgent || '');
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+      if (isAndroid) {
+        // Android Intent for Paotang app (package: com.ktb.customer.qr)
+        const intentUrl = 'intent://home#Intent;scheme=paotang;package=com.ktb.customer.qr;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end';
+        window.location.href = intentUrl;
+        return;
+      }
+
+      if (isIOS) {
+        const start = Date.now();
+        window.location.href = 'paotang://';
+
+        setTimeout(() => {
+          if (Date.now() - start < 1800 && !document.hidden) {
+            window.location.href = 'ktbpaotang://';
+          }
+        }, 400);
+
+        setTimeout(() => {
+          if (Date.now() - start < 2800 && !document.hidden) {
+            window.location.href = 'https://apps.apple.com/th/app/paotang-%E0%B9%80%E0%B8%9B-%E0%B8%B2%E0%B8%5C%E0%B8%95-%E0%B8%87/id1324902415';
+          }
+        }, 1200);
+        return;
+      }
+
+      // Desktop
+      showToast('กรุณาเปิดแอป "เป๋าตัง" บนโทรศัพท์มือถือ เพื่อสแกน QR Code นี้ครับ', 'info');
     }
 
     // Execute direct order against bot-service backend
@@ -2418,6 +2489,7 @@
 
                 if (btnModalPaotang) {
                   btnModalPaotang.style.display = 'flex';
+                  btnModalPaotang.onclick = () => openPaotangApp();
                 }
 
                 if (btnModalClose) {

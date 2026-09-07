@@ -245,51 +245,193 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ดาวน์โหลด QR Code ชำระเงิน N3</title>
+  <title>QR Code ชำระเงินสลาก N3 | ร้านสลาก N3 ธนกิจนำโชค</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Prompt', 'Segoe UI', Roboto, sans-serif; }
-    body { background-color: #f0f2f5; color: #1c1e21; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
-    .card { background: #ffffff; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-width: 420px; width: 100%; padding: 24px; text-align: center; }
-    .header { margin-bottom: 16px; }
-    .header h2 { font-size: 1.25rem; color: #0c1b33; font-weight: 700; margin-bottom: 4px; }
-    .header p { font-size: 0.875rem; color: #65676b; }
-    .qr-container { background: #ffffff; padding: 12px; border: 2px dashed #00c300; border-radius: 16px; margin: 16px 0; display: inline-block; width: 100%; max-width: 280px; }
-    .qr-container img { width: 100%; height: auto; display: block; border-radius: 8px; }
-    .btn-download { display: block; width: 100%; padding: 14px; background: #00c300; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 1rem; margin-bottom: 10px; border: none; cursor: pointer; transition: background 0.2s; }
-    .btn-download:hover { background: #00a000; }
-    .btn-paotang { display: block; width: 100%; padding: 12px; background: #0078d4; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 0.95rem; margin-bottom: 14px; }
-    .tip-box { background: #fff3cd; border-radius: 10px; padding: 12px; font-size: 0.8rem; color: #856404; text-align: left; line-height: 1.4; }
-    .tip-box b { display: block; margin-bottom: 4px; color: #533f03; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background: linear-gradient(135deg, #091322 0%, #0f172a 50%, #1e293b 100%); color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+    .card { background: #1e293b; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); max-width: 440px; width: 100%; padding: 24px 20px; text-align: center; position: relative; }
+    .header h2 { font-size: 1.3rem; color: #fde68a; font-weight: 700; margin-bottom: 4px; }
+    .header p { font-size: 0.88rem; color: #94a3b8; }
+    .line-warning-banner { display: none; background: rgba(2, 132, 199, 0.15); border: 1px solid #0284c7; border-radius: 12px; padding: 10px; margin-bottom: 14px; font-size: 0.82rem; color: #bae6fd; text-align: left; }
+    .line-warning-banner a { color: #38bdf8; font-weight: 700; text-decoration: underline; }
+    .qr-container { background: #ffffff; padding: 14px; border: 2.5px dashed #10b981; border-radius: 20px; margin: 16px auto; display: inline-block; width: 100%; max-width: 270px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); transition: all 0.3s ease; }
+    .qr-container img { width: 100%; height: auto; display: block; border-radius: 10px; -webkit-touch-callout: default !important; -webkit-user-select: auto !important; user-select: auto !important; pointer-events: auto !important; touch-action: auto !important; }
+    .touch-hint { font-size: 0.82rem; color: #fde68a; margin-top: 6px; font-weight: 600; display: block; }
+    .btn-action { display: flex; align-items: center; justify-content: center; width: 100%; padding: 14px; border-radius: 14px; font-weight: 700; font-size: 1.02rem; margin-bottom: 12px; border: none; cursor: pointer; transition: transform 0.1s ease, filter 0.2s; text-decoration: none; }
+    .btn-action:active { transform: scale(0.98); }
+    .btn-download { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); }
+    .btn-paotang { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); }
+    .btn-external { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; font-size: 0.85rem; padding: 10px; }
+    .guide-box { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 14px; font-size: 0.82rem; color: #cbd5e1; text-align: left; line-height: 1.55; margin-top: 10px; }
+    .guide-box b { color: #fde68a; }
+    .guide-step { display: flex; align-items: flex-start; margin-bottom: 8px; }
+    .guide-step:last-child { margin-bottom: 0; }
+    .step-badge { background: #d4af37; color: #0c1b33; font-weight: 800; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; margin-right: 8px; flex-shrink: 0; margin-top: 2px; }
+    .toast-msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 9999; }
+    .toast-msg.show { opacity: 1; }
   </style>
 </head>
 <body>
   <div class="card">
+    <div id="lineBanner" class="line-warning-banner">
+      💡 <b>เปิดในแอป LINE อยู่ใช่ไหม?</b><br>
+      หากบันทึกรูปหรือเปิดแอปเป๋าตังไม่ได้ <a href="javascript:openExternalBrowser()">แตะที่นี่เพื่อเปิดใน Safari / Chrome</a>
+    </div>
+
     <div class="header">
       <h2>ร้านสลาก N3 ธนกิจนำโชค</h2>
-      <p>QR Code สำหรับชำระเงินผ่านแอปเป๋าตัง</p>
+      <p>QR Code สำหรับชำระเงินผ่านแอป "เป๋าตัง"</p>
     </div>
-    <div class="qr-container">
+
+    <div class="qr-container" id="qrContainer">
       <img id="qrImg" src="/qrcodes/${filename}" alt="N3 Payment QR Code">
     </div>
-    <a id="dlLink" href="/download-qr/${filename}?action=dl" class="btn-download" download="n3-qr-${filename}">📥 บันทึกรูป QR ลงเครื่อง</a>
-    <a href="ktbpaotang://" class="btn-paotang">🔵 เปิดแอป "เป๋าตัง" เพื่อสแกนจ่าย</a>
-    <div class="tip-box">
-      <b>💡 เคล็ดลับการบันทึก:</b>
-      • บนมือถือ: สามารถ<b>แตะค้างที่รูป QR ด้านบน</b> แล้วเลือก "บันทึกรูปภาพ" (Save Image) ลงแกลเลอรีได้ทันที<br>
-      • จากนั้นเปิดแอปเป๋าตัง เลือกเมนูสแกน และเลือกรูปจากแกลเลอรีเพื่อชำระเงิน
+    <span class="touch-hint">💡 แตะค้างที่รูปภาพด้านบน เพื่อบันทึกรูปภาพได้ทันที</span>
+
+    <div style="margin-top: 16px;">
+      <button type="button" id="btnDownload" class="btn-action btn-download" onclick="saveQrImage()">
+        📥 บันทึกรูป QR Code ลงเครื่อง
+      </button>
+
+      <button type="button" id="btnPaotang" class="btn-action btn-paotang" onclick="openPaotang()">
+        🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
+      </button>
+
+      <button type="button" id="btnExternal" class="btn-action btn-external" onclick="openExternalBrowser()" style="display: none;">
+        🌐 เปิดหน้านี้ใน Safari / Chrome
+      </button>
+    </div>
+
+    <div class="guide-box">
+      <div class="guide-step">
+        <span class="step-badge">1</span>
+        <div><b>บันทึกรูป QR:</b> แตะปุ่มเขียวด้านบน หรือ<b>แตะค้างที่รูป QR</b> แล้วเลือก <i>"บันทึกรูปภาพ"</i> (Save Image) ลงแกลเลอรี</div>
+      </div>
+      <div class="guide-step">
+        <span class="step-badge">2</span>
+        <div><b>เปิดแอปเป๋าตัง:</b> แตะปุ่มฟ้าด้านบนเพื่อเปิดแอปเป๋าตัง</div>
+      </div>
+      <div class="guide-step">
+        <span class="step-badge">3</span>
+        <div><b>สแกนชำระเงิน:</b> ในแอปเป๋าตัง กดเมนู <i>"สแกน"</i> แล้วเลือกรูป QR จากอัลบั้มรูปเพื่อจ่ายเงิน 20 บาท/ใบ</div>
+      </div>
     </div>
   </div>
+
+  <div id="toast" class="toast-msg">บันทึกรูปภาพสำเร็จ</div>
+
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
+    const isLine = /Line\//i.test(navigator.userAgent || '');
+    const isAndroid = /Android/i.test(navigator.userAgent || '');
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+    if (isLine) {
+      const banner = document.getElementById('lineBanner');
+      const btnExt = document.getElementById('btnExternal');
+      if (banner) banner.style.display = 'block';
+      if (btnExt) btnExt.style.display = 'flex';
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      if (toast) {
+        toast.textContent = text;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+      }
+    }
+
+    function openExternalBrowser() {
+      const currentUrl = window.location.href;
+      const sep = currentUrl.includes('?') ? '&' : '?';
+      window.location.href = currentUrl + sep + 'openExternalBrowser=1';
+    }
+
+    // 3-Tier Mobile Image Saver
+    async function saveQrImage() {
+      const qrImg = document.getElementById('qrImg');
+      const qrSrc = qrImg.src;
+      const filename = 'n3-payment-qr.png';
+
+      // Tier 1: Web Share API Level 2 (iOS Safari / Android Chrome Photos integration)
       try {
-        const link = document.createElement('a');
-        link.href = '/download-qr/${filename}?action=dl';
-        link.download = 'n3-qr-${filename}';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (e) {}
-    });
+        const response = await fetch(qrSrc);
+        const blob = await response.blob();
+        const file = new File([blob], filename, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'QR Code ชำระเงินสลาก N3',
+            text: 'QR Code ชำระเงินสลาก N3 ร้านธนกิจนำโชค ผ่านแอปเป๋าตัง'
+          });
+          showToast('เปิดหน้าต่างบันทึกภาพเรียบร้อยแล้ว');
+          return;
+        }
+
+        // Tier 2: Synthetic Blob Anchor Download
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        showToast('กำลังดาวน์โหลดรูปภาพ QR Code...');
+      } catch (err) {
+        // Tier 3: Direct Download URL / Touch Guidance
+        window.location.href = '/download-qr/${filename}?action=dl';
+      }
+
+      // Highlight QR container with pulse to prompt touch & hold
+      const container = document.getElementById('qrContainer');
+      if (container) {
+        container.style.border = '3px solid #f59e0b';
+        container.style.transform = 'scale(1.03)';
+        setTimeout(() => {
+          container.style.border = '2.5px dashed #10b981';
+          container.style.transform = 'none';
+        }, 1800);
+      }
+    }
+
+    // Smart Multi-OS Paotang Launcher
+    function openPaotang() {
+      if (isAndroid) {
+        // Android Intent with package name com.ktb.customer.qr and Play Store fallback
+        const intentUrl = 'intent://home#Intent;scheme=paotang;package=com.ktb.customer.qr;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end';
+        window.location.href = intentUrl;
+        return;
+      }
+
+      if (isIOS) {
+        const start = Date.now();
+        // Try paotang:// first
+        window.location.href = 'paotang://';
+
+        setTimeout(() => {
+          if (Date.now() - start < 1800 && !document.hidden) {
+            // Try secondary scheme ktbpaotang://
+            window.location.href = 'ktbpaotang://';
+          }
+        }, 400);
+
+        setTimeout(() => {
+          if (Date.now() - start < 2800 && !document.hidden) {
+            // Fallback to App Store
+            window.location.href = 'https://apps.apple.com/th/app/paotang-%E0%B9%80%E0%B8%9B-%E0%B8%B2%E0%B8%5C%E0%B8%95-%E0%B8%87/id1324902415';
+          }
+        }, 1200);
+        return;
+      }
+
+      // Desktop
+      alert('กรุณาใช้โทรศัพท์มือถือเปิดแอป "เป๋าตัง" เพื่อสแกน QR Code นี้ครับ');
+    }
   </script>
 </body>
 </html>`);
