@@ -2393,24 +2393,60 @@
 
       // 1. Enter Processing UI State
       if (modalTitle) modalTitle.textContent = 'ระบบกำลังสร้าง QR Code...';
-      if (modalDesc) modalDesc.textContent = 'บอทกำลังเปิดระบบตัวแทนจำหน่าย GLO เพื่อหยิบสลากและสร้าง QR ชำระเงิน กรุณารอสักครู่ (ประมาณ 10-20 วินาที)';
+      if (modalDesc) modalDesc.textContent = 'บอทกำลังเปิดระบบตัวแทนจำหน่าย GLO เพื่อหยิบสลากและสร้าง QR ชำระเงิน กรุณารอสักครู่ (ประมาณ 10-15 วินาที)';
       if (modalOrderPreview) modalOrderPreview.style.display = 'none';
       if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'none';
       if (btnModalOpenLine) btnModalOpenLine.style.display = 'none';
       if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'none';
       if (modalProcessingArea) modalProcessingArea.style.display = 'block';
       if (modalQrArea) modalQrArea.style.display = 'none';
-      if (modalProgressBar) modalProgressBar.style.width = '15%';
-      if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อไปยังระบบร้านค้า...';
+      if (modalProgressBar) {
+        modalProgressBar.style.width = '5%';
+        modalProgressBar.style.background = 'linear-gradient(90deg, #10b981, #f59e0b)';
+      }
+      if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อเข้าระบบ...';
 
-      let progressVal = 15;
-      const progressTimer = setInterval(() => {
-        if (progressVal < 88) {
-          progressVal += Math.floor(Math.random() * 8) + 2;
-          if (progressVal > 88) progressVal = 88;
-          if (modalProgressBar) modalProgressBar.style.width = progressVal + '%';
+      const startTime = Date.now();
+      let targetSeconds = 14; // Actual average processing time on GLO portal
+      let currentProgress = 5;
+
+      const updateProgressUI = (queuePos = 0, estSec = 14) => {
+        if (estSec && estSec > 0) targetSeconds = estSec;
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        const remainingSec = Math.max(1, Math.ceil(targetSeconds - elapsedSec));
+
+        // Smoothly map 0 -> targetSeconds to 5% -> 92%
+        const ratio = Math.min(1.0, elapsedSec / targetSeconds);
+        const targetProgress = Math.min(92, 5 + ratio * 87);
+        if (targetProgress > currentProgress) {
+          currentProgress += (targetProgress - currentProgress) * 0.25;
+          if (modalProgressBar) modalProgressBar.style.width = `${Math.round(currentProgress)}%`;
         }
-      }, 800);
+
+        const modalQueueText = document.getElementById('modal-queue-text');
+        if (queuePos > 1) {
+          if (modalProcStatus) modalProcStatus.textContent = `กำลังเข้าคิวประมวลผล (คิวที่ ${queuePos})...`;
+          if (modalQueueText) modalQueueText.textContent = `⏱️ รอคิวในระบบประมาณ ${remainingSec} วินาที...`;
+        } else {
+          if (elapsedSec < 3) {
+            if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อและเชื่อมต่อร้านค้า...';
+            if (modalQueueText) modalQueueText.textContent = `⏱️ กำลังเตรียมระบบ (คาดว่าใช้เวลาประมาณ ${remainingSec} วิ)`;
+          } else if (elapsedSec < 9) {
+            if (modalProcStatus) modalProcStatus.textContent = 'บอทกำลังเปิดระบบ GLO เพื่อหยิบสลากตามตัวเลขที่เลือก...';
+            if (modalQueueText) modalQueueText.textContent = `🛒 กำลังใส่ตะกร้าสลาก (คาดว่าใช้เวลาอีกประมาณ ${remainingSec} วิ)`;
+          } else if (elapsedSec < 15) {
+            if (modalProcStatus) modalProcStatus.textContent = 'บอทกำลังตรวจสอบสลากและสร้าง QR Code ชำระเงิน...';
+            if (modalQueueText) modalQueueText.textContent = `🧾 กำลังสร้าง QR Code (คาดว่าใช้เวลาอีกประมาณ ${remainingSec} วิ)`;
+          } else {
+            if (modalProcStatus) modalProcStatus.textContent = 'กำลังบันทึกภาพ QR Code และสรุปรายการ...';
+            if (modalQueueText) modalQueueText.textContent = '⏳ อีกสักครู่ระบบกำลังแสดง QR Code ให้ท่าน...';
+          }
+        }
+      };
+
+      const progressTimer = setInterval(() => {
+        updateProgressUI(0, targetSeconds);
+      }, 300);
 
       try {
         // Send order to bot backend API
@@ -2436,7 +2472,9 @@
         }
 
         const orderId = resData.orderId;
-        if (modalProcStatus) modalProcStatus.textContent = 'บอทกำลังหยิบสลากและสร้าง QR Code บนระบบ GLO...';
+        if (resData.estimatedSeconds) {
+          targetSeconds = resData.estimatedSeconds;
+        }
 
         // Poll order status
         if (orderPollInterval) clearInterval(orderPollInterval);
@@ -2451,13 +2489,23 @@
             if (!statusRes.ok) return;
             const statusData = await statusRes.json();
 
+            if (statusData.queuePosition && statusData.queuePosition > 0) {
+              const est = statusData.estimatedSeconds || (statusData.queuePosition * 12);
+              updateProgressUI(statusData.queuePosition, est);
+            }
+
             if (statusData.status === 'completed') {
               clearInterval(orderPollInterval);
               clearInterval(progressTimer);
               orderPollInterval = null;
 
-              if (modalProgressBar) modalProgressBar.style.width = '100%';
-              if (modalProcStatus) modalProcStatus.textContent = 'สร้าง QR Code สำเร็จ!';
+              if (modalProgressBar) {
+                modalProgressBar.style.width = '100%';
+                modalProgressBar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
+              }
+              if (modalProcStatus) modalProcStatus.textContent = '✅ สร้าง QR Code ชำระเงินสำเร็จแล้ว!';
+              const modalQueueText = document.getElementById('modal-queue-text');
+              if (modalQueueText) modalQueueText.textContent = '🎉 พร้อมชำระเงินเรียบร้อย';
 
               setTimeout(() => {
                 if (modalProcessingArea) modalProcessingArea.style.display = 'none';
