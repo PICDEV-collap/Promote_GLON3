@@ -214,4 +214,62 @@ export class N3Auth {
       return false;
     }
   }
+
+  /**
+   * สั่ง Logoff ออกจากระบบตัวแทนจำหน่าย GLO N3
+   * ทำการล้าง Cookies, Storage และนำทางกลับสู่หน้า Login
+   */
+  public static async logoffSession(page?: Page | null): Promise<boolean> {
+    try {
+      console.log('[N3 AUTH] 🔒 กำลังดำเนินการ Logoff ออกจากระบบตัวแทนจำหน่าย GLO...');
+      if (page && !page.isClosed()) {
+        const currentUrl = page.url();
+        if (currentUrl.includes('glolotteryshop.com') && !currentUrl.includes('/login')) {
+          // 1. ลองค้นหาและคลิกปุ่ม "ออกจากระบบ" บนหน้าเว็บ
+          const logoutBtn = page.locator('button:visible, a:visible, [role="button"]:visible')
+            .filter({ hasText: /ออกจากระบบ|log\s*out|sign\s*out/i })
+            .first();
+
+          if (await logoutBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+            console.log('[N3 AUTH] พบบุ่ม "ออกจากระบบ" บนหน้าเว็บ กำลังคลิก...');
+            await logoutBtn.click().catch(() => {});
+            await page.waitForTimeout(500);
+
+            // กดยืนยันป๊อปอัปถ้ามี
+            const confirmBtn = page.locator('div.fixed, div[class*="inset-0"], [role="dialog"]')
+              .locator('button:visible')
+              .filter({ hasText: /^ตกลง$|^ยืนยัน$|^ออกจากระบบ$/ })
+              .first();
+            if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+              await confirmBtn.click().catch(() => {});
+            }
+          }
+
+          // 2. ล้าง LocalStorage & SessionStorage
+          await page.evaluate(() => {
+            try { localStorage.clear(); } catch {}
+            try { sessionStorage.clear(); } catch {}
+          }).catch(() => {});
+
+          // 3. นำทางกลับสู่หน้า Login
+          await page.goto(CONFIG.N3_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+        }
+      }
+
+      // 4. ลบไฟล์ Session StorageState ถ้ามี
+      if (fs.existsSync(CONFIG.SESSION_STORAGE_PATH)) {
+        try {
+          fs.unlinkSync(CONFIG.SESSION_STORAGE_PATH);
+          console.log('[N3 AUTH] ลบไฟล์ session.json เก่าเรียบร้อยแล้ว');
+        } catch {}
+      }
+
+      console.log('[N3 AUTH] ✅ ทำการ Logoff และรีเซ็ตเซสชันสำเร็จ');
+      return true;
+    } catch (err: any) {
+      console.warn('[N3 AUTH LOGOFF ERROR]', err?.message || err);
+      return false;
+    }
+  }
 }
+
