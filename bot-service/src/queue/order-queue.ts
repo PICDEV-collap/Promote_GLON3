@@ -41,10 +41,11 @@ export class OrderQueue {
 
   /**
    * คำนวณเวลารอโดยประมาณ (วินาที)
+   * คำนวณตามสูตร: 6 วินาที (การจัดการระบบ) + 20 วินาที ต่อทุกๆ 6 เลข (เฉลี่ย 6 เลข/20 วินาที)
    */
-  public getEstimatedWaitTime(position: number): number {
-    // ประมาณการเฉลี่ย 8-10 วินาทีต่อออเดอร์
-    return Math.max(8, position * 9);
+  public getEstimatedWaitTime(position: number, itemNumberCount: number = 1): number {
+    const singleOrderSec = Math.max(10, Math.ceil(6 + (itemNumberCount / 6) * 20));
+    return Math.max(singleOrderSec, position * singleOrderSec);
   }
 
   /**
