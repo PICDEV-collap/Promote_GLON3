@@ -120,15 +120,24 @@ export function getQrFromMemoryCache(filename: string): Buffer | null {
   return item.buffer;
 }
 
-// ล้างไฟล์ภาพ QR Code ตกค้างบนดิสก์ตอนเริ่มต้นระบบ
+// ล้างไฟล์ภาพ QR Code ตกค้างที่เก่าเกิน 24 ชั่วโมงออกจากดิสก์ตอนเริ่มต้นระบบ
 try {
   if (fs.existsSync(CONFIG.QR_OUTPUT_DIR)) {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     const oldFiles = fs.readdirSync(CONFIG.QR_OUTPUT_DIR).filter(f => f.startsWith('payment-') && f.endsWith('.png'));
+    let cleanedCount = 0;
     for (const f of oldFiles) {
-      try { fs.unlinkSync(path.join(CONFIG.QR_OUTPUT_DIR, f)); } catch {}
+      try {
+        const fullPath = path.join(CONFIG.QR_OUTPUT_DIR, f);
+        const stats = fs.statSync(fullPath);
+        if (stats.mtimeMs < oneDayAgo) {
+          fs.unlinkSync(fullPath);
+          cleanedCount++;
+        }
+      } catch {}
     }
-    if (oldFiles.length > 0) {
-      console.log(`[STARTUP STORAGE CLEANUP] ล้างภาพ QR Code ตกค้างบนดิสก์ ${oldFiles.length} ไฟล์เรียบร้อยแล้ว`);
+    if (cleanedCount > 0) {
+      console.log(`[STARTUP STORAGE CLEANUP] ล้างภาพ QR Code เก่าเกิน 24 ชม. ตกค้างบนดิสก์ ${cleanedCount} ไฟล์เรียบร้อยแล้ว`);
     }
   }
 } catch {}
@@ -265,11 +274,12 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     .btn-download { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); }
     .btn-paotang { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); }
     .btn-external { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; font-size: 0.85rem; padding: 10px; }
+    .touch-guide-box { background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 14px; padding: 12px; margin: 12px 0; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.55; }
     .guide-box { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 14px; font-size: 0.82rem; color: #cbd5e1; text-align: left; line-height: 1.55; margin-top: 10px; }
     .guide-box b { color: #fde68a; }
-    .guide-step { display: flex; align-items: flex-start; margin-bottom: 8px; }
+    .guide-step { display: flex; align-items: flex-start; margin-bottom: 10px; }
     .guide-step:last-child { margin-bottom: 0; }
-    .step-badge { background: #d4af37; color: #0c1b33; font-weight: 800; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; margin-right: 8px; flex-shrink: 0; margin-top: 2px; }
+    .step-badge { background: #d4af37; color: #0c1b33; font-weight: 800; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; margin-right: 8px; flex-shrink: 0; margin-top: 2px; }
     .toast-msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 9999; }
     .toast-msg.show { opacity: 1; }
   </style>
@@ -289,16 +299,20 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     <div class="qr-container" id="qrContainer">
       <img id="qrImg" src="/qrcodes/${filename}" alt="N3 Payment QR Code">
     </div>
-    <span class="touch-hint">💡 แตะค้างที่รูปภาพด้านบน เพื่อบันทึกรูปภาพได้ทันที</span>
 
-    <div style="margin-top: 16px;">
-      <button type="button" id="btnDownload" class="btn-action btn-download" onclick="saveQrImage()">
+    <div class="touch-guide-box">
+      👆 <b>วิธีบันทึกภาพลงเครื่อง (ง่ายที่สุด):</b><br>
+      <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <b>"บันทึกรูปภาพ" (Save Image)</b> รูปลงอัลบั้มทันที
+    </div>
+
+    <div style="margin-top: 14px;">
+      <a id="btnDownload" href="/download-qr/${filename}?action=dl" download="n3-qr-${filename}.png" class="btn-action btn-download" onclick="saveQrImage(event)">
         📥 บันทึกรูป QR Code ลงเครื่อง
-      </button>
+      </a>
 
-      <button type="button" id="btnPaotang" class="btn-action btn-paotang" onclick="openPaotang()">
+      <a id="btnPaotang" href="paotang://" class="btn-action btn-paotang" onclick="openPaotang(event)">
         🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
-      </button>
+      </a>
 
       <button type="button" id="btnExternal" class="btn-action btn-external" onclick="openExternalBrowser()" style="display: none;">
         🌐 เปิดหน้านี้ใน Safari / Chrome
@@ -308,7 +322,7 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     <div class="guide-box">
       <div class="guide-step">
         <span class="step-badge">1</span>
-        <div><b>บันทึกรูป QR:</b> แตะปุ่มเขียวด้านบน หรือ<b>แตะค้างที่รูป QR</b> แล้วเลือก <i>"บันทึกรูปภาพ"</i> (Save Image) ลงแกลเลอรี</div>
+        <div><b>บันทึกรูป QR:</b> แตะค้างที่รูป QR ด้านบนแล้วเลือก <i>"บันทึกรูปภาพ"</i> หรือกดปุ่มเขียวด้านบน</div>
       </div>
       <div class="guide-step">
         <span class="step-badge">2</span>
@@ -327,6 +341,16 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     const isLine = /Line\//i.test(navigator.userAgent || '');
     const isAndroid = /Android/i.test(navigator.userAgent || '');
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+    // Configure native links based on OS
+    const paotangEl = document.getElementById('btnPaotang');
+    if (paotangEl) {
+      if (isAndroid) {
+        paotangEl.href = "intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end";
+      } else if (isIOS) {
+        paotangEl.href = "paotang://";
+      }
+    }
 
     if (isLine) {
       const banner = document.getElementById('lineBanner');
@@ -351,41 +375,10 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     }
 
     // 3-Tier Mobile Image Saver
-    async function saveQrImage() {
+    async function saveQrImage(e) {
       const qrImg = document.getElementById('qrImg');
       const qrSrc = qrImg.src;
       const filename = 'n3-payment-qr.png';
-
-      // Tier 1: Web Share API Level 2 (iOS Safari / Android Chrome Photos integration)
-      try {
-        const response = await fetch(qrSrc);
-        const blob = await response.blob();
-        const file = new File([blob], filename, { type: 'image/png' });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'QR Code ชำระเงินสลาก N3',
-            text: 'QR Code ชำระเงินสลาก N3 ร้านธนกิจนำโชค ผ่านแอปเป๋าตัง'
-          });
-          showToast('เปิดหน้าต่างบันทึกภาพเรียบร้อยแล้ว');
-          return;
-        }
-
-        // Tier 2: Synthetic Blob Anchor Download
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-        showToast('กำลังดาวน์โหลดรูปภาพ QR Code...');
-      } catch (err) {
-        // Tier 3: Direct Download URL / Touch Guidance
-        window.location.href = '/download-qr/${filename}?action=dl';
-      }
 
       // Highlight QR container with pulse to prompt touch & hold
       const container = document.getElementById('qrContainer');
@@ -397,40 +390,60 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
           container.style.transform = 'none';
         }, 1800);
       }
+
+      // Tier 1: Web Share API Level 2 (iOS Safari / Android Chrome Photos integration)
+      if (navigator.canShare) {
+        try {
+          const response = await fetch(qrSrc);
+          const blob = await response.blob();
+          const file = new File([blob], filename, { type: 'image/png' });
+
+          if (navigator.canShare({ files: [file] })) {
+            if (e && e.preventDefault) e.preventDefault();
+            await navigator.share({
+              files: [file],
+              title: 'QR Code ชำระเงินสลาก N3',
+              text: 'QR Code ชำระเงินสลาก N3 ร้านธนกิจนำโชค ผ่านแอปเป๋าตัง'
+            });
+            showToast('เปิดหน้าต่างบันทึกภาพเรียบร้อยแล้ว');
+            return;
+          }
+        } catch (shareErr) {
+          console.warn('Web Share failed, using direct download:', shareErr);
+        }
+      }
+
+      // Tier 2: Let the default anchor href download continue
+      showToast('กำลังดาวน์โหลดรูปภาพ QR Code...');
     }
 
     // Smart Multi-OS Paotang Launcher
-    function openPaotang() {
+    function openPaotang(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (isLine) {
+        // LINE In-App Browser blocks custom schemes
+        showToast('เปิดใน LINE: กำลังเปิดในเบราว์เซอร์หลัก...');
+        const extUrl = window.location.href.includes('?') 
+          ? window.location.href + '&openExternalBrowser=1' 
+          : window.location.href + '?openExternalBrowser=1';
+        window.location.href = extUrl;
+        return;
+      }
+
       if (isAndroid) {
-        // Android Intent with package name com.ktb.customer.qr and Play Store fallback
-        const intentUrl = 'intent://home#Intent;scheme=paotang;package=com.ktb.customer.qr;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end';
-        window.location.href = intentUrl;
+        window.location.href = "intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end";
         return;
       }
 
       if (isIOS) {
-        const start = Date.now();
-        // Try paotang:// first
-        window.location.href = 'paotang://';
-
-        setTimeout(() => {
-          if (Date.now() - start < 1800 && !document.hidden) {
-            // Try secondary scheme ktbpaotang://
-            window.location.href = 'ktbpaotang://';
-          }
-        }, 400);
-
-        setTimeout(() => {
-          if (Date.now() - start < 2800 && !document.hidden) {
-            // Fallback to App Store
-            window.location.href = 'https://apps.apple.com/th/app/paotang-%E0%B9%80%E0%B8%9B-%E0%B8%B2%E0%B8%5C%E0%B8%95-%E0%B8%87/id1324902415';
-          }
-        }, 1200);
+        window.location.href = "paotang://";
         return;
       }
 
-      // Desktop
-      alert('กรุณาใช้โทรศัพท์มือถือเปิดแอป "เป๋าตัง" เพื่อสแกน QR Code นี้ครับ');
+      if (!isAndroid && !isIOS) {
+        if (e && e.preventDefault) e.preventDefault();
+        alert('กรุณาใช้โทรศัพท์มือถือเปิดแอป "เป๋าตัง" เพื่อสแกน QR Code นี้ครับ');
+      }
     }
   </script>
 </body>
@@ -1023,21 +1036,17 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const actualQty = result.totalQuantity || totalQty;
       const actualPrice = result.totalPrice || task.totalPrice || actualQty * 20;
 
-      // 1. แคชภาพ QR Code ใน RAM ทันที และลบไฟล์จริงออกจากดิสก์ทันที เพื่อลดพื้นที่จัดเก็บ (0 KB บนดิสก์)
+      // 1. แคชภาพ QR Code ใน RAM (60 นาที) และเก็บไฟล์จริงบนดิสก์เพื่อความเสถียรในการดาวน์โหลด
       const qrFileName = result.qrFileName || result.qrImageUrl.split(/[\/\\]/).pop() || '';
       const qrFilePath = result.qrFilePath || path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
       if (fs.existsSync(qrFilePath)) {
         try {
           const qrBuf = fs.readFileSync(qrFilePath);
-          saveQrToMemoryCache(qrFileName, qrBuf, 10);
-          fs.unlink(qrFilePath, (unlinkErr) => {
-            if (!unlinkErr) {
-              console.log(`[STORAGE CLEANUP] ลบไฟล์รูปภาพ ${qrFileName} ออกจากดิสก์เรียบร้อยแล้ว (เก็บใน RAM ชั่วคราว 10 นาที)`);
-            }
-          });
+          saveQrToMemoryCache(qrFileName, qrBuf, 60);
+          console.log(`[STORAGE] บันทึกไฟล์รูปภาพ ${qrFileName} บนดิสก์และ RAM แคชเรียบร้อยแล้ว`);
         } catch (e: any) {
-          console.warn('[STORAGE CLEANUP WARNING]', e?.message);
+          console.warn('[STORAGE CACHE WARNING]', e?.message);
         }
       }
 
