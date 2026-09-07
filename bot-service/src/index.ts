@@ -581,11 +581,56 @@ async function ensureBrowser(): Promise<{ context: BrowserContext; page: Page }>
   return { context, page };
 }
 
+let lastAdminQrUrl: string = '';
+let lastAdminQrTime: number = 0;
+
 /**
  * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้ "ผู้ดูแลระบบ (ADMIN)" เท่านั้น!
  */
 async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise<void> {
-  if (isLoggingIn) return;
+  // หากมีภาพ QR ที่ยังไม่หมดอายุ (< 4 นาที) และแอดมินขอผ่าน ReplyToken ให้ส่งภาพนั้นทันที
+  if (replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
+    console.log(`[ADMIN AUTH INSTANT REPLY] ส่งภาพ QR Code เดิมที่กำลังรอสแกนให้แอดมินผ่าน ReplyToken ทันที`);
+    const adminMessages: any[] = [
+      {
+        type: 'text',
+        text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้เพื่อเข้าสู่ระบบตัวแทน N3:\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}`
+      },
+      {
+        type: 'image',
+        originalContentUrl: lastAdminQrUrl,
+        previewImageUrl: lastAdminQrUrl
+      }
+    ];
+    await lineHandler.reply(replyToken, adminMessages);
+    return;
+  }
+
+  if (isLoggingIn) {
+    if (replyToken) {
+      if (lastAdminQrUrl) {
+        await lineHandler.reply(replyToken, [
+          {
+            type: 'text',
+            text: `⚠️ [แจ้งเตือนแอดมิน] กำลังรอสแกนเป๋าตังอยู่ครับ สแกน QR Code นี้ได้ทันที:\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}`
+          },
+          {
+            type: 'image',
+            originalContentUrl: lastAdminQrUrl,
+            previewImageUrl: lastAdminQrUrl
+          }
+        ]);
+      } else {
+        await lineHandler.reply(replyToken, [
+          {
+            type: 'text',
+            text: `⏳ ระบบกำลังจัดเตรียมภาพ QR Login เป๋าตัง กรุณาส่ง 'Q' อีกครั้งในอีกสักครู่ครับ`
+          }
+        ]);
+      }
+    }
+    return;
+  }
   isLoggingIn = true;
 
   try {
@@ -596,6 +641,8 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
     const activePublicBase = getPublicBaseUrl();
     const qrPublicUrl = `${activePublicBase}/qrcodes/${qrFileName}`;
+    lastAdminQrUrl = qrPublicUrl;
+    lastAdminQrTime = Date.now();
 
     const adminMessages: any[] = [
       {
@@ -620,6 +667,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
 
     const success = await N3Auth.waitForAdminScan(currentPage, currentContext);
     if (success) {
+      lastAdminQrUrl = '';
       await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
       const liveQuota = quotaManager.getStatus();
       await lineHandler.pushToAdmin([
@@ -634,12 +682,14 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
       await PersistentBrowserManager.close();
       context = null;
       page = null;
+      lastAdminQrUrl = '';
     }
   } catch (err) {
     console.error('[ADMIN AUTH ERROR]', err);
     await PersistentBrowserManager.close();
     context = null;
     page = null;
+    lastAdminQrUrl = '';
   } finally {
     isLoggingIn = false;
   }

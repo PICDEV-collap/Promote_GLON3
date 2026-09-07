@@ -1879,45 +1879,7 @@
         btnSubmitOrder.disabled = true;
         showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
 
-        // A. Direct API Order Submission using LINE User ID (Zero extra tap, Auto QR push)
-        let userId = null;
-        try {
-          const profile = await liff.getProfile();
-          userId = profile?.userId || null;
-        } catch (e) {
-          try {
-            const ctx = liff.getContext();
-            userId = ctx?.userId || null;
-          } catch (_) {}
-        }
-
-        if (userId) {
-          try {
-            const apiEndpoint = window.location.origin + '/api/order-direct';
-            const payloadItems = aggregatedItems.map(it => ({ number: it.number, quantity: it.quantity }));
-            const apiRes = await fetch(apiEndpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, items: payloadItems })
-            });
-
-            if (apiRes.ok) {
-              const apiData = await apiRes.json();
-              if (apiData.success) {
-                showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
-                setTimeout(() => {
-                  btnSubmitOrder.disabled = false;
-                  liff.closeWindow();
-                }, 900);
-                return;
-              }
-            }
-          } catch (apiErr) {
-            console.warn('[DIRECT ORDER API] Failed, trying liff.sendMessages:', apiErr);
-          }
-        }
-
-        // B. Fallback to LIFF sendMessages if direct API was not available
+        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100%)
         try {
           await liff.sendMessages([
             {
@@ -1925,14 +1887,14 @@
               text: orderCommand
             }
           ]);
-          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชท...', 'success');
+          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
           setTimeout(() => {
             btnSubmitOrder.disabled = false;
             liff.closeWindow();
           }, 400);
           return;
         } catch (err) {
-          console.error('[LIFF] sendMessages failed:', err);
+          console.error('[LIFF] sendMessages failed, trying fallback:', err);
           btnSubmitOrder.disabled = false;
           showToast('⚠️ กำลังสลับไปเปิดแอป LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
           executeDeepLinkFallback();
@@ -2278,50 +2240,16 @@
 
         showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
 
-        let userId = null;
-        try {
-          const profile = await liff.getProfile();
-          userId = profile?.userId || null;
-        } catch (e) {
-          try {
-            const ctx = liff.getContext();
-            userId = ctx?.userId || null;
-          } catch (_) {}
-        }
-
-        if (userId) {
-          try {
-            const apiEndpoint = window.location.origin + '/api/order-direct';
-            const payloadItems = aggregatedItems.map(it => ({ number: it.number, quantity: it.quantity }));
-            const apiRes = await fetch(apiEndpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, items: payloadItems })
-            });
-
-            if (apiRes.ok) {
-              const apiData = await apiRes.json();
-              if (apiData.success) {
-                showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
-                setTimeout(() => {
-                  liff.closeWindow();
-                }, 900);
-                return;
-              }
-            }
-          } catch (apiErr) {
-            console.warn('[DIRECT ORDER API] Failed, trying liff.sendMessages:', apiErr);
-          }
-        }
-
+        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100%)
         try {
           await liff.sendMessages([{ type: 'text', text: orderCommand }]);
-          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชท...', 'success');
+          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
           setTimeout(() => {
             liff.closeWindow();
           }, 400);
           return;
         } catch (err) {
+          console.error('[LIFF QUICK BUY] sendMessages failed, trying fallback:', err);
           showToast('⚠️ กำลังสลับไปเปิดแอป LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
           executeDeepLinkFallback();
           return;
