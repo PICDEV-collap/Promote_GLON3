@@ -301,32 +301,19 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     </div>
 
     <div class="touch-guide-box">
-      👆 <b>วิธีบันทึกภาพลงเครื่อง (ง่ายที่สุด):</b><br>
-      <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <b>"บันทึกรูปภาพ" (Save Image)</b> รูปลงอัลบั้มทันที
+      📸 <b>ขั้นตอนชำระเงินง่ายๆ 2 ขั้นตอน:</b><br>
+      1. <b>แคปหน้าจอ (Screenshot)</b> หรือ <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <b>"บันทึกรูปภาพ"</b><br>
+      2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR จากอัลบั้มรูปในเครื่อง
     </div>
 
-    <div style="margin-top: 14px;">
-      <a id="btnDownload" href="/download-qr/${filename}?action=dl" download="n3-qr-${filename}.png" class="btn-action btn-download" onclick="saveQrImage(event)">
-        📥 บันทึกรูป QR Code ลงเครื่อง
-      </a>
-
-      <a id="btnPaotang" href="paotang://" class="btn-action btn-paotang" onclick="openPaotang(event)">
-        🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
-      </a>
-
-      <button type="button" id="btnExternal" class="btn-action btn-external" onclick="openExternalBrowser()" style="display: none;">
-        🌐 เปิดหน้านี้ใน Safari / Chrome
-      </button>
-    </div>
-
-    <div class="guide-box">
+    <div class="guide-box" style="margin-top: 16px;">
       <div class="guide-step">
         <span class="step-badge">1</span>
-        <div><b>บันทึกรูป QR:</b> แตะค้างที่รูป QR ด้านบนแล้วเลือก <i>"บันทึกรูปภาพ"</i> หรือกดปุ่มเขียวด้านบน</div>
+        <div><b>บันทึกรูป QR:</b> แคปหน้าจอ หรือแตะค้างที่รูป QR ด้านบนแล้วเลือก <i>"บันทึกรูปภาพ"</i></div>
       </div>
       <div class="guide-step">
         <span class="step-badge">2</span>
-        <div><b>เปิดแอปเป๋าตัง:</b> แตะปุ่มฟ้าด้านบนเพื่อเปิดแอปเป๋าตัง</div>
+        <div><b>เปิดแอปเป๋าตัง:</b> เปิดแอปเป๋าตังในโทรศัพท์มือถือของคุณ</div>
       </div>
       <div class="guide-step">
         <span class="step-badge">3</span>
@@ -339,18 +326,6 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
 
   <script>
     const isLine = /Line\//i.test(navigator.userAgent || '');
-    const isAndroid = /Android/i.test(navigator.userAgent || '');
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-
-    // Configure native links based on OS
-    const paotangEl = document.getElementById('btnPaotang');
-    if (paotangEl) {
-      if (isAndroid) {
-        paotangEl.href = "intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end";
-      } else if (isIOS) {
-        paotangEl.href = "paotang://";
-      }
-    }
 
     if (isLine) {
       const banner = document.getElementById('lineBanner');
@@ -372,78 +347,6 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
       const currentUrl = window.location.href;
       const sep = currentUrl.includes('?') ? '&' : '?';
       window.location.href = currentUrl + sep + 'openExternalBrowser=1';
-    }
-
-    // 3-Tier Mobile Image Saver
-    async function saveQrImage(e) {
-      const qrImg = document.getElementById('qrImg');
-      const qrSrc = qrImg.src;
-      const filename = 'n3-payment-qr.png';
-
-      // Highlight QR container with pulse to prompt touch & hold
-      const container = document.getElementById('qrContainer');
-      if (container) {
-        container.style.border = '3px solid #f59e0b';
-        container.style.transform = 'scale(1.03)';
-        setTimeout(() => {
-          container.style.border = '2.5px dashed #10b981';
-          container.style.transform = 'none';
-        }, 1800);
-      }
-
-      // Tier 1: Web Share API Level 2 (iOS Safari / Android Chrome Photos integration)
-      if (navigator.canShare) {
-        try {
-          const response = await fetch(qrSrc);
-          const blob = await response.blob();
-          const file = new File([blob], filename, { type: 'image/png' });
-
-          if (navigator.canShare({ files: [file] })) {
-            if (e && e.preventDefault) e.preventDefault();
-            await navigator.share({
-              files: [file],
-              title: 'QR Code ชำระเงินสลาก N3',
-              text: 'QR Code ชำระเงินสลาก N3 ร้านธนกิจนำโชค ผ่านแอปเป๋าตัง'
-            });
-            showToast('เปิดหน้าต่างบันทึกภาพเรียบร้อยแล้ว');
-            return;
-          }
-        } catch (shareErr) {
-          console.warn('Web Share failed, using direct download:', shareErr);
-        }
-      }
-
-      // Tier 2: Let the default anchor href download continue
-      showToast('กำลังดาวน์โหลดรูปภาพ QR Code...');
-    }
-
-    // Smart Multi-OS Paotang Launcher
-    function openPaotang(e) {
-      if (e && e.preventDefault) e.preventDefault();
-      if (isLine) {
-        // LINE In-App Browser blocks custom schemes
-        showToast('เปิดใน LINE: กำลังเปิดในเบราว์เซอร์หลัก...');
-        const extUrl = window.location.href.includes('?') 
-          ? window.location.href + '&openExternalBrowser=1' 
-          : window.location.href + '?openExternalBrowser=1';
-        window.location.href = extUrl;
-        return;
-      }
-
-      if (isAndroid) {
-        window.location.href = "intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end";
-        return;
-      }
-
-      if (isIOS) {
-        window.location.href = "paotang://";
-        return;
-      }
-
-      if (!isAndroid && !isIOS) {
-        if (e && e.preventDefault) e.preventDefault();
-        alert('กรุณาใช้โทรศัพท์มือถือเปิดแอป "เป๋าตัง" เพื่อสแกน QR Code นี้ครับ');
-      }
     }
   </script>
 </body>
