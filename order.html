@@ -1391,11 +1391,11 @@
   <div id="modal-confirm" class="modal-overlay">
     <div class="modal-box">
       <div id="modal-icon" class="modal-icon">
-        <i class="fas fa-check"></i>
+        <i class="fas fa-cart-shopping" style="color: var(--color-gold-light);"></i>
       </div>
-      <h3 id="modal-title" class="modal-title">พร้อมส่งคำสั่งซื้อสลาก N3</h3>
+      <h3 id="modal-title" class="modal-title">ยืนยันการสั่งซื้อสลาก N3</h3>
       <p id="modal-desc" style="font-size: 0.85rem; color: var(--text-secondary);">
-        ระบบได้จัดเตรียมคำสั่งซื้อของคุณเรียบร้อยแล้ว แตะปุ่มด้านล่างเพื่อเปิดแอป LINE และส่งคำสั่งได้ทันที
+        ตรวจสอบรายการสลากของคุณ แล้วแตะปุ่ม "สั่งซื้อสลาก" ด้านล่างเพื่อรับ QR Code ชำระเงิน
       </p>
 
       <!-- Order Preview Box -->
@@ -1413,38 +1413,54 @@
           <strong id="modal-price-text" style="color: var(--color-emerald-light);">-</strong>
         </div>
 
-        <div id="modal-cmd-label" style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-secondary);">
-          ข้อความคำสั่งซื้อที่จะส่งเข้า LINE:
+        <div id="modal-cmd-label" style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-secondary); display: none;">
+          ข้อความคำสั่งซื้อ:
         </div>
-        <div id="modal-cmd-display" class="modal-cmd-text">สั่งซื้อ ...</div>
+        <div id="modal-cmd-display" class="modal-cmd-text" style="display: none;">สั่งซื้อ ...</div>
       </div>
 
-      <!-- Friendly Order Action Guidance (Zero Confusion / No hanging spinner) -->
-      <div id="modal-guide-box" style="margin: 0.85rem 0; padding: 0.85rem 1rem; background: rgba(16, 185, 129, 0.12); border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.35); text-align: center;">
-        <div style="font-size: 0.92rem; color: #a7f3d0; font-weight: 600; line-height: 1.5;">
-          🟢 แตะปุ่มเขียวด้านล่างเพื่อเปิดแอป LINE และส่งคำสั่งซื้อ<br>
-          <span style="font-size: 0.8rem; color: var(--color-gold-light); font-weight: 500;">ระบบตัวแทนจะออก QR Code ส่งกลับให้ในแชททันทีครับ ⚡</span>
+      <!-- Realtime Processing Progress Container -->
+      <div id="modal-processing-area" style="display: none; margin: 0.9rem 0; padding: 1.1rem; background: rgba(0,0,0,0.45); border-radius: var(--radius-sm); border: 1px solid rgba(212, 175, 55, 0.4); text-align: center;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.6rem;">
+          <div class="processing-spinner"></div>
+          <span id="modal-processing-text" style="font-size: 0.95rem; color: var(--color-gold-light); font-weight: 700;">กำลังส่งคำสั่งซื้อเข้าระบบ...</span>
+        </div>
+        <div id="modal-queue-text" style="font-size: 0.82rem; color: #bae6fd; margin-top: 0.25rem;">กำลังจัดคิวประมวลผลบนระบบตัวแทนสลาก N3 (~10-15 วิ)</div>
+        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 0.75rem;">
+          <div id="modal-progress-bar" style="width: 35%; height: 100%; background: linear-gradient(90deg, #10b981, #f59e0b); border-radius: 3px; transition: width 0.4s ease;"></div>
         </div>
       </div>
 
-      <!-- Hidden Fallback Containers (Maintained for DOM compatibility) -->
-      <div id="modal-processing-area" style="display: none;">
-        <span id="modal-processing-text"></span>
-        <span id="modal-queue-text"></span>
-      </div>
-      <div id="modal-qr-area" style="display: none;">
-        <img id="modal-qr-img" src="" alt="QR">
-        <span id="modal-timer-text"></span>
+      <!-- In-Page QR Code Display Container -->
+      <div id="modal-qr-area" style="display: none; margin: 0.75rem 0;">
+        <div style="background: #ffffff; padding: 12px; border-radius: 16px; display: inline-block; width: 100%; max-width: 270px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); border: 2.5px dashed #10b981; margin: 0 auto;">
+          <img id="modal-qr-img" src="" alt="Payment QR Code" style="width: 100%; height: auto; display: block; border-radius: 8px; -webkit-touch-callout: default !important; user-select: auto !important;">
+        </div>
+        <div style="font-size: 0.88rem; color: #bae6fd; margin-top: 0.6rem; font-weight: 600;">
+          ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 1rem;">10:00</span> นาที
+        </div>
+        <div style="background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 0.78rem; color: #fde68a; text-align: left; line-height: 1.45;">
+          💡 <b>แตะค้างที่รูป QR (Long-press)</b> เพื่อบันทึกลงแกลเลอรี หรือกดปุ่ม <b>"📥 บันทึกรูป QR"</b> ด้านล่าง แล้วเปิดแอปเป๋าตังเพื่อสแกนชำระเงิน
+        </div>
       </div>
 
       <!-- Action Buttons -->
       <div class="modal-btns" id="modal-action-btns">
-        <a id="btn-modal-save-qr" href="#" class="btn-modal-line" style="display: none;"></a>
-        <a id="btn-modal-paotang" href="ktbpaotang://" class="btn-modal-line" style="display: none;"></a>
-        <a id="btn-modal-open-line" href="#" class="btn-modal-line">
-          <i class="fab fa-line" style="font-size: 1.35rem;"></i> เปิดแอป LINE สั่งซื้อทันที
+        <button type="button" id="btn-modal-submit-direct" class="btn-modal-line" style="width: 100%; cursor: pointer; border: none; font-size: 1.08rem; padding: 0.95rem;">
+          <i class="fas fa-cart-shopping"></i> สั่งซื้อสลาก
+        </button>
+
+        <a id="btn-modal-save-qr" href="#" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none;">
+          <i class="fas fa-download"></i> 📥 บันทึกรูป QR ลงเครื่อง
         </a>
-        <button type="button" id="btn-modal-copy-cmd" class="btn-quick-tool" style="width: 100%; padding: 0.65rem;">
+        <a id="btn-modal-paotang" href="ktbpaotang://" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none;">
+          <i class="fas fa-wallet"></i> 🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
+        </a>
+
+        <a id="btn-modal-open-line" href="#" class="btn-quick-tool" style="width: 100%; padding: 0.65rem; color: #6ee7b7; border-color: rgba(16,185,129,0.3); display: none;">
+          <i class="fab fa-line"></i> ส่งคำสั่งซื้อเข้าห้องแชท LINE
+        </a>
+        <button type="button" id="btn-modal-copy-cmd" class="btn-quick-tool" style="width: 100%; padding: 0.65rem; display: none;">
           <i class="fas fa-copy"></i> คัดลอกข้อความคำสั่งซื้อ
         </button>
         <button type="button" id="btn-modal-close" class="btn-modal-close">
@@ -1867,6 +1883,14 @@
       await dispatchAggregatedOrder(orderCommand, aggregatedItems, totalTickets, totalPrice);
     });
 
+    // Direct Order Submission Button (In-Page)
+    const btnModalSubmitDirect = document.getElementById('btn-modal-submit-direct');
+    if (btnModalSubmitDirect) {
+      btnModalSubmitDirect.addEventListener('click', () => {
+        executeDirectOrder();
+      });
+    }
+
     // Copy Command from Modal
     btnModalCopyCmd.addEventListener('click', () => {
       const text = modalCmdDisplay.textContent;
@@ -1879,7 +1903,7 @@
       }
     });
 
-    // Open LINE App Button
+    // Open LINE App Button (Fallback)
     btnModalOpenLine.addEventListener('click', () => {
       showToast('🟢 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...', 'info');
       if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
@@ -1891,12 +1915,37 @@
 
     // Close Modal
     btnModalClose.addEventListener('click', () => {
+      const modalQrArea = document.getElementById('modal-qr-area');
+      const wasQrShown = modalQrArea && modalQrArea.style.display !== 'none';
       modalConfirm.classList.remove('active');
+      resetModalState();
+      if (wasQrShown) {
+        // Reset table for a fresh order
+        rowsData = [createRow()];
+        renderTable();
+        addedSets = [];
+        renderAddedSets();
+        selectedDigits = ['', '', ''];
+        updateDigitDisplay();
+        updateGrandTotal();
+      }
     });
 
     modalConfirm.addEventListener('click', (e) => {
       if (e.target === modalConfirm) {
+        const modalQrArea = document.getElementById('modal-qr-area');
+        const wasQrShown = modalQrArea && modalQrArea.style.display !== 'none';
         modalConfirm.classList.remove('active');
+        resetModalState();
+        if (wasQrShown) {
+          rowsData = [createRow()];
+          renderTable();
+          addedSets = [];
+          renderAddedSets();
+          selectedDigits = ['', '', ''];
+          updateDigitDisplay();
+          updateGrandTotal();
+        }
       }
     });
 
@@ -2159,6 +2208,7 @@
       if (grandElem) grandElem.innerText = `${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
     }
 
+    let currentOrderData = null;
     let orderPollInterval = null;
     let orderTimerInterval = null;
 
@@ -2177,18 +2227,20 @@
       const modalOrderPreview = document.getElementById('modal-order-preview');
       const modalProcessingArea = document.getElementById('modal-processing-area');
       const modalQrArea = document.getElementById('modal-qr-area');
+      const btnModalSubmitDirect = document.getElementById('btn-modal-submit-direct');
       const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
       const btnModalPaotang = document.getElementById('btn-modal-paotang');
       const btnModalOpenLine = document.getElementById('btn-modal-open-line');
       const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
       const btnModalClose = document.getElementById('btn-modal-close');
 
-      if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-check"></i>';
-      if (modalTitle) modalTitle.textContent = 'พร้อมส่งคำสั่งซื้อสลาก N3';
-      if (modalDesc) modalDesc.textContent = 'ระบบได้จัดเตรียมคำสั่งซื้อของคุณเรียบร้อยแล้ว แตะปุ่มเขียวด้านล่างเพื่อส่งเข้า LINE และรับ QR Code ทันที';
+      if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-shopping-cart"></i>';
+      if (modalTitle) modalTitle.textContent = 'ยืนยันการสั่งซื้อสลาก N3';
+      if (modalDesc) modalDesc.textContent = 'ตรวจสอบรายการตัวเลขและจำนวนสลาก จากนั้นแตะปุ่ม "🛒 สั่งซื้อสลาก" เพื่อสร้าง QR Code ชำระเงินทันที';
       if (modalOrderPreview) modalOrderPreview.style.display = 'block';
       if (modalProcessingArea) modalProcessingArea.style.display = 'none';
       if (modalQrArea) modalQrArea.style.display = 'none';
+      if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
       if (btnModalSaveQr) btnModalSaveQr.style.display = 'none';
       if (btnModalPaotang) btnModalPaotang.style.display = 'none';
       if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
@@ -2258,8 +2310,175 @@
       }
     }
 
+    // Execute direct order against bot-service backend
+    async function executeDirectOrder() {
+      if (!currentOrderData || !currentOrderData.aggregatedItems || currentOrderData.aggregatedItems.length === 0) {
+        showToast('ไม่พบรายการสลากที่จะสั่งซื้อ กรุณาลองใหม่อีกครั้ง', 'error');
+        return;
+      }
+
+      const modalTitle = document.getElementById('modal-title');
+      const modalDesc = document.getElementById('modal-desc');
+      const modalOrderPreview = document.getElementById('modal-order-preview');
+      const modalProcessingArea = document.getElementById('modal-processing-area');
+      const modalQrArea = document.getElementById('modal-qr-area');
+      const btnModalSubmitDirect = document.getElementById('btn-modal-submit-direct');
+      const btnModalOpenLine = document.getElementById('btn-modal-open-line');
+      const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
+      const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
+      const btnModalPaotang = document.getElementById('btn-modal-paotang');
+      const btnModalClose = document.getElementById('btn-modal-close');
+      const modalProgressBar = document.getElementById('modal-progress-bar');
+      const modalProcStatus = document.getElementById('modal-proc-status');
+      const modalQrImg = document.getElementById('modal-qr-img');
+
+      // 1. Enter Processing UI State
+      if (modalTitle) modalTitle.textContent = 'ระบบกำลังสร้าง QR Code...';
+      if (modalDesc) modalDesc.textContent = 'บอทกำลังเปิดระบบตัวแทนจำหน่าย GLO เพื่อหยิบสลากและสร้าง QR ชำระเงิน กรุณารอสักครู่ (ประมาณ 10-20 วินาที)';
+      if (modalOrderPreview) modalOrderPreview.style.display = 'none';
+      if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'none';
+      if (btnModalOpenLine) btnModalOpenLine.style.display = 'none';
+      if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'none';
+      if (modalProcessingArea) modalProcessingArea.style.display = 'block';
+      if (modalQrArea) modalQrArea.style.display = 'none';
+      if (modalProgressBar) modalProgressBar.style.width = '15%';
+      if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อไปยังระบบร้านค้า...';
+
+      let progressVal = 15;
+      const progressTimer = setInterval(() => {
+        if (progressVal < 88) {
+          progressVal += Math.floor(Math.random() * 8) + 2;
+          if (progressVal > 88) progressVal = 88;
+          if (modalProgressBar) modalProgressBar.style.width = progressVal + '%';
+        }
+      }, 800);
+
+      try {
+        // Send order to bot backend API
+        const response = await fetch('/api/order-direct', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            items: currentOrderData.aggregatedItems,
+            command: currentOrderData.orderCommand
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error ${response.status}`);
+        }
+
+        const resData = await response.json();
+        if (!resData.success || !resData.orderId) {
+          throw new Error(resData.error || 'ระบบไม่สามารถรับคำสั่งซื้อได้');
+        }
+
+        const orderId = resData.orderId;
+        if (modalProcStatus) modalProcStatus.textContent = 'บอทกำลังหยิบสลากและสร้าง QR Code บนระบบ GLO...';
+
+        // Poll order status
+        if (orderPollInterval) clearInterval(orderPollInterval);
+        
+        let pollCount = 0;
+        const maxPolls = 60; // 60 * 1.5s = 90s max
+
+        orderPollInterval = setInterval(async () => {
+          pollCount++;
+          try {
+            const statusRes = await fetch(`/api/order-status/${orderId}`);
+            if (!statusRes.ok) return;
+            const statusData = await statusRes.json();
+
+            if (statusData.status === 'completed') {
+              clearInterval(orderPollInterval);
+              clearInterval(progressTimer);
+              orderPollInterval = null;
+
+              if (modalProgressBar) modalProgressBar.style.width = '100%';
+              if (modalProcStatus) modalProcStatus.textContent = 'สร้าง QR Code สำเร็จ!';
+
+              setTimeout(() => {
+                if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+                if (modalQrArea) modalQrArea.style.display = 'block';
+                if (modalTitle) modalTitle.textContent = 'สร้าง QR Code ชำระเงินสำเร็จ!';
+                if (modalDesc) modalDesc.textContent = 'บันทึกภาพ QR Code แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงินได้ทันที';
+
+                const qrSrc = statusData.qrImageUrl || statusData.qrUrl || statusData.qrDataUrl || statusData.downloadUrl || statusData.qrImage;
+                if (modalQrImg && qrSrc) {
+                  modalQrImg.src = qrSrc;
+                }
+
+                if (btnModalSaveQr) {
+                  btnModalSaveQr.style.display = 'flex';
+                  btnModalSaveQr.onclick = () => handleDownloadQr(qrSrc, `n3-qr-${orderId}.png`);
+                }
+
+                if (btnModalPaotang) {
+                  btnModalPaotang.style.display = 'flex';
+                }
+
+                if (btnModalClose) {
+                  btnModalClose.textContent = 'เสร็จสิ้น / สั่งซื้อชุดใหม่';
+                }
+
+                startCountdown(600);
+                showToast('✅ สร้าง QR Code สำเร็จแล้ว!', 'success');
+              }, 400);
+            } else if (statusData.status === 'failed') {
+              clearInterval(orderPollInterval);
+              clearInterval(progressTimer);
+              orderPollInterval = null;
+
+              if (modalTitle) modalTitle.textContent = 'ไม่สามารถสร้าง QR Code ได้';
+              if (modalDesc) modalDesc.textContent = statusData.error || 'ระบบไม่สามารถสร้าง QR ได้ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทน';
+              if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+              if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+              if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
+              if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
+              showToast(statusData.error || 'เกิดข้อผิดพลาดในการสร้าง QR', 'error');
+            }
+          } catch (pollErr) {
+            console.warn('Poll error:', pollErr);
+          }
+
+          if (pollCount >= maxPolls) {
+            clearInterval(orderPollInterval);
+            clearInterval(progressTimer);
+            orderPollInterval = null;
+            if (modalTitle) modalTitle.textContent = 'ใช้เวลาดำเนินการนานกว่าปกติ';
+            if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทนเพื่อความรวดเร็ว';
+            if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+            if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+            if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
+            if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
+          }
+        }, 1500);
+
+      } catch (err) {
+        clearInterval(progressTimer);
+        console.error('executeDirectOrder error:', err);
+        if (modalTitle) modalTitle.textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์บอทได้';
+        if (modalDesc) modalDesc.textContent = 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ คุณยังสามารถส่งคำสั่งซื้อผ่านแอป LINE ได้ตามปกติ';
+        if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+        if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+        if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
+        if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
+        showToast('ไม่สามารถสั่งซื้อตรงได้ กรุณากดส่งผ่าน LINE แทน', 'error');
+      }
+    }
+
     // Shared submission dispatcher helper
     async function dispatchAggregatedOrder(orderCommand, aggregatedItems, totalTickets, totalPrice) {
+      currentOrderData = {
+        orderCommand,
+        aggregatedItems,
+        totalTickets,
+        totalPrice
+      };
+
       // 1. If inside LINE LIFF Client -> 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
       if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
         if (!isLiffReady) {
@@ -2321,7 +2540,7 @@
       }
 
       modalConfirm.classList.add('active');
-      showToast('📋 บันทึกคำสั่งซื้อแล้ว แตะปุ่มเขียวเพื่อส่งเข้า LINE', 'info');
+      showToast('📋 บันทึกคำสั่งซื้อแล้ว แตะปุ่ม "🛒 สั่งซื้อสลาก" เพื่อรับ QR Code', 'info');
     }
 
     function submitSixPackOrder() {
