@@ -1439,8 +1439,9 @@
         <div style="font-size: 0.88rem; color: #bae6fd; margin-top: 0.6rem; font-weight: 600;">
           ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 1rem;">10:00</span> นาที
         </div>
-        <div style="background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 0.78rem; color: #fde68a; text-align: left; line-height: 1.45;">
-          💡 <b>แตะค้างที่รูป QR (Long-press)</b> เพื่อบันทึกลงแกลเลอรี หรือกดปุ่ม <b>"📥 บันทึกรูป QR"</b> ด้านล่าง แล้วเปิดแอปเป๋าตังเพื่อสแกนชำระเงิน
+        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 10px; margin-top: 10px; font-size: 0.85rem; color: #fef08a; text-align: left; line-height: 1.5;">
+          👆 <b>วิธีบันทึกภาพลงเครื่อง (ง่ายที่สุด):</b><br>
+          <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <b>"บันทึกรูปภาพ" (Save Image)</b> รูปลงอัลบั้มทันที
         </div>
       </div>
 
@@ -1450,12 +1451,12 @@
           <i class="fas fa-shopping-cart"></i> 🛒 สั่งซื้อสลาก
         </button>
 
-        <button type="button" id="btn-modal-save-qr" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none; width: 100%; border: none; cursor: pointer;">
+        <a id="btn-modal-save-qr" href="#" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none; width: 100%; border: none; cursor: pointer; text-decoration: none;">
           <i class="fas fa-download"></i> 📥 บันทึกรูป QR ลงเครื่อง
-        </button>
-        <button type="button" id="btn-modal-paotang" onclick="openPaotangApp()" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none; width: 100%; border: none; cursor: pointer;">
+        </a>
+        <a id="btn-modal-paotang" href="paotang://" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none; width: 100%; border: none; cursor: pointer; text-decoration: none;">
           <i class="fas fa-wallet"></i> 🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
-        </button>
+        </a>
 
         <a id="btn-modal-open-line" href="#" class="btn-quick-tool" style="width: 100%; padding: 0.65rem; color: #6ee7b7; border-color: rgba(16,185,129,0.3); display: none;">
           <i class="fab fa-line"></i> ส่งคำสั่งซื้อเข้าห้องแชท LINE
@@ -1902,8 +1903,8 @@
     // Open Paotang Button
     const btnModalPaotang = document.getElementById('btn-modal-paotang');
     if (btnModalPaotang) {
-      btnModalPaotang.addEventListener('click', () => {
-        openPaotangApp();
+      btnModalPaotang.addEventListener('click', (e) => {
+        openPaotangApp(e);
       });
     }
 
@@ -2289,8 +2290,20 @@
 
     // 3-Tier Mobile-First Image Saving Strategy
     async function handleDownloadQr(url, filename = 'n3-payment-qr.png') {
+      // Highlight QR Container to prompt touch & hold
+      const qrContainer = document.querySelector('#modal-qr-area > div');
+      if (qrContainer) {
+        qrContainer.style.border = '3px solid #f59e0b';
+        qrContainer.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+          qrContainer.style.border = '2.5px dashed #10b981';
+          qrContainer.style.transform = 'none';
+        }, 1800);
+      }
+
       try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('Fetch failed: ' + response.status);
         const blob = await response.blob();
         const file = new File([blob], filename, { type: 'image/png' });
 
@@ -2321,19 +2334,11 @@
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
         showToast('ดาวน์โหลดรูปภาพ QR Code สำเร็จ', 'success');
       } catch (e) {
-        // Tier 3: External window or direct link navigation
-        window.open(url, '_blank');
-      }
-
-      // Highlight QR Container to prompt touch & hold
-      const qrContainer = document.querySelector('#modal-qr-area > div');
-      if (qrContainer) {
-        qrContainer.style.border = '3px solid #f59e0b';
-        qrContainer.style.transform = 'scale(1.02)';
-        setTimeout(() => {
-          qrContainer.style.border = '2.5px dashed #10b981';
-          qrContainer.style.transform = 'none';
-        }, 1800);
+        console.warn('handleDownloadQr fallback to direct download link:', e);
+        // Tier 3: Direct Download via endpoint
+        const fileOnly = url.split('/').pop()?.split('?')[0] || filename;
+        const dlUrl = `/download-qr/${fileOnly}?action=dl`;
+        window.location.href = dlUrl;
       }
     }
 
@@ -2348,36 +2353,37 @@
     }
 
     // Smart Multi-OS Paotang Launcher
-    function openPaotangApp() {
-      const isAndroid = /Android/i.test(navigator.userAgent || '');
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    function openPaotangApp(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const ua = navigator.userAgent || '';
+      const isLine = /Line\//i.test(ua);
+      const isAndroid = /Android/i.test(ua);
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+      if (isLine) {
+        // LINE In-App Browser blocks custom URI schemes. Prompt user to open in Safari/Chrome
+        showToast('เปิดใน LINE: กรุณาแตะค้างที่รูป QR เพื่อบันทึกภาพ หรือเปิดใน Safari/Chrome เพื่อเข้าแอปเป๋าตัง', 'info');
+        const extUrl = window.location.href.includes('?') 
+          ? window.location.href + '&openExternalBrowser=1' 
+          : window.location.href + '?openExternalBrowser=1';
+        window.location.href = extUrl;
+        return;
+      }
 
       if (isAndroid) {
-        // Android Intent for Paotang app (package: com.ktb.customer.qr)
-        const intentUrl = 'intent://home#Intent;scheme=paotang;package=com.ktb.customer.qr;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end';
+        // Official Android Intent for Krungthai Paotang (package: com.ktb.customer.qr)
+        const intentUrl = 'intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end';
         window.location.href = intentUrl;
         return;
       }
 
       if (isIOS) {
-        const start = Date.now();
+        // Official iOS URL Scheme for Krungthai Paotang
         window.location.href = 'paotang://';
-
-        setTimeout(() => {
-          if (Date.now() - start < 1800 && !document.hidden) {
-            window.location.href = 'ktbpaotang://';
-          }
-        }, 400);
-
-        setTimeout(() => {
-          if (Date.now() - start < 2800 && !document.hidden) {
-            window.location.href = 'https://apps.apple.com/th/app/paotang-%E0%B9%80%E0%B8%9B-%E0%B8%B2%E0%B8%5C%E0%B8%95-%E0%B8%87/id1324902415';
-          }
-        }, 1200);
         return;
       }
 
-      // Desktop
+      // Desktop / PC
       showToast('กรุณาเปิดแอป "เป๋าตัง" บนโทรศัพท์มือถือ เพื่อสแกน QR Code นี้ครับ', 'info');
     }
 
@@ -2478,18 +2484,31 @@
                 if (modalDesc) modalDesc.textContent = 'บันทึกภาพ QR Code แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงินได้ทันที';
 
                 const qrSrc = statusData.qrImageUrl || statusData.qrUrl || statusData.qrDataUrl || statusData.downloadUrl || statusData.qrImage;
+                const qrFilename = qrSrc.split('/').pop()?.split('?')[0] || `n3-qr-${orderId}.png`;
+
                 if (modalQrImg && qrSrc) {
                   modalQrImg.src = qrSrc;
                 }
 
                 if (btnModalSaveQr) {
                   btnModalSaveQr.style.display = 'flex';
-                  btnModalSaveQr.onclick = () => handleDownloadQr(qrSrc, `n3-qr-${orderId}.png`);
+                  btnModalSaveQr.href = `/download-qr/${qrFilename}?action=dl`;
+                  btnModalSaveQr.setAttribute('download', `n3-qr-${orderId}.png`);
+                  btnModalSaveQr.onclick = (e) => {
+                    if (e && e.preventDefault) e.preventDefault();
+                    handleDownloadQr(qrSrc, `n3-qr-${orderId}.png`);
+                  };
                 }
 
                 if (btnModalPaotang) {
                   btnModalPaotang.style.display = 'flex';
-                  btnModalPaotang.onclick = () => openPaotangApp();
+                  const isAndroid = /Android/i.test(navigator.userAgent || '');
+                  if (isAndroid) {
+                    btnModalPaotang.href = "intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end";
+                  } else {
+                    btnModalPaotang.href = "paotang://";
+                  }
+                  btnModalPaotang.onclick = (e) => openPaotangApp(e);
                 }
 
                 if (btnModalClose) {

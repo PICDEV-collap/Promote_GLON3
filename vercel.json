@@ -3,5 +3,19 @@
   "name": "promote-glon-3",
   "cleanUrls": true,
   "outputDirectory": ".",
-  "buildCommand": null
+  "buildCommand": null,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://coupon-powered-loud-relationship.trycloudflare.com/api/:path*"
+    },
+    {
+      "source": "/qrcodes/:path*",
+      "destination": "https://coupon-powered-loud-relationship.trycloudflare.com/qrcodes/:path*"
+    },
+    {
+      "source": "/download-qr/:path*",
+      "destination": "https://coupon-powered-loud-relationship.trycloudflare.com/download-qr/:path*"
+    }
+  ]
 }
