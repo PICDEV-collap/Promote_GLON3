@@ -204,6 +204,27 @@ app.get(['/order-6pack', '/order-6pack.html'], (_req: Request, res: Response) =>
   }
 });
 
+// LIFF Endpoint fallback for GET /webhook requests (Prevents "Cannot GET /webhook" error in LINE LIFF)
+app.get(['/webhook', '/webhook/'], (req: Request, res: Response) => {
+  const mode = req.query.mode || req.query.type;
+  const liffState = req.query['liff.state'] as string;
+  const is6Pack = mode === '6pack' || mode === 'sixpack' || (liffState && (liffState.includes('6pack') || liffState.includes('sixpack')));
+
+  if (is6Pack) {
+    const root6PackPath = path.join(__dirname, '../../order-6pack.html');
+    const local6PackPath = path.join(__dirname, '../public/order-6pack.html');
+    if (fs.existsSync(root6PackPath)) return res.sendFile(root6PackPath);
+    if (fs.existsSync(local6PackPath)) return res.sendFile(local6PackPath);
+    return res.redirect('/order?mode=6pack');
+  }
+
+  const rootOrderPath = path.join(__dirname, '../../order.html');
+  const localOrderPath = path.join(__dirname, '../public/order.html');
+  if (fs.existsSync(rootOrderPath)) return res.sendFile(rootOrderPath);
+  if (fs.existsSync(localOrderPath)) return res.sendFile(localOrderPath);
+  return res.redirect('/order');
+});
+
 // Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code พร้อมหน้ารองรับทั้ง Direct Download และ Mobile Web View
 app.get('/download-qr/:filename', (req: Request, res: Response): void => {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
