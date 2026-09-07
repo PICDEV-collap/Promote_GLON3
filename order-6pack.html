@@ -695,6 +695,21 @@
       to { transform: scale(1); opacity: 1; }
     }
 
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .processing-spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(212, 175, 55, 0.2);
+      border-top-color: var(--color-gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
     .modal-icon {
       width: 56px;
       height: 56px;
@@ -1364,18 +1379,19 @@
     </div>
   </div>
 
-  <!-- Confirmation Modal -->
+  <!-- Confirmation / In-Page Realtime Processing & QR Modal -->
   <div id="modal-confirm" class="modal-overlay">
     <div class="modal-box">
-      <div class="modal-icon">
+      <div id="modal-icon" class="modal-icon">
         <i class="fas fa-check"></i>
       </div>
-      <h3 class="modal-title">พร้อมส่งคำสั่งซื้อสลาก N3</h3>
-      <p style="font-size: 0.85rem; color: var(--text-secondary);">
+      <h3 id="modal-title" class="modal-title">พร้อมส่งคำสั่งซื้อสลาก N3</h3>
+      <p id="modal-desc" style="font-size: 0.85rem; color: var(--text-secondary);">
         ระบบได้จัดเตรียมคำสั่งซื้อของคุณเรียบร้อยแล้ว แตะปุ่มด้านล่างเพื่อเปิดแอป LINE และส่งคำสั่งได้ทันที
       </p>
 
-      <div class="modal-order-preview">
+      <!-- Order Preview Box -->
+      <div id="modal-order-preview" class="modal-order-preview">
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
           <span style="color: var(--text-secondary);">รายการสลาก:</span>
           <strong id="modal-items-text" style="color: #fff;">-</strong>
@@ -1389,13 +1405,42 @@
           <strong id="modal-price-text" style="color: var(--color-emerald-light);">-</strong>
         </div>
 
-        <div style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-secondary);">
+        <div id="modal-cmd-label" style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-secondary);">
           ข้อความคำสั่งซื้อที่จะส่งเข้า LINE:
         </div>
         <div id="modal-cmd-display" class="modal-cmd-text">สั่งซื้อ ...</div>
       </div>
 
-      <div class="modal-btns">
+      <!-- Realtime Processing Progress Container -->
+      <div id="modal-processing-area" style="display: none; margin: 1rem 0; padding: 1rem; background: rgba(0,0,0,0.35); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <div class="processing-spinner"></div>
+          <span id="modal-processing-text" style="font-size: 0.92rem; color: var(--color-gold-light); font-weight: 600;">กำลังส่งคำสั่งซื้อเข้าระบบ...</span>
+        </div>
+        <div id="modal-queue-text" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">กำลังจัดคิวประมวลผลบนระบบตัวแทนสลาก N3</div>
+      </div>
+
+      <!-- In-Page QR Code Display Container -->
+      <div id="modal-qr-area" style="display: none; margin: 0.75rem 0;">
+        <div style="background: #ffffff; padding: 12px; border-radius: 16px; display: inline-block; width: 100%; max-width: 270px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); border: 2.5px dashed #10b981; margin: 0 auto;">
+          <img id="modal-qr-img" src="" alt="Payment QR Code" style="width: 100%; height: auto; display: block; border-radius: 8px; -webkit-touch-callout: default !important; user-select: auto !important;">
+        </div>
+        <div style="font-size: 0.85rem; color: #bae6fd; margin-top: 0.6rem; font-weight: 600;">
+          ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 0.95rem;">10:00</span> นาที
+        </div>
+        <div style="background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 0.78rem; color: #fde68a; text-align: left; line-height: 1.45;">
+          💡 <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <i>"บันทึกรูปภาพ"</i> ลงแกลเลอรี หรือกดปุ่ม <b>"📥 บันทึกรูป QR"</b> ด้านล่าง แล้วเปิดแอปเป๋าตังเพื่อสแกนชำระเงิน
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="modal-btns" id="modal-action-btns">
+        <a id="btn-modal-save-qr" href="#" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none;">
+          <i class="fas fa-download"></i> 📥 บันทึกรูป QR ลงเครื่อง
+        </a>
+        <a id="btn-modal-paotang" href="ktbpaotang://" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none;">
+          <i class="fas fa-wallet"></i> 🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
+        </a>
         <a id="btn-modal-open-line" href="#" class="btn-modal-line">
           <i class="fab fa-line" style="font-size: 1.3rem;"></i> เปิดแอป LINE สั่งซื้อทันที
         </a>
@@ -1403,7 +1448,7 @@
           <i class="fas fa-copy"></i> คัดลอกข้อความคำสั่งซื้อ
         </button>
         <button type="button" id="btn-modal-close" class="btn-modal-close">
-          แก้ไขตัวเลข
+          ปิดหน้าต่าง
         </button>
       </div>
     </div>
@@ -1818,92 +1863,8 @@
       const totalTickets = aggregatedItems.reduce((sum, it) => sum + it.quantity, 0);
       const totalPrice = totalTickets * CONFIG.PRICE_PER_TICKET;
 
-      // Helper function for external browser / deep link fallback
-      function executeDeepLinkFallback() {
-        // 4. Update Modal Preview
-        const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
-        modalItemsText.textContent = previewText;
-        modalQtyText.textContent = `${totalTickets} ใบ`;
-        modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
-        modalCmdDisplay.textContent = orderCommand;
-
-        // Build Direct Deep Link URL (Direct Intent / Custom Scheme to bypass line.me landing page)
-        const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID); // '%40586xxhlx'
-        const encodedMsg = encodeURIComponent(orderCommand);
-        const isAndroid = /Android/i.test(navigator.userAgent || '');
-        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-
-        const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
-        const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
-        const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
-
-        // Priority URL for opening LINE app directly
-        const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
-        btnModalOpenLine.href = directAppUrl;
-
-        // Copy to clipboard immediately as safety net
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(orderCommand).catch(() => {});
-        }
-
-        // 5. Open Confirmation Modal & Automatically Dispatch to LINE App
-        modalConfirm.classList.add('active');
-        showToast(`🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
-
-        try {
-          window.location.href = directAppUrl;
-        } catch (err) {
-          console.warn('Direct redirection failed, falling back to universal link:', err);
-          try { window.location.href = universalUrl; } catch (e) {}
-        }
-      }
-
-      // 4. Automatic Direct Order Submission via LINE LIFF SDK (Inside LINE App)
-      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
-        if (!isLiffReady) {
-          try {
-            await liff.init({ liffId: CONFIG.LIFF_ID });
-            isLiffReady = true;
-          } catch (initErr) {
-            console.warn('[LIFF] On-demand init failed:', initErr);
-          }
-        }
-      }
-
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-
-        btnSubmitOrder.disabled = true;
-        showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
-
-        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100%)
-        try {
-          await liff.sendMessages([
-            {
-              type: 'text',
-              text: orderCommand
-            }
-          ]);
-          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
-          setTimeout(() => {
-            btnSubmitOrder.disabled = false;
-            liff.closeWindow();
-          }, 400);
-          return;
-        } catch (err) {
-          console.error('[LIFF] sendMessages failed, trying fallback:', err);
-          btnSubmitOrder.disabled = false;
-          showToast('⚠️ กำลังสลับไปเปิดแอป LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
-          executeDeepLinkFallback();
-          return;
-        }
-      }
-
-      // Fallback for regular browser or external environment
-      executeDeepLinkFallback();
+      // 4. Dispatch Order
+      await dispatchAggregatedOrder(orderCommand, aggregatedItems, totalTickets, totalPrice);
     });
 
     // Copy Command from Modal
@@ -2188,41 +2149,108 @@
       if (grandElem) grandElem.innerText = `${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
     }
 
+    let orderPollInterval = null;
+    let orderTimerInterval = null;
+
+    function resetModalState() {
+      if (orderPollInterval) {
+        clearInterval(orderPollInterval);
+        orderPollInterval = null;
+      }
+      if (orderTimerInterval) {
+        clearInterval(orderTimerInterval);
+        orderTimerInterval = null;
+      }
+      const modalIcon = document.getElementById('modal-icon');
+      const modalTitle = document.getElementById('modal-title');
+      const modalDesc = document.getElementById('modal-desc');
+      const modalOrderPreview = document.getElementById('modal-order-preview');
+      const modalProcessingArea = document.getElementById('modal-processing-area');
+      const modalQrArea = document.getElementById('modal-qr-area');
+      const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
+      const btnModalPaotang = document.getElementById('btn-modal-paotang');
+      const btnModalOpenLine = document.getElementById('btn-modal-open-line');
+      const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
+      const btnModalClose = document.getElementById('btn-modal-close');
+
+      if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-check"></i>';
+      if (modalTitle) modalTitle.textContent = 'พร้อมส่งคำสั่งซื้อสลาก N3';
+      if (modalDesc) modalDesc.textContent = 'ระบบได้จัดเตรียมคำสั่งซื้อของคุณเรียบร้อยแล้ว แตะปุ่มด้านล่างเพื่อเปิดแอป LINE และส่งคำสั่งได้ทันที';
+      if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+      if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+      if (modalQrArea) modalQrArea.style.display = 'none';
+      if (btnModalSaveQr) btnModalSaveQr.style.display = 'none';
+      if (btnModalPaotang) btnModalPaotang.style.display = 'none';
+      if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
+      if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
+      if (btnModalClose) btnModalClose.textContent = 'ปิดหน้าต่าง';
+    }
+
+    function startCountdown(seconds = 600) {
+      let remaining = seconds;
+      const timerElem = document.getElementById('modal-timer-text');
+      if (orderTimerInterval) clearInterval(orderTimerInterval);
+      
+      orderTimerInterval = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          clearInterval(orderTimerInterval);
+          if (timerElem) timerElem.textContent = 'หมดอายุแล้ว';
+          return;
+        }
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        if (timerElem) {
+          timerElem.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+          if (remaining < 120) {
+            timerElem.style.color = '#ef4444';
+          }
+        }
+      }, 1000);
+    }
+
+    // 3-Tier Mobile-First Image Saving Strategy
+    async function handleDownloadQr(url, filename = 'n3-payment-qr.png') {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const file = new File([blob], filename, { type: 'image/png' });
+
+        // Tier 1: Native Web Share API Level 2 (iOS & Android Native Share Sheet)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'QR Code ชำระเงินสลาก N3',
+              text: 'QR Code ชำระเงินสลาก N3 ร้านธนกิจนำโชค ผ่านแอปเป๋าตัง'
+            });
+            showToast('เปิดหน้าต่างบันทึกรูปภาพเรียบร้อยแล้ว', 'success');
+            return;
+          } catch (shareErr) {
+            if (shareErr.name === 'AbortError') return;
+            console.warn('Web Share failed:', shareErr);
+          }
+        }
+
+        // Tier 2: Synthetic Download Click (Standard Chrome / Safari / Desktop)
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        showToast('ดาวน์โหลดรูปภาพ QR Code สำเร็จ', 'success');
+      } catch (e) {
+        // Tier 3: External window or direct link navigation
+        window.open(url, '_blank');
+      }
+    }
+
     // Shared submission dispatcher helper
     async function dispatchAggregatedOrder(orderCommand, aggregatedItems, totalTickets, totalPrice) {
-      function executeDeepLinkFallback() {
-        const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
-        modalItemsText.textContent = previewText;
-        modalQtyText.textContent = `${totalTickets} ใบ`;
-        modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
-        modalCmdDisplay.textContent = orderCommand;
-
-        const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID);
-        const encodedMsg = encodeURIComponent(orderCommand);
-        const isAndroid = /Android/i.test(navigator.userAgent || '');
-        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-
-        const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
-        const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
-        const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
-
-        const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
-        btnModalOpenLine.href = directAppUrl;
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(orderCommand).catch(() => {});
-        }
-
-        modalConfirm.classList.add('active');
-        showToast(`🛒 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...`, 'success');
-
-        try {
-          window.location.href = directAppUrl;
-        } catch (err) {
-          try { window.location.href = universalUrl; } catch (e) {}
-        }
-      }
-
+      // 1. If inside LINE LIFF Client -> 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
       if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
         if (!isLiffReady) {
           try {
@@ -2238,25 +2266,156 @@
           return;
         }
 
+        btnSubmitOrder.disabled = true;
         showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
 
-        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100%)
+        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100% ไม่ต้องกดส่งซ้ำ)
         try {
           await liff.sendMessages([{ type: 'text', text: orderCommand }]);
           showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
           setTimeout(() => {
+            btnSubmitOrder.disabled = false;
             liff.closeWindow();
           }, 400);
           return;
         } catch (err) {
-          console.error('[LIFF QUICK BUY] sendMessages failed, trying fallback:', err);
-          showToast('⚠️ กำลังสลับไปเปิดแอป LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
-          executeDeepLinkFallback();
-          return;
+          console.error('[LIFF QUICK BUY] sendMessages failed, fallback to in-page / deep link:', err);
+          btnSubmitOrder.disabled = false;
         }
       }
 
-      executeDeepLinkFallback();
+      // 2. Outside LIFF or Web Mode: Reset & Open Modal
+      resetModalState();
+
+      const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
+      modalItemsText.textContent = previewText;
+      modalQtyText.textContent = `${totalTickets} ใบ`;
+      modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
+      modalCmdDisplay.textContent = orderCommand;
+
+      const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID);
+      const encodedMsg = encodeURIComponent(orderCommand);
+      const isAndroid = /Android/i.test(navigator.userAgent || '');
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+      const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+      const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+      const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+
+      const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+      btnModalOpenLine.href = directAppUrl;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(orderCommand).catch(() => {});
+      }
+
+      modalConfirm.classList.add('active');
+
+      // 3. Try In-Page Order Processing via /api/order-direct
+      const modalProcessingArea = document.getElementById('modal-processing-area');
+      const modalProcessingText = document.getElementById('modal-processing-text');
+      const modalQueueText = document.getElementById('modal-queue-text');
+      const modalQrArea = document.getElementById('modal-qr-area');
+      const modalQrImg = document.getElementById('modal-qr-img');
+      const modalTitle = document.getElementById('modal-title');
+      const modalDesc = document.getElementById('modal-desc');
+      const modalIcon = document.getElementById('modal-icon');
+      const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
+      const btnModalPaotang = document.getElementById('btn-modal-paotang');
+      const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
+
+      let currentUserId = 'anonymous_web_user';
+      if (typeof liff !== 'undefined' && isLiffReady) {
+        try {
+          const profile = await liff.getProfile();
+          if (profile && profile.userId) {
+            currentUserId = profile.userId;
+          }
+        } catch (e) {}
+      }
+
+      if (modalProcessingArea) modalProcessingArea.style.display = 'block';
+
+      try {
+        const res = await fetch('/api/order-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUserId,
+            items: aggregatedItems
+          })
+        });
+
+        const data = await res.json();
+        if (data.success && data.orderId) {
+          const orderId = data.orderId;
+          if (modalProcessingText) modalProcessingText.textContent = 'ระบบกำลังสร้าง QR Code บนระบบตัวแทน N3...';
+          if (modalQueueText) modalQueueText.textContent = data.queuePosition > 1 
+            ? `คิวที่ ${data.queuePosition} (รอประมาณ ~${data.estimatedSeconds || 15} วินาที)`
+            : 'กำลังเตรียมชุดตัวเลขและออก QR Code...';
+
+          // Start Polling order status
+          let pollCount = 0;
+          orderPollInterval = setInterval(async () => {
+            pollCount++;
+            if (pollCount > 90) { // 3 minutes timeout
+              clearInterval(orderPollInterval);
+              if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+              showToast('ใช้เวลาประมวลผลนานกว่าปกติ สามารถเปิดแอป LINE เพื่อตรวจสอบคำสั่งซื้อได้ครับ', 'info');
+              return;
+            }
+
+            try {
+              const statusRes = await fetch(`/api/order-status/${orderId}`);
+              if (!statusRes.ok) return;
+              const statusData = await statusRes.json();
+
+              if (statusData.status === 'processing') {
+                if (modalProcessingText) modalProcessingText.textContent = '⚡ กำลังเลือกตัวเลขสลากบนระบบตัวแทน...';
+              } else if (statusData.status === 'completed' && statusData.qrImageUrl) {
+                clearInterval(orderPollInterval);
+                if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+                if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-qrcode" style="color: #10b981;"></i>';
+                if (modalTitle) modalTitle.textContent = 'สแกน QR Code ชำระเงิน';
+                if (modalDesc) modalDesc.textContent = `ยอดรวม ${totalTickets} ใบ — ${totalPrice.toLocaleString()} บาท (ชำระผ่านแอปเป๋าตัง)`;
+                if (modalQrImg) modalQrImg.src = statusData.qrImageUrl;
+                if (modalQrArea) modalQrArea.style.display = 'block';
+
+                if (btnModalSaveQr) {
+                  btnModalSaveQr.style.display = 'flex';
+                  btnModalSaveQr.onclick = (e) => {
+                    e.preventDefault();
+                    handleDownloadQr(statusData.downloadUrl || statusData.qrImageUrl, `n3-payment-${orderId}.png`);
+                  };
+                }
+                if (btnModalPaotang) btnModalPaotang.style.display = 'flex';
+                if (btnModalOpenLine) btnModalOpenLine.style.display = 'none';
+                if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'none';
+
+                startCountdown(600);
+                showToast('✅ สร้าง QR Code ชำระเงินเรียบร้อยแล้ว!', 'success');
+              } else if (statusData.status === 'failed') {
+                clearInterval(orderPollInterval);
+                if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+                if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>';
+                if (modalTitle) modalTitle.textContent = 'ไม่สามารถทำรายการได้';
+                if (modalDesc) modalDesc.textContent = statusData.error || 'เกิดข้อผิดพลาดในการสั่งซื้อ กรุณาลองใหม่อีกครั้ง';
+                showToast(`❌ ${statusData.error || 'เกิดข้อผิดพลาด'}`, 'error');
+              }
+            } catch (pollErr) {
+              console.warn('Poll error:', pollErr);
+            }
+          }, 2000);
+        } else {
+          if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+          if (data.error) {
+            showToast(data.error, 'error');
+          }
+        }
+      } catch (apiErr) {
+        console.warn('/api/order-direct not reachable, falling back to deep link UI:', apiErr);
+        if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+      }
     }
 
     function submitSixPackOrder() {
