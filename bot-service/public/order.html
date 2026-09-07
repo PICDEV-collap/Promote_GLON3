@@ -2840,6 +2840,17 @@
       }
     }
 
+    async function initLiff() {
+      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
+        try {
+          await liff.init({ liffId: CONFIG.LIFF_ID });
+          isLiffReady = true;
+        } catch (e) {
+          console.warn('[LIFF] Standalone web mode');
+        }
+      }
+    }
+
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {
       setupMobileBackInterceptor();
