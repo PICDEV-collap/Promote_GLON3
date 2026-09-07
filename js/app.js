@@ -15,8 +15,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // -------------------------------------------------------------------------
   // 0. Direct Deep-Link & LIFF Direct Order Utilities
   // -------------------------------------------------------------------------
-  const ORDER_FORM_URL = 'order.html';
   const LIFF_ID = '2011462211-WVsuHFk4';
+  const LIFF_BASE_URL = `https://liff.line.me/${LIFF_ID}`;
   let isLiffReady = false;
 
   async function initIndexLiff() {
@@ -24,8 +24,9 @@ document.addEventListener('DOMContentLoaded', function () {
       try {
         await liff.init({ liffId: LIFF_ID });
         isLiffReady = true;
+        console.log('[LIFF index.html] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
       } catch (err) {
-        console.warn('[LIFF index.html] Standalone mode (direct web)');
+        console.warn('[LIFF index.html] Init failed:', err);
       }
     }
   }
@@ -69,26 +70,76 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function openLineOrder(lineId, message, customOrderParam) {
     const orderParam = customOrderParam || parseOrderParamFromMessage(message);
-    const orderWebUrl = orderParam ? `order.html?order=${encodeURIComponent(orderParam)}` : 'order.html';
+    const liffUrl = orderParam ? `${LIFF_BASE_URL}?order=${encodeURIComponent(orderParam)}` : LIFF_BASE_URL;
 
-    // 1. If message is provided, dispatch directly to LINE OA Chat
-    if (message) {
-      if (typeof copyToClipboard === 'function') {
-        try { copyToClipboard(message); } catch (e) {}
+    // 1. Automatic Direct Order / Messaging via LINE LIFF SDK (Inside LINE App)
+    if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+      // A. Direct API Order Submission if user is logged in
+      if (liff.isLoggedIn()) {
+        let userId = null;
+        try {
+          const profile = await liff.getProfile();
+          userId = profile?.userId || null;
+        } catch (e) {
+          try {
+            const ctx = liff.getContext();
+            userId = ctx?.userId || null;
+          } catch (_) {}
+        }
+
+        if (userId && orderParam) {
+          try {
+            const items = orderParam.split(',').map(p => {
+              const [num, qty] = p.split(':');
+              return { number: num, quantity: parseInt(qty || '1', 10) };
+            });
+            const apiEndpoint = window.location.origin + '/api/order-direct';
+            const apiRes = await fetch(apiEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, items })
+            });
+
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.success) {
+                if (typeof showToast === 'function') showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
+                setTimeout(() => {
+                  try { liff.closeWindow(); } catch (e) {}
+                }, 900);
+                return;
+              }
+            }
+          } catch (apiErr) {
+            console.warn('[DIRECT ORDER API] Failed from index.html, trying liff.sendMessages:', apiErr);
+          }
+        }
       }
-      const deepLink = getLineDeepLink(lineId, message);
-      if (typeof showToast === 'function') {
-        showToast('🚀 กำลังเปิด LINE เพื่อส่งคำสั่งซื้อ...', 'success');
+
+      // B. Fallback to liff.sendMessages in LINE chat
+      try {
+        await liff.sendMessages([
+          {
+            type: 'text',
+            text: message
+          }
+        ]);
+        if (typeof showToast === 'function') showToast('✅ สั่งซื้อสำเร็จ! ส่งรายการสั่งซื้อเข้าแชท LINE แล้ว', 'success');
+        setTimeout(() => {
+          try { liff.closeWindow(); } catch (e) {}
+        }, 800);
+        return;
+      } catch (err) {
+        console.warn('[LIFF] sendMessages failed from index.html:', err);
       }
-      setTimeout(() => {
-        window.location.href = deepLink.directUrl;
-      }, 200);
-      return;
     }
 
-    // 2. Otherwise navigate to web order table
-    if (typeof showToast === 'function') showToast(`🛒 กำลังเปิดตารางสั่งซื้อ N3...`);
-    window.location.href = orderWebUrl;
+    // 2. Outside LINE App (or LIFF sendMessages fallback): Redirect to LIFF URL (order.html)
+    if (typeof copyToClipboard === 'function' && message) {
+      try { copyToClipboard(message); } catch (e) {}
+    }
+    if (typeof showToast === 'function') showToast(`🛒 กำลังเปิดตารางสั่งซื้อ N3 ใน LINE (LIFF)...`);
+    window.location.href = liffUrl;
   }
 
   window.getLineDeepLink = getLineDeepLink;
@@ -964,25 +1015,20 @@ document.addEventListener('DOMContentLoaded', function () {
       : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
     const dynamicLineOaId = currentAgentLine || '@586xxhlx';
 
-    // 2. Setup Primary LINE Order Button (Direct LINE Deep Link)
+    const LIFF_BASE_URL = 'https://liff.line.me/2011462211-WVsuHFk4';
+
+    // 2. Setup Primary LINE Order Button (Redirect to LIFF / Direct API)
     const btnOrderLine = document.getElementById('btn-order-dream-line');
     if (btnOrderLine) {
       const orderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
       const orderParam = `${pred.n3Direct}:1`;
-      const deepLink = getLineDeepLink(dynamicLineOaId, orderMsg);
-      btnOrderLine.href = deepLink.directUrl;
+      btnOrderLine.href = `${LIFF_BASE_URL}?order=${encodeURIComponent(orderParam)}`;
       btnOrderLine.removeAttribute('target');
       btnOrderLine.innerHTML = `<i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>`;
       btnOrderLine.onclick = (e) => {
         e.preventDefault();
         openLineOrder(dynamicLineOaId, orderMsg, orderParam);
       };
-    }
-
-    // Setup Secondary Direct Table Order Button
-    const btnDreamOpenTable = document.getElementById('btn-dream-open-table');
-    if (btnDreamOpenTable) {
-      btnDreamOpenTable.href = `order.html?order=${encodeURIComponent(pred.n3Direct + ':1')}`;
     }
 
     // 3. Setup Package Click Handlers
@@ -1023,10 +1069,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // 4. Update Floating Mobile Bottom Bar Action
     const mobileLineBtn = document.querySelector('.mobile-bar-btn-line');
     if (mobileLineBtn) {
+      const orderMsg = `สั่งซื้อ ${pred.n3Direct} 1 ใบ`;
       const orderParam = `${pred.n3Direct}:1`;
-      mobileLineBtn.href = `order.html?order=${encodeURIComponent(orderParam)}`;
+      mobileLineBtn.href = `${LIFF_BASE_URL}?order=${encodeURIComponent(orderParam)}`;
       mobileLineBtn.removeAttribute('target');
-      mobileLineBtn.innerHTML = `<i class="fas fa-cart-shopping"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
+      mobileLineBtn.innerHTML = `<i class="fab fa-line" style="font-size: 1.15rem;"></i> สั่งซื้อเลข ${pred.n3Direct} (20บ.)`;
+      mobileLineBtn.onclick = (e) => {
+        e.preventDefault();
+        openLineOrder(dynamicLineOaId, orderMsg, orderParam);
+      };
     }
 
     try { SoundEngine.playRevealFanfare(); } catch (err) {}
