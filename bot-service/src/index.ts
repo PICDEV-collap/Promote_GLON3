@@ -305,13 +305,15 @@ const customerRegistry = CustomerRegistry.getInstance();
 const campaignService = CampaignService.getInstance();
 
 // Health Check API สำหรับตรวจสอบสถานะและ Telemetry ของระบบ
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const lineQuota = await lineHandler.getQuotaStatus().catch(() => null);
   res.json({
     status: 'ok',
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
     quota: quotaManager.getStatus(),
+    lineQuota: lineQuota || { type: 'unknown', value: 300, totalUsage: 300, remaining: 0, isExhausted: true },
     customers: customerRegistry.getStats(),
     queue: {
       isBusy: orderQueue.isBusy()
@@ -647,14 +649,21 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
  * ตั้งค่า Worker สำหรับประมวลผลคำสั่งซื้อในคิว
  */
 orderQueue.setWorker(async (task: OrderTask) => {
-  // ฟังก์ชันช่วยส่งข้อความหาลูกค้า พร้อมระบบ Fallback อัตโนมัติไปยัง Push Message หาก replyToken หมดอายุ
+  // ฟังก์ชันช่วยส่งข้อความหาลูกค้า: ส่งผ่าน ReplyToken ก่อนเสมอ (ฟรี 100% ไม่เสียโควต้า Push) และ Fallback ไปยัง Push Message หากจำเป็น
   const sendCustomerMessage = async (messages: any[]): Promise<boolean> => {
     let sent = false;
     if (!task.hasRepliedQueue && task.replyToken) {
       sent = await lineHandler.reply(task.replyToken, messages);
+      if (sent) {
+        task.hasRepliedQueue = true;
+        console.log(`[ORDER DELIVERY SUCCESS] ส่งข้อความสำเร็จผ่าน ReplyToken (ฟรี 100% ไม่เสียโควต้าข้อความ) สำหรับออเดอร์ ${task.orderId}`);
+      }
     }
     if (!sent && task.userId && task.userId !== 'anonymous') {
       sent = await lineHandler.push(task.userId, messages);
+      if (sent) {
+        console.log(`[ORDER DELIVERY FALLBACK] ส่งข้อความผ่าน Push Message สำหรับออเดอร์ ${task.orderId}`);
+      }
     }
     return sent;
   };
@@ -1377,11 +1386,11 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         continue;
       }
 
-      // 5. เปิดอนิเมชันจุดกำลังพิมพ์ (LINE Native Loading Indicator)
-      await lineHandler.showLoading(userId, 30);
+      // 5. เปิดอนิเมชันจุดกำลังพิมพ์ (LINE Native Loading Indicator) — ฟรี 100% ไม่เปลือง ReplyToken และไม่คิดโควต้า
+      await lineHandler.showLoading(userId, 35);
       customerRegistry.incrementOrderCount(userId);
 
-      // 6. นำเข้าคิวสั่งซื้อ & ส่งข้อความต้อนรับอวยพรรอคิวทันที (สไตล์ที่ 3)
+      // 6. นำเข้าคิวสั่งซื้อ โดยสงวน ReplyToken ไว้ส่งภาพ QR Code ฟรี 100% (Reply-First Architecture)
       const orderTask: OrderTask = {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
@@ -1399,13 +1408,16 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
       const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
 
-      const waitingMessage = queuePos > 1
-        ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ มีออเดอร์ก่อนหน้า กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
-        : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
-
-      console.log(`[ORDER ACK] ส่งข้อความรับออเดอร์และคำอวยพรให้ลูกค้า ${userId} (คิวที่ ${queuePos})`);
-      const replySuccess = await lineHandler.reply(replyToken, [{ type: 'text', text: waitingMessage }]);
-      orderTask.hasRepliedQueue = replySuccess;
+      // สำหรับออเดอร์ทั่วไป (คิวที่ 1-2): สงวน ReplyToken ไว้ส่ง QR Code สุดท้าย เพื่อให้ฟรี 100% ตลอดชีพ
+      // เฉพาะกรณีคิวยาวมาก (คิว >= 3 และเวลารอ > 45 วินาที): แจ้งเตือนข้อความรอคิวก่อน ReplyToken หมดอายุ
+      if (queuePos >= 3 && estSeconds > 45) {
+        const waitingMessage = `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ มีออเดอร์ก่อนหน้า กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
+        console.log(`[ORDER ACK QUEUE DELAY] แจ้งสถานะคิวล่วงหน้าเนื่องจากคิวยาว (คิวที่ ${queuePos}) ให้ลูกค้า ${userId}`);
+        const replySuccess = await lineHandler.reply(replyToken, [{ type: 'text', text: waitingMessage }]);
+        orderTask.hasRepliedQueue = replySuccess;
+      } else {
+        console.log(`[ORDER ENQUEUED ZERO-QUOTA] ออเดอร์ ${orderTask.orderId} เข้าคิวลำดับที่ ${queuePos} — สงวน ReplyToken ไว้ส่งมอบ QR Code ฟรี 100% (ไม่ใช้โควต้า Push)`);
+      }
     }
   }
 });
@@ -1457,11 +1469,19 @@ app.post('/admin/quota/sync', requireAdminAuth, async (_req: Request, res: Respo
   }
 });
 
-app.get('/status', (_req: Request, res: Response) => {
+app.get('/api/line-quota', async (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const lineQuota = await lineHandler.getQuotaStatus(true);
+  res.json({ success: true, lineQuota });
+});
+
+app.get('/status', async (_req: Request, res: Response) => {
+  const lineQuota = await lineHandler.getQuotaStatus().catch(() => null);
   res.json({
     status: 'online',
     queueLength: orderQueue.getQueueLength(),
     quota: quotaManager.getStatus(),
+    lineQuota: lineQuota || { type: 'unknown', value: 300, totalUsage: 300, remaining: 0, isExhausted: true },
     salesHours: OperatingHoursGuard.checkSalesStatus()
   });
 });

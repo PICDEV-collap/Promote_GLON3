@@ -16,8 +16,19 @@ export function getThaiTime(date: Date = new Date()): string {
   }
 }
 
+export interface LineQuotaStatus {
+  type: string; // 'none' | 'limited' | 'unlimited' | 'unknown'
+  value?: number;
+  totalUsage?: number;
+  remaining?: number;
+  isExhausted: boolean;
+  checkedAt: number;
+}
+
 export class LineReplyHandler {
   private client: messagingApi.MessagingApiClient | null = null;
+  private cachedQuotaStatus: LineQuotaStatus | null = null;
+  private lastQuotaCheckTime: number = 0;
 
   constructor() {
     if (CONFIG.LINE_CHANNEL_ACCESS_TOKEN) {
@@ -27,6 +38,83 @@ export class LineReplyHandler {
     } else {
       console.warn('[LINE] ยังไม่ได้ระบุ LINE_CHANNEL_ACCESS_TOKEN ในระบบ');
     }
+  }
+
+  /**
+   * ดึงข้อมูลยอดโควต้าข้อความ Push ประจำเดือนจาก LINE Messaging API
+   */
+  public async getQuotaStatus(forceRefresh: boolean = false): Promise<LineQuotaStatus> {
+    const now = Date.now();
+    if (!forceRefresh && this.cachedQuotaStatus && (now - this.lastQuotaCheckTime < 60000)) {
+      return this.cachedQuotaStatus;
+    }
+
+    if (!CONFIG.LINE_CHANNEL_ACCESS_TOKEN) {
+      return {
+        type: 'none',
+        value: 0,
+        totalUsage: 0,
+        remaining: 0,
+        isExhausted: true,
+        checkedAt: now
+      };
+    }
+
+    try {
+      const headers = { Authorization: `Bearer ${CONFIG.LINE_CHANNEL_ACCESS_TOKEN}` };
+
+      // 1. ตรวจสอบขีดจำกัดโควต้าประจำเดือน (Quota Limit)
+      const quotaRes = await fetch('https://api.line.me/v2/bot/message/quota', { headers });
+      let quotaData: any = {};
+      if (quotaRes.ok) {
+        quotaData = await quotaRes.json();
+      }
+
+      // 2. ตรวจสอบยอดการใช้งานจริงในเดือนปัจจุบัน (Consumption)
+      const consRes = await fetch('https://api.line.me/v2/bot/message/quota/consumption', { headers });
+      let consData: any = {};
+      if (consRes.ok) {
+        consData = await consRes.json();
+      }
+
+      const type = quotaData.type || 'limited';
+      const value = typeof quotaData.value === 'number' ? quotaData.value : (type === 'unlimited' ? Infinity : 300);
+      const totalUsage = typeof consData.totalUsage === 'number' ? consData.totalUsage : 0;
+      const remaining = type === 'unlimited' ? Infinity : Math.max(0, value - totalUsage);
+      const isExhausted = type === 'limited' && remaining <= 0;
+
+      this.cachedQuotaStatus = {
+        type,
+        value,
+        totalUsage,
+        remaining,
+        isExhausted,
+        checkedAt: now
+      };
+      this.lastQuotaCheckTime = now;
+
+      return this.cachedQuotaStatus;
+    } catch (err) {
+      console.warn('[LINE QUOTA API WARNING] ไม่สามารถดึงข้อมูลโควต้า LINE ได้:', err);
+      return this.cachedQuotaStatus || {
+        type: 'unknown',
+        value: 300,
+        totalUsage: 300,
+        remaining: 0,
+        isExhausted: true,
+        checkedAt: now
+      };
+    }
+  }
+
+  /**
+   * ตรวจสอบว่าสามารถส่งข้อความ Push ได้หรือไม่ (หากโควต้าหมดจะแนะนำให้ใช้ ReplyToken)
+   */
+  public isPushAvailable(): boolean {
+    if (this.cachedQuotaStatus && this.cachedQuotaStatus.isExhausted) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -53,7 +141,7 @@ export class LineReplyHandler {
   }
 
   /**
-   * ส่งข้อความตอบกลับโดยใช้ replyToken (ฟรี ไม่เสียโควต้า Push Message 500 ข้อความ)
+   * ส่งข้อความตอบกลับโดยใช้ replyToken (ฟรี ไม่เสียโควต้า Push Message ตลอดชีพ)
    */
   public async reply(replyToken: string, messages: messagingApi.Message[]): Promise<boolean> {
     const safeMessages = LineReplyHandler.sanitizeMessages(messages);
@@ -67,10 +155,10 @@ export class LineReplyHandler {
         replyToken,
         messages: safeMessages
       });
-      console.log('[LINE REPLY SUCCESS] ส่งข้อความผ่าน ReplyToken สำเร็จ (ไม่เสียโควต้าข้อความ)');
+      console.log('[LINE REPLY SUCCESS] ส่งข้อความผ่าน ReplyToken สำเร็จ (ฟรี 100% ไม่เสียโควต้า)');
       return true;
-    } catch (error) {
-      console.error('[LINE REPLY ERROR] ไม่สามารถส่งข้อความผ่าน ReplyToken ได้:', error);
+    } catch (error: any) {
+      console.error('[LINE REPLY ERROR] ไม่สามารถส่งข้อความผ่าน ReplyToken ได้:', error?.message || error);
       return false;
     }
   }
@@ -92,8 +180,16 @@ export class LineReplyHandler {
       });
       console.log('[ADMIN PUSH SUCCESS] ส่งแจ้งเตือนเข้า LINE แอดมินสำเร็จ');
       return true;
-    } catch (error) {
-      console.error('[ADMIN PUSH ERROR] ไม่สามารถส่งแจ้งเตือนแอดมินได้:', error);
+    } catch (error: any) {
+      if (error?.status === 429 || (error?.message && error.message.includes('monthly limit'))) {
+        console.warn('[ADMIN PUSH NOTICE] โควต้า Push Message ประจำเดือนหมดลงแล้ว (HTTP 429) — แอดมินสามารถดู QR ผ่าน Webhook URL / Console');
+        if (this.cachedQuotaStatus) {
+          this.cachedQuotaStatus.isExhausted = true;
+          this.cachedQuotaStatus.remaining = 0;
+        }
+      } else {
+        console.error('[ADMIN PUSH ERROR] ไม่สามารถส่งแจ้งเตือนแอดมินได้:', error?.message || error);
+      }
       return false;
     }
   }
@@ -127,11 +223,11 @@ export class LineReplyHandler {
   }
 
   /**
-   * ส่งข้อความ Push โดยตรงไปยัง User ID ของลูกค้า (ใช้เมื่อคิวต้องรอนานจน replyToken หมดอายุ)
+   * ส่งข้อความ Push โดยตรงไปยัง User ID ของลูกค้า (ใช้เมื่อไม่มี ReplyToken หรือคำสั่งซื้อจากภายนอก)
    */
   public async push(userId: string, messages: messagingApi.Message[]): Promise<boolean> {
     const safeMessages = LineReplyHandler.sanitizeMessages(messages);
-    if (!this.client || !userId) {
+    if (!this.client || !userId || userId === 'anonymous') {
       console.log(`[LINE SIMULATE PUSH] ส่งให้ ${userId}:`, JSON.stringify(safeMessages, null, 2));
       return true;
     }
@@ -143,17 +239,25 @@ export class LineReplyHandler {
       });
       console.log(`[LINE PUSH SUCCESS] ส่งข้อความ Push ให้ลูกค้า ${userId} สำเร็จ`);
       return true;
-    } catch (error) {
-      console.error(`[LINE PUSH ERROR] ไม่สามารถส่งข้อความ Push ให้ลูกค้า ${userId} ได้:`, error);
+    } catch (error: any) {
+      if (error?.status === 429 || (error?.message && error.message.includes('monthly limit'))) {
+        console.warn(`[LINE PUSH 429] โควต้า Push Message ฟรี 300 ข้อความหมดแล้วสำหรับเดือนนี้ -> แนะนำให้ลูกค้าส่งข้อความในห้องแชทเพื่อให้ระบบตอบกลับฟรีผ่าน ReplyToken`);
+        if (this.cachedQuotaStatus) {
+          this.cachedQuotaStatus.isExhausted = true;
+          this.cachedQuotaStatus.remaining = 0;
+        }
+      } else {
+        console.error(`[LINE PUSH ERROR] ไม่สามารถส่งข้อความ Push ให้ลูกค้า ${userId} ได้:`, error?.message || error);
+      }
       return false;
     }
   }
 
   /**
    * แสดงอนิเมชันจุด 3 จุดกำลังพิมพ์ในห้องแชท LINE (Native Loading Animation)
-   * ฟังก์ชันทางการของ LINE: ไม่เปลือง ReplyToken และไม่คิดโควต้าข้อความ Push
+   * ฟังก์ชันทางการของ LINE: ฟรี 100% ไม่เปลือง ReplyToken และไม่คิดโควต้าข้อความ Push
    */
-  public async showLoading(userId: string, seconds: number = 20): Promise<boolean> {
+  public async showLoading(userId: string, seconds: number = 30): Promise<boolean> {
     if (!this.client || !userId || userId === 'anonymous') {
       return false;
     }
@@ -164,11 +268,10 @@ export class LineReplyHandler {
         chatId: userId,
         loadingSeconds: validSeconds
       });
-      console.log(`[LINE LOADING ANIMATION] แสดงสถานะกำลังพิมพ์ให้ลูกค้า ${userId} (${validSeconds} วินาที)`);
+      console.log(`[LINE LOADING ANIMATION] แสดงสถานะกำลังพิมพ์ให้ลูกค้า ${userId} (${validSeconds} วินาที - ฟรี 100%)`);
       return true;
-    } catch (error) {
-      // ป้องกัน error ในกรณีที่บัญชีไลน์ผู้ใช้เวอร์ชันเก่าหรือเป็น Group Chat
-      console.warn('[LINE LOADING NOTICE] ไม่สามารถแสดงสถานะกำลังพิมพ์ได้:', error);
+    } catch (error: any) {
+      console.warn('[LINE LOADING NOTICE] ไม่สามารถแสดงสถานะกำลังพิมพ์ได้:', error?.message || error);
       return false;
     }
   }

@@ -138,19 +138,21 @@ export class OrderHeartbeatManager {
     hb.tickCount++;
     const msgText = this.buildProgressMessage(hb);
 
-    console.log(`[HEARTBEAT TICK #${hb.tickCount}] ส่งข้อความอัปเดตสถานะ (${hb.stage}) ให้ลูกค้า ${hb.task.userId} (ออเดอร์ ${orderId})`);
+    console.log(`[HEARTBEAT TICK #${hb.tickCount}] อัปเดตสถานะ (${hb.stage}) สำหรับลูกค้า ${hb.task.userId} (ออเดอร์ ${orderId})`);
 
     try {
-      // 1. ต่ออายุ Loading Animation ใน LINE
-      await this.lineHandler.showLoading(hb.task.userId, 20).catch(() => {});
+      // 1. ต่ออายุ Loading Animation ใน LINE (ฟรี 100% ไม่เสียโควต้าข้อความ)
+      await this.lineHandler.showLoading(hb.task.userId, 25).catch(() => {});
 
-      // 2. ส่ง Push Message แจ้งสถานะ
-      await this.lineHandler.push(hb.task.userId, [
-        {
-          type: 'text',
-          text: msgText
-        }
-      ]);
+      // 2. ส่ง Push Message เฉพาะเมื่อมีโควต้า Push และรอนานเกิน 40 วินาทีขึ้นไป (ป้องกันการผลาญโควต้า)
+      if (this.lineHandler.isPushAvailable() && hb.tickCount >= 2) {
+        await this.lineHandler.push(hb.task.userId, [
+          {
+            type: 'text',
+            text: msgText
+          }
+        ]);
+      }
     } catch (err) {
       console.warn(`[HEARTBEAT ERROR] ไม่สามารถส่งแจ้งเตือนให้ลูกค้า ${hb.task.userId} ได้:`, err);
     }
