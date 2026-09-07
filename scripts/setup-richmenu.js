@@ -22,11 +22,11 @@ const RICH_MENU_SPEC = {
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: ROW_H },
-      action: { type: 'uri', uri: 'https://liff.line.me/2011462211-WVsuHFk4' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/order.html' }
     },
     {
       bounds: { x: 833, y: 0, width: 834, height: ROW_H },
-      action: { type: 'uri', uri: 'https://liff.line.me/2011462211-WVsuHFk4?mode=6pack' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/order-6pack.html' }
     },
     {
       bounds: { x: 1667, y: 0, width: 833, height: ROW_H },
