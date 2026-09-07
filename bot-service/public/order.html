@@ -1520,6 +1520,25 @@
         toastBox.classList.remove('show');
       }, 3500);
     }
+    // Screen Wake Lock API Guard (ป้องกันหน้าจอพัก / จอดับระหว่างเลือกตัวเลขและสั่งซื้อ)
+    let wakeLockSentinel = null;
+    async function requestScreenWakeLock() {
+      if ('wakeLock' in navigator && navigator.wakeLock.request) {
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+          console.log('[WAKE LOCK] เปิดโหมดห้ามพักหน้าจอสำเร็จ (Screen Wake Lock Active)');
+        } catch (err) {
+          console.warn('[WAKE LOCK] ขอสิทธิ์ห้ามพักหน้าจอไม่ได้:', err?.message);
+        }
+      }
+    }
+
+    requestScreenWakeLock();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        requestScreenWakeLock();
+      }
+    });
 
     // Convert Thai numerals to Arabic digits
     function toArabicDigits(str) {
@@ -2378,6 +2397,9 @@
         return;
       }
 
+      // Activate Screen Wake Lock during active order processing
+      requestScreenWakeLock();
+
       const modalTitle = document.getElementById('modal-title');
       const modalDesc = document.getElementById('modal-desc');
       const modalOrderPreview = document.getElementById('modal-order-preview');
@@ -2391,9 +2413,17 @@
       const modalProcStatus = document.getElementById('modal-proc-status');
       const modalQrImg = document.getElementById('modal-qr-img');
 
+      // Calculate total unique 3-digit numbers to order
+      const totalNumberCount = currentOrderData.aggregatedItems.length;
+
+      // Rate formula: 6 numbers per 20 seconds (20/6 = ~3.33s per number) + 6s base setup overhead
+      const baseOverheadSeconds = 6;
+      const calculatedRateSeconds = Math.ceil((totalNumberCount / 6) * 20);
+      let targetSeconds = Math.max(10, baseOverheadSeconds + calculatedRateSeconds);
+
       // 1. Enter Processing UI State
       if (modalTitle) modalTitle.textContent = 'ระบบกำลังสร้าง QR Code...';
-      if (modalDesc) modalDesc.textContent = 'บอทกำลังเปิดระบบตัวแทนจำหน่าย GLO เพื่อหยิบสลากและสร้าง QR ชำระเงิน กรุณารอสักครู่ (ประมาณ 10-15 วินาที)';
+      if (modalDesc) modalDesc.textContent = `บอทกำลังเปิดระบบ GLO เพื่อเลือกสลาก ${totalNumberCount} เลข (เฉลี่ย 6 เลข/20 วินาที) กรุณารอสักครู่ (ประมาณ ${targetSeconds} วินาที)`;
       if (modalOrderPreview) modalOrderPreview.style.display = 'none';
       if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'none';
       if (btnModalOpenLine) btnModalOpenLine.style.display = 'none';
@@ -2404,14 +2434,13 @@
         modalProgressBar.style.width = '5%';
         modalProgressBar.style.background = 'linear-gradient(90deg, #10b981, #f59e0b)';
       }
-      if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อเข้าระบบ...';
+      if (modalProcStatus) modalProcStatus.textContent = `กำลังส่งคำสั่งซื้อ ${totalNumberCount} รายการเข้าระบบ...`;
 
       const startTime = Date.now();
-      let targetSeconds = 14; // Actual average processing time on GLO portal
       let currentProgress = 5;
 
-      const updateProgressUI = (queuePos = 0, estSec = 14) => {
-        if (estSec && estSec > 0) targetSeconds = estSec;
+      const updateProgressUI = (queuePos = 0, estSec = targetSeconds) => {
+        if (estSec && estSec > targetSeconds) targetSeconds = estSec;
         const elapsedSec = (Date.now() - startTime) / 1000;
         const remainingSec = Math.max(1, Math.ceil(targetSeconds - elapsedSec));
 
@@ -2428,13 +2457,14 @@
           if (modalProcStatus) modalProcStatus.textContent = `กำลังเข้าคิวประมวลผล (คิวที่ ${queuePos})...`;
           if (modalQueueText) modalQueueText.textContent = `⏱️ รอคิวในระบบประมาณ ${remainingSec} วินาที...`;
         } else {
-          if (elapsedSec < 3) {
-            if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อและเชื่อมต่อร้านค้า...';
+          const selectPhaseEnd = Math.max(5, targetSeconds - 4);
+          if (elapsedSec < 4) {
+            if (modalProcStatus) modalProcStatus.textContent = 'กำลังส่งคำสั่งซื้อและเชื่อมต่อร้านค้า GLO...';
             if (modalQueueText) modalQueueText.textContent = `⏱️ กำลังเตรียมระบบ (คาดว่าใช้เวลาประมาณ ${remainingSec} วิ)`;
-          } else if (elapsedSec < 9) {
-            if (modalProcStatus) modalProcStatus.textContent = 'บอทกำลังเปิดระบบ GLO เพื่อหยิบสลากตามตัวเลขที่เลือก...';
+          } else if (elapsedSec < selectPhaseEnd) {
+            if (modalProcStatus) modalProcStatus.textContent = `บอทกำลังเลือกสลากบน GLO ทั้งหมด ${totalNumberCount} เลข (เฉลี่ย 6 เลข/20 วิ)...`;
             if (modalQueueText) modalQueueText.textContent = `🛒 กำลังใส่ตะกร้าสลาก (คาดว่าใช้เวลาอีกประมาณ ${remainingSec} วิ)`;
-          } else if (elapsedSec < 15) {
+          } else if (elapsedSec < targetSeconds + 5) {
             if (modalProcStatus) modalProcStatus.textContent = 'บอทกำลังตรวจสอบสลากและสร้าง QR Code ชำระเงิน...';
             if (modalQueueText) modalQueueText.textContent = `🧾 กำลังสร้าง QR Code (คาดว่าใช้เวลาอีกประมาณ ${remainingSec} วิ)`;
           } else {
@@ -2473,14 +2503,15 @@
 
         const orderId = resData.orderId;
         if (resData.estimatedSeconds) {
-          targetSeconds = resData.estimatedSeconds;
+          targetSeconds = Math.max(targetSeconds, resData.estimatedSeconds);
         }
 
         // Poll order status
         if (orderPollInterval) clearInterval(orderPollInterval);
         
         let pollCount = 0;
-        const maxPolls = 60; // 60 * 1.5s = 90s max
+        // Dynamically calculate maxPolls so polling never times out prematurely for multi-number orders
+        const maxPolls = Math.max(120, Math.ceil((targetSeconds + 60) / 1.5));
 
         orderPollInterval = setInterval(async () => {
           pollCount++;
@@ -2809,12 +2840,36 @@
       }
     }
 
+    // Screen Wake Lock API to prevent mobile and desktop browsers from sleeping or dimming
+    let wakeLockSentinel = null;
+
+    async function requestScreenWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+          console.log('🛡️ Screen Wake Lock activated');
+          wakeLockSentinel.addEventListener('release', () => {
+            console.log('🛡️ Screen Wake Lock released');
+          });
+        } catch (err) {
+          console.warn('Screen Wake Lock request failed:', err);
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLockSentinel !== null && document.visibilityState === 'visible') {
+        await requestScreenWakeLock();
+      }
+    });
+
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {
       setupMobileBackInterceptor();
       initFromParams();
       initLiff();
       updateDigitDisplay();
+      requestScreenWakeLock();
     });
   </script>
 </body>

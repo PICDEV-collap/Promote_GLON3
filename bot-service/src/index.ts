@@ -613,7 +613,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
 
   const queuePos = orderQueue.enqueue(orderTask);
   orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
-  const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
+  const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, validItems.length);
 
   const waitingMessage = queuePos > 1
     ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
@@ -1635,7 +1635,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
       const queuePos = orderQueue.enqueue(orderTask);
       orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
-      const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
+      const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, parsedItems.length);
 
       // สำหรับออเดอร์ทั่วไป (คิวที่ 1-2): สงวน ReplyToken ไว้ส่ง QR Code สุดท้าย เพื่อให้ฟรี 100% ตลอดชีพ
       // เฉพาะกรณีคิวยาวมาก (คิว >= 3 และเวลารอ > 45 วินาที): แจ้งเตือนข้อความรอคิวก่อน ReplyToken หมดอายุ
