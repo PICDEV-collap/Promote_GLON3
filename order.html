@@ -1423,7 +1423,7 @@
       <div id="modal-processing-area" style="display: none; margin: 0.9rem 0; padding: 1.1rem; background: rgba(0,0,0,0.45); border-radius: var(--radius-sm); border: 1px solid rgba(212, 175, 55, 0.4); text-align: center;">
         <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.6rem;">
           <div class="processing-spinner"></div>
-          <span id="modal-processing-text" style="font-size: 0.95rem; color: var(--color-gold-light); font-weight: 700;">กำลังส่งคำสั่งซื้อเข้าระบบ...</span>
+          <span id="modal-proc-status" style="font-size: 0.95rem; color: var(--color-gold-light); font-weight: 700;">กำลังส่งคำสั่งซื้อเข้าระบบ...</span>
         </div>
         <div id="modal-queue-text" style="font-size: 0.82rem; color: #bae6fd; margin-top: 0.25rem;">กำลังจัดคิวประมวลผลบนระบบตัวแทนสลาก N3 (~10-15 วิ)</div>
         <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 0.75rem;">
@@ -1439,9 +1439,20 @@
         <div style="font-size: 0.88rem; color: #bae6fd; margin-top: 0.6rem; font-weight: 600;">
           ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 1rem;">10:00</span> นาที
         </div>
+
+        <!-- 1-Tap Action Buttons for Mobile QR -->
+        <div style="display: flex; gap: 0.6rem; margin-top: 0.85rem;">
+          <button type="button" class="btn-submit-order" style="flex: 1; padding: 0.75rem 0.5rem; font-size: 0.95rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); margin-top: 0; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);" onclick="saveCurrentModalQr()">
+            <i class="fas fa-download"></i> บันทึกรูป QR
+          </button>
+          <button type="button" class="btn-submit-order" style="flex: 1; padding: 0.75rem 0.5rem; font-size: 0.95rem; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); margin-top: 0; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);" onclick="openPaotangApp(event)">
+            <i class="fas fa-wallet"></i> เปิดแอปเป๋าตัง
+          </button>
+        </div>
+
         <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.6;">
           📸 <b>ขั้นตอนชำระเงินง่ายๆ 2 ขั้นตอน:</b><br>
-          1. <b>แคปหน้าจอ (Screenshot)</b> หรือ <b>แตะค้างที่รูป QR (Long-press)</b> แล้วเลือก <i>"บันทึกรูปภาพ"</i><br>
+          1. <b>แคปหน้าจอ (Screenshot)</b> หรือกดปุ่ม <b>"บันทึกรูป QR"</b> ด้านบน<br>
           2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR จากอัลบั้มรูปเพื่อชำระเงิน
         </div>
       </div>
@@ -1673,7 +1684,7 @@
         let raw = toArabicDigits(target.value).replace(/\D/g, '');
         let val = parseInt(raw, 10);
         if (!isNaN(val)) {
-          if (val > CONFIG.MAX_QUANTITY_PER_ROW) val = CONFIG.MAX_QUANTITY_PER_ROW;
+          val = Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, val));
           row.quantity = val;
         } else {
           row.quantity = 1;
@@ -1811,11 +1822,14 @@
       permute(digits);
 
       const uniquePerms = Array.from(perms);
+      // Clean up empty rows before expanding permutations
+      rowsData = rowsData.filter(r => r.number && r.number.trim().length > 0);
       const existingNums = new Set(rowsData.map(r => r.number));
       const toAdd = uniquePerms.filter(num => !existingNums.has(num));
 
       if (toAdd.length === 0) {
         showToast(`ชุดโต๊ด ${lastFilled.number} (${uniquePerms.length} ประตู) มีอยู่ในตารางครบแล้ว`, 'info');
+        renderTable();
         return;
       }
 
@@ -1845,6 +1859,13 @@
 
     // Submit Order Handler
     btnSubmitOrder.addEventListener('click', async () => {
+      // 0. Auto-clean empty trailing rows if valid rows exist
+      const filledRows = rowsData.filter(r => r.number && r.number.trim().length > 0);
+      if (filledRows.length > 0 && filledRows.length < rowsData.length) {
+        rowsData = filledRows;
+        renderTable();
+      }
+
       // 1. Validation
       let hasError = false;
       let firstErrorInput = null;
@@ -1949,6 +1970,11 @@
 
     modalConfirm.addEventListener('click', (e) => {
       if (e.target === modalConfirm) {
+        const modalProcessingArea = document.getElementById('modal-processing-area');
+        if (modalProcessingArea && modalProcessingArea.style.display !== 'none') {
+          // Do not dismiss while order is actively processing
+          return;
+        }
         const modalQrArea = document.getElementById('modal-qr-area');
         const wasQrShown = modalQrArea && modalQrArea.style.display !== 'none';
         modalConfirm.classList.remove('active');
@@ -2034,6 +2060,15 @@
           box.classList.add('active');
         } else if (selectedDigits[i] === '') {
           box.classList.add('empty');
+        }
+      }
+
+      const stepLabel = document.getElementById('digit-step-label');
+      if (stepLabel) {
+        if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
+          stepLabel.innerHTML = '<span style="color: var(--color-emerald-light); font-weight: 700;">✅ เลือกครบ 3 ตัวแล้ว (ดูผลลัพธ์ด้านล่าง)</span>';
+        } else {
+          stepLabel.textContent = `เลือกตำแหน่งที่ ${activeBoxIndex + 1}`;
         }
       }
 
@@ -2143,7 +2178,7 @@
     }
 
     function adjustSetQty(delta) {
-      currentSetQty = Math.max(1, currentSetQty + delta);
+      currentSetQty = Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, currentSetQty + delta));
       const setValElem = document.getElementById('set-qty-val');
       if (setValElem) setValElem.innerText = currentSetQty;
       checkAndGeneratePermutations();
@@ -2227,6 +2262,7 @@
     let currentOrderData = null;
     let orderPollInterval = null;
     let orderTimerInterval = null;
+    let progressTimer = null;
 
     function resetModalState() {
       if (orderPollInterval) {
@@ -2236,6 +2272,10 @@
       if (orderTimerInterval) {
         clearInterval(orderTimerInterval);
         orderTimerInterval = null;
+      }
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
       }
       const modalIcon = document.getElementById('modal-icon');
       const modalTitle = document.getElementById('modal-title');
@@ -2474,7 +2514,8 @@
         }
       };
 
-      const progressTimer = setInterval(() => {
+      if (progressTimer) clearInterval(progressTimer);
+      progressTimer = setInterval(() => {
         updateProgressUI(0, targetSeconds);
       }, 300);
 
@@ -2527,7 +2568,10 @@
 
             if (statusData.status === 'completed') {
               clearInterval(orderPollInterval);
-              clearInterval(progressTimer);
+              if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+              }
               orderPollInterval = null;
 
               if (modalProgressBar) {
@@ -2573,7 +2617,10 @@
               }, 400);
             } else if (statusData.status === 'failed') {
               clearInterval(orderPollInterval);
-              clearInterval(progressTimer);
+              if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+              }
               orderPollInterval = null;
 
               if (modalTitle) modalTitle.textContent = 'ไม่สามารถสร้าง QR Code ได้';
@@ -2590,7 +2637,10 @@
 
           if (pollCount >= maxPolls) {
             clearInterval(orderPollInterval);
-            clearInterval(progressTimer);
+            if (progressTimer) {
+              clearInterval(progressTimer);
+              progressTimer = null;
+            }
             orderPollInterval = null;
             if (modalTitle) modalTitle.textContent = 'ใช้เวลาดำเนินการนานกว่าปกติ';
             if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทนเพื่อความรวดเร็ว';
@@ -2602,7 +2652,10 @@
         }, 1500);
 
       } catch (err) {
-        clearInterval(progressTimer);
+        if (progressTimer) {
+          clearInterval(progressTimer);
+          progressTimer = null;
+        }
         console.error('executeDirectOrder error:', err);
         if (modalTitle) modalTitle.textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์บอทได้';
         if (modalDesc) modalDesc.textContent = 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ คุณยังสามารถส่งคำสั่งซื้อผ่านแอป LINE ได้ตามปกติ';
@@ -2756,6 +2809,50 @@
       const singleQty = typeof rawSingleQty === 'string' ? parseInt(toArabicDigits(rawSingleQty), 10) || 1 : (rawSingleQty || 1);
       const orderList = rawOrderList ? toArabicDigits(rawOrderList) : null;
 
+      // Handle 6-Pack Specific URL Parameter Initialization
+      if (is6Pack) {
+        if (singleNum && /^\d{3}$/.test(singleNum.trim())) {
+          const digits = singleNum.trim().split('');
+          const uniqueDigits = new Set(digits);
+          if (uniqueDigits.size === 3) {
+            selectedDigits = digits;
+            activeBoxIndex = 2;
+            currentSetQty = Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, singleQty));
+            const setValElem = document.getElementById('set-qty-val');
+            if (setValElem) setValElem.innerText = currentSetQty;
+            updateDigitDisplay();
+            showToast(`นำเข้าสูตร 6 กลับเลข ${singleNum} (${currentSetQty} ชุด) แล้ว`, 'success');
+            return;
+          }
+        }
+        if (orderList) {
+          const parts = orderList.split(/[,;]/);
+          const parsedSets = [];
+          parts.forEach(p => {
+            const m = p.trim().match(/^(\d{3})(?:[:=xX\-]?(\d+))?$/);
+            if (m) {
+              const digits = m[1].split('');
+              if (new Set(digits).size === 3) {
+                const qty = parseInt(m[2] || '1', 10);
+                const perms = Array.from(new Set(getPermutations(digits).map(x => x.join(''))));
+                parsedSets.push({
+                  digits: digits,
+                  perms: perms,
+                  qty: Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, qty))
+                });
+              }
+            }
+          });
+          if (parsedSets.length > 0) {
+            addedSets = parsedSets;
+            renderAddedSets();
+            updateGrandTotal();
+            showToast(`นำเข้าชุดเลข 6 กลับ ${parsedSets.length} ชุดแล้ว`, 'success');
+            return;
+          }
+        }
+      }
+
       if (orderList) {
         const parts = orderList.split(/[,;]/);
         const parsed = [];
@@ -2837,17 +2934,6 @@
         window.history.back();
       } else {
         window.location.href = 'index.html';
-      }
-    }
-
-    async function initLiff() {
-      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
-        try {
-          await liff.init({ liffId: CONFIG.LIFF_ID });
-          isLiffReady = true;
-        } catch (e) {
-          console.warn('[LIFF] Standalone web mode');
-        }
       }
     }
 
