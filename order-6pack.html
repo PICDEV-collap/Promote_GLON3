@@ -2533,13 +2533,13 @@
           })
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP Error ${response.status}`);
-        }
+        let resData = {};
+        try {
+          resData = await response.json();
+        } catch (_) {}
 
-        const resData = await response.json();
-        if (!resData.success || !resData.orderId) {
-          throw new Error(resData.error || 'ระบบไม่สามารถรับคำสั่งซื้อได้');
+        if (!response.ok || !resData.success || !resData.orderId) {
+          throw new Error(resData.error || resData.reason || `เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ (รหัส ${response.status})`);
         }
 
         const orderId = resData.orderId;
@@ -2627,6 +2627,7 @@
               if (modalDesc) modalDesc.textContent = statusData.error || 'ระบบไม่สามารถสร้าง QR ได้ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทน';
               if (modalProcessingArea) modalProcessingArea.style.display = 'none';
               if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+              if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
               if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
               if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
               showToast(statusData.error || 'เกิดข้อผิดพลาดในการสร้าง QR', 'error');
@@ -2646,6 +2647,7 @@
             if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทนเพื่อความรวดเร็ว';
             if (modalProcessingArea) modalProcessingArea.style.display = 'none';
             if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+            if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
             if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
             if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
           }
@@ -2657,13 +2659,16 @@
           progressTimer = null;
         }
         console.error('executeDirectOrder error:', err);
-        if (modalTitle) modalTitle.textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์บอทได้';
-        if (modalDesc) modalDesc.textContent = 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ คุณยังสามารถส่งคำสั่งซื้อผ่านแอป LINE ได้ตามปกติ';
+        const errText = err?.message || '';
+        const isTimeOrQuota = errText.includes('เวลา') || errText.includes('โควต้า') || errText.includes('ชั่วโมง');
+        if (modalTitle) modalTitle.textContent = isTimeOrQuota ? 'แจ้งเตือนสถานะร้านค้า' : 'ไม่สามารถสร้าง QR Code สั่งซื้อตรงได้';
+        if (modalDesc) modalDesc.textContent = errText || 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ คุณยังสามารถส่งคำสั่งซื้อผ่านแอป LINE ได้ตามปกติ';
         if (modalProcessingArea) modalProcessingArea.style.display = 'none';
         if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+        if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
         if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
         if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
-        showToast('ไม่สามารถสั่งซื้อตรงได้ กรุณากดส่งผ่าน LINE แทน', 'error');
+        showToast(errText || 'ไม่สามารถสั่งซื้อตรงได้ กรุณากดส่งผ่าน LINE แทน', 'error');
       }
     }
 
@@ -2676,7 +2681,9 @@
         totalPrice
       };
 
-      // 1. If inside LINE LIFF Client -> 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
+      const allSubmitBtns = document.querySelectorAll('.btn-submit-order, #btn-submit-order');
+
+      // 1. If inside LINE LIFF Client -> Try 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
       if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
         if (!isLiffReady) {
           try {
@@ -2692,7 +2699,7 @@
           return;
         }
 
-        btnSubmitOrder.disabled = true;
+        allSubmitBtns.forEach(b => b.disabled = true);
         showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
 
         // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100% ไม่ต้องกดส่งซ้ำ)
@@ -2700,13 +2707,13 @@
           await liff.sendMessages([{ type: 'text', text: orderCommand }]);
           showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
           setTimeout(() => {
-            btnSubmitOrder.disabled = false;
+            allSubmitBtns.forEach(b => b.disabled = false);
             liff.closeWindow();
           }, 400);
           return;
         } catch (err) {
           console.error('[LIFF QUICK BUY] sendMessages failed, fallback to in-page / deep link:', err);
-          btnSubmitOrder.disabled = false;
+          allSubmitBtns.forEach(b => b.disabled = false);
         }
       }
 

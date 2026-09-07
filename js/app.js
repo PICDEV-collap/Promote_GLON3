@@ -134,12 +134,13 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // 2. Outside LINE App (or LIFF sendMessages fallback): Redirect to LIFF URL (order.html)
+    // 2. Outside LINE App (or LIFF sendMessages fallback): Open order.html directly
     if (typeof copyToClipboard === 'function' && message) {
       try { copyToClipboard(message); } catch (e) {}
     }
-    if (typeof showToast === 'function') showToast(`🛒 กำลังเปิดตารางสั่งซื้อ N3 ใน LINE (LIFF)...`);
-    window.location.href = liffUrl;
+    const orderPageUrl = orderParam ? `order.html?order=${encodeURIComponent(orderParam)}` : 'order.html';
+    if (typeof showToast === 'function') showToast(`🛒 กำลังเปิดตารางสั่งซื้อ N3...`);
+    window.location.href = orderPageUrl;
   }
 
   window.getLineDeepLink = getLineDeepLink;
