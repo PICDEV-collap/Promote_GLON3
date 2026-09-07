@@ -400,14 +400,73 @@ app.post('/api/campaign/draw-results', async (req: Request, res: Response) => {
   }
 });
 
+export interface StoredOrderStatus {
+  orderId: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  queuePosition?: number;
+  qrImageUrl?: string;
+  downloadUrl?: string;
+  fulfilledItems?: OrderItem[];
+  outOfStockItems?: string[];
+  totalQuantity?: number;
+  totalPrice?: number;
+  error?: string;
+  createdAt: number;
+}
+
+export const orderStatusStore: Map<string, StoredOrderStatus> = new Map();
+
 // -------------------------------------------------------------------------
 // Direct Order REST API (รองรับการสั่งซื้อผ่านตารางเว็บ / LIFF โดยตรง ไม่ต้องพิมพ์ส่งซ้ำในแชท LINE)
 // -------------------------------------------------------------------------
-app.options('/api/order-direct', (_req: Request, res: Response) => {
+app.options(['/api/order-direct', '/api/order-status/:orderId'], (_req: Request, res: Response) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
   res.status(204).end();
+});
+
+// ล้างคำสั่งซื้อเก่าเกิน 30 นาทีออกจากหน่วยความจำอัตโนมัติ
+const orderCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [orderId, status] of orderStatusStore.entries()) {
+    if (now - status.createdAt > 30 * 60 * 1000) {
+      orderStatusStore.delete(orderId);
+    }
+  }
+}, 5 * 60 * 1000);
+orderCleanupTimer.unref();
+
+app.get('/api/order-status/:orderId', (req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const rawParam = req.params.orderId;
+  const orderId = Array.isArray(rawParam) ? rawParam[0] : (rawParam || '');
+  const status = orderStatusStore.get(orderId);
+  if (!status) {
+    const queuePos = orderQueue.getPosition(orderId);
+    if (queuePos > 0) {
+      res.json({
+        success: true,
+        orderId,
+        status: 'queued',
+        queuePosition: queuePos,
+        estimatedSeconds: orderQueue.getEstimatedWaitTime(queuePos)
+      });
+      return;
+    }
+    res.status(404).json({ success: false, error: 'ไม่พบคำสั่งซื้อนี้ หรือคำสั่งซื้อหมดอายุแล้ว' });
+    return;
+  }
+  const queuePos = status.status === 'queued' ? orderQueue.getPosition(orderId) : 0;
+  res.json({
+    success: true,
+    ...status,
+    queuePosition: queuePos,
+    estimatedSeconds: queuePos > 0 ? orderQueue.getEstimatedWaitTime(queuePos) : 0
+  });
 });
 
 app.post('/api/order-direct', async (req: Request, res: Response): Promise<void> => {
@@ -416,10 +475,12 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
 
   const { userId, items } = req.body || {};
-  if (!userId || !items || !Array.isArray(items) || items.length === 0) {
-    res.status(400).json({ success: false, error: 'ข้อมูลคำสั่งซื้อไม่ถูกต้อง (ต้องระบุ userId และรายการ items)' });
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ success: false, error: 'ข้อมูลคำสั่งซื้อไม่ถูกต้อง (ต้องระบุรายการ items)' });
     return;
   }
+
+  const effectiveUserId = userId || 'anonymous_web_user';
 
   // กรองตัวเลขสลาก 3 หลัก
   const validItems: OrderItem[] = [];
@@ -462,8 +523,10 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   }
 
   // 3. บันทึกข้อมูลลูกค้า
-  customerRegistry.registerOrUpdateUser(userId);
-  customerRegistry.incrementOrderCount(userId);
+  if (effectiveUserId !== 'anonymous_web_user') {
+    customerRegistry.registerOrUpdateUser(effectiveUserId);
+    customerRegistry.incrementOrderCount(effectiveUserId);
+  }
 
   const formattedSummary = validItems.map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
   const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -471,7 +534,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   const orderTask: OrderTask = {
     orderId,
     replyToken: '',
-    userId,
+    userId: effectiveUserId,
     items: validItems,
     number: validItems[0].number,
     quantity: totalQuantity,
@@ -481,6 +544,15 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     hasRepliedQueue: false
   };
 
+  orderStatusStore.set(orderId, {
+    orderId,
+    status: 'queued',
+    fulfilledItems: validItems,
+    totalQuantity,
+    totalPrice,
+    createdAt: Date.now()
+  });
+
   const queuePos = orderQueue.enqueue(orderTask);
   orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
   const estSeconds = orderQueue.getEstimatedWaitTime(queuePos);
@@ -489,21 +561,25 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
     : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
 
-  // ส่ง Push Message แจ้งเตือนเข้าแชท LINE ของลูกค้าทันที
-  try {
-    await lineHandler.push(userId, [{ type: 'text', text: waitingMessage }]);
-    orderTask.hasRepliedQueue = true;
-  } catch (err) {
-    console.warn('[ORDER DIRECT] ไม่สามารถ push ข้อความยืนยันรับออเดอร์ได้:', err);
+  // ส่ง Push Message แจ้งเตือนเข้าแชท LINE เฉพาะเมื่อมี Push Quota เท่านั้น
+  if (lineHandler.isPushAvailable() && effectiveUserId !== 'anonymous_web_user') {
+    try {
+      await lineHandler.push(effectiveUserId, [{ type: 'text', text: waitingMessage }]);
+      orderTask.hasRepliedQueue = true;
+    } catch (err) {
+      console.warn('[ORDER DIRECT] ไม่สามารถ push ข้อความยืนยันรับออเดอร์ได้:', err);
+    }
   }
 
   res.json({
     success: true,
     orderId,
     queuePosition: queuePos,
+    estimatedSeconds: estSeconds,
     totalQuantity,
     totalPrice,
-    message: 'รับคำสั่งซื้อเรียบร้อยแล้ว ระบบกำลังสร้าง QR Code ส่งเข้าห้องแชท LINE ของคุณ'
+    statusUrl: `/api/order-status/${orderId}`,
+    message: 'รับคำสั่งซื้อเรียบร้อยแล้ว ระบบกำลังสร้าง QR Code ให้คุณ'
   });
 });
 
@@ -725,6 +801,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
     const timeStatus = OperatingHoursGuard.checkSalesStatus();
     if (!timeStatus.isOpen) {
       orderHeartbeat.stop(task.orderId);
+      orderStatusStore.set(task.orderId, {
+        orderId: task.orderId,
+        status: 'failed',
+        error: 'ไม่อยู่ในเวลาจำหน่ายสลาก N3 (เปิดจำหน่าย 06:00 - 23:00 น.)',
+        createdAt: task.timestamp || Date.now()
+      });
       await sendCustomerMessage([
         FlexMessageBuilder.buildOutsideOperatingHoursMessage(timeStatus)
       ]);
@@ -736,6 +818,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
     const quotaCheck = quotaManager.canFulfill(totalQty);
     if (!quotaCheck.allowed) {
       orderHeartbeat.stop(task.orderId);
+      orderStatusStore.set(task.orderId, {
+        orderId: task.orderId,
+        status: 'failed',
+        error: `โควต้าสลากคงเหลือไม่เพียงพอ (เหลือ ${quotaCheck.remaining} ใบ)`,
+        createdAt: task.timestamp || Date.now()
+      });
       await sendCustomerMessage([
         FlexMessageBuilder.buildQuotaExceededMessage(quotaCheck.remaining)
       ]);
@@ -746,6 +834,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
     const isLoggedIn = await N3Auth.isSessionValid(currentPage);
     if (!isLoggedIn) {
       orderHeartbeat.stop(task.orderId);
+      orderStatusStore.set(task.orderId, {
+        orderId: task.orderId,
+        status: 'failed',
+        error: 'ระบบร้านค้าสลากกำลังเตรียมความพร้อมเข้าระบบ กรุณารอสักครู่แล้วสั่งซื้อใหม่อีกครั้ง',
+        createdAt: task.timestamp || Date.now()
+      });
       console.warn('[ORDER BLOCKED] บอทยังไม่ได้ล็อกอินตัวแทน N3 หรือ Session หมดอายุ!');
       
       await sendCustomerMessage([
@@ -763,6 +857,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
 
     // 4. สั่งซื้อบนเว็บ N3 (อัปเดตสถานะเป็น PREPARING_NUMBERS)
+    const existingStatus = orderStatusStore.get(task.orderId);
+    if (existingStatus) {
+      existingStatus.status = 'processing';
+    }
     orderHeartbeat.updateStage(task.orderId, 'PREPARING_NUMBERS', {
       current: 1,
       total: task.items && task.items.length > 0 ? task.items.length : 1,
@@ -808,6 +906,19 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const activePublicBase = getPublicBaseUrl();
       const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, activePublicBase);
       const downloadUrl = `${activePublicBase}/download-qr/${qrFileName}?openExternalBrowser=1`;
+
+      // อัปเดตสถานะใน orderStatusStore สำหรับ Web Polling
+      orderStatusStore.set(task.orderId, {
+        orderId: task.orderId,
+        status: 'completed',
+        qrImageUrl: qrPublicUrl,
+        downloadUrl,
+        fulfilledItems: result.fulfilledItems || orderItems,
+        outOfStockItems: result.outOfStockItems,
+        totalQuantity: actualQty,
+        totalPrice: actualPrice,
+        createdAt: task.timestamp || Date.now()
+      });
 
       // 3. ส่งภาพ QR Code แบบ Native LINE Image Message (1 แตะเปิด Photo Viewer บันทึกลงเครื่อง)
       const imageMsg: messagingApi.ImageMessage = {
@@ -872,6 +983,14 @@ orderQueue.setWorker(async (task: OrderTask) => {
         userMsg = userMsg.slice(0, 390) + '...';
       }
 
+      orderStatusStore.set(task.orderId, {
+        orderId: task.orderId,
+        status: 'failed',
+        error: userMsg,
+        outOfStockItems: result.outOfStockItems,
+        createdAt: task.timestamp || Date.now()
+      });
+
       await sendCustomerMessage([
         {
           type: 'text',
@@ -881,6 +1000,12 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
   } catch (err: any) {
     console.error('[WORKER EXCEPTION]', err);
+    orderStatusStore.set(task.orderId, {
+      orderId: task.orderId,
+      status: 'failed',
+      error: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลังครับ',
+      createdAt: task.timestamp || Date.now()
+    });
     if (err?.message?.includes('closed') || err?.message?.includes('crash') || (page && page.isClosed())) {
       console.warn('[WORKER RECOVERY] รีเซ็ตเบราว์เซอร์หลังจากพบข้อผิดพลาด...');
       await PersistentBrowserManager.close().catch(() => {});

@@ -64,14 +64,20 @@ export class LineReplyHandler {
       const headers = { Authorization: `Bearer ${CONFIG.LINE_CHANNEL_ACCESS_TOKEN}` };
 
       // 1. ตรวจสอบขีดจำกัดโควต้าประจำเดือน (Quota Limit)
-      const quotaRes = await fetch('https://api.line.me/v2/bot/message/quota', { headers });
+      const quotaRes = await fetch('https://api.line.me/v2/bot/message/quota', {
+        headers,
+        signal: AbortSignal.timeout(3000)
+      });
       let quotaData: any = {};
       if (quotaRes.ok) {
         quotaData = await quotaRes.json();
       }
 
       // 2. ตรวจสอบยอดการใช้งานจริงในเดือนปัจจุบัน (Consumption)
-      const consRes = await fetch('https://api.line.me/v2/bot/message/quota/consumption', { headers });
+      const consRes = await fetch('https://api.line.me/v2/bot/message/quota/consumption', {
+        headers,
+        signal: AbortSignal.timeout(3000)
+      });
       let consData: any = {};
       if (consRes.ok) {
         consData = await consRes.json();

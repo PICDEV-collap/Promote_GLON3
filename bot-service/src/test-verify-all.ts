@@ -17,24 +17,17 @@ import { CustomerRegistry } from './storage/customer-registry';
 import { LuckyDistributor } from './dream/lucky-distributor';
 import { CampaignService } from './automation/campaign-service';
 
-function runTests() {
+async function runTests() {
   console.log('====================================================');
   console.log('   RUNNING AUTOMATED VERIFICATION TEST SUITE        ');
   console.log('====================================================\n');
 
   let passed = 0;
   let total = 0;
+  const testList: { name: string; fn: () => void | Promise<void> }[] = [];
 
-  function test(name: string, fn: () => void) {
-    total++;
-    try {
-      fn();
-      console.log(`✅ PASS: ${name}`);
-      passed++;
-    } catch (e: any) {
-      console.error(`❌ FAIL: ${name}`);
-      console.error(e);
-    }
+  function test(name: string, fn: () => void | Promise<void>) {
+    testList.push({ name, fn });
   }
 
   // TEST SUITE 1: Multi-ticket Parsing
@@ -1687,13 +1680,31 @@ function runTests() {
     assert.strictEqual(orderTask.replyToken, 'mock_reply_token_12345', 'replyToken must be intact for QR delivery');
   });
 
+  for (const t of testList) {
+    total++;
+    try {
+      await t.fn();
+      console.log(`✅ PASS: ${t.name}`);
+      passed++;
+    } catch (e: any) {
+      console.error(`❌ FAIL: ${t.name}`);
+      console.error(e);
+    }
+  }
+
+  const pct = Math.round((passed / (total || 1)) * 100);
   console.log(`\n====================================================`);
-  console.log(`TEST SUMMARY: ${passed} / ${total} tests passed (100%)`);
+  console.log(`TEST SUMMARY: ${passed} / ${total} tests passed (${pct}%)`);
   console.log(`====================================================\n`);
 
   if (passed !== total) {
     process.exit(1);
+  } else {
+    process.exit(0);
   }
 }
 
-runTests();
+runTests().catch((err) => {
+  console.error('Fatal error in test suite:', err);
+  process.exit(1);
+});
