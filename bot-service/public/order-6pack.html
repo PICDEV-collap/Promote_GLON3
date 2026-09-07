@@ -2840,29 +2840,6 @@
       }
     }
 
-    // Screen Wake Lock API to prevent mobile and desktop browsers from sleeping or dimming
-    let wakeLockSentinel = null;
-
-    async function requestScreenWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLockSentinel = await navigator.wakeLock.request('screen');
-          console.log('🛡️ Screen Wake Lock activated');
-          wakeLockSentinel.addEventListener('release', () => {
-            console.log('🛡️ Screen Wake Lock released');
-          });
-        } catch (err) {
-          console.warn('Screen Wake Lock request failed:', err);
-        }
-      }
-    }
-
-    document.addEventListener('visibilitychange', async () => {
-      if (wakeLockSentinel !== null && document.visibilityState === 'visible') {
-        await requestScreenWakeLock();
-      }
-    });
-
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {
       setupMobileBackInterceptor();
