@@ -19,6 +19,7 @@ import { DreamEngine } from './dream/dream-engine';
 import { CustomerRegistry } from './storage/customer-registry';
 import { CampaignService } from './automation/campaign-service';
 import { LuckyDistributor } from './dream/lucky-distributor';
+import { DailyScheduleService } from './guard/daily-schedule-service';
 
 const app = express();
 
@@ -1872,6 +1873,10 @@ function startServerWithPort(targetPort: number) {
 
     // เริ่มต้นระบบตั้งเวลาส่งเลขมงคลกระจายและส่งผลรางวัลอัตโนมัติ (Campaign Auto Scheduler)
     campaignService.startAutoScheduler();
+
+    // เริ่มต้นระบบตั้งเวลา Logoff ประจำวัน (23:00 น.) และแจ้งเตือนเปิดร้าน (06:00 น.)
+    const dailyScheduleService = DailyScheduleService.getInstance(lineHandler, orderQueue);
+    dailyScheduleService.start();
 
     // ส่งแจ้งเตือน Admin เมื่อเปิดบอท (หากไม่ได้เปิดผ่าน n3-engine ที่แจ้งเตือนพร้อม URL Tunnel แล้ว)
     if (process.env.ENGINE_NOTIFIES_START !== 'true') {

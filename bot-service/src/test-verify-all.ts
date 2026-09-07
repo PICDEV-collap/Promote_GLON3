@@ -758,7 +758,9 @@ async function runTests() {
   });
 
   test('Index: index.ts lifecycle, watchdog, and initial public URL integrity', () => {
-    const indexPath = path.resolve(__dirname, 'index.ts');
+    const indexPath = fs.existsSync(path.resolve(__dirname, 'index.ts')) 
+      ? path.resolve(__dirname, 'index.ts') 
+      : path.resolve(__dirname, '../src/index.ts');
     assert(fs.existsSync(indexPath), 'index.ts must exist');
     const indexContent = fs.readFileSync(indexPath, 'utf-8');
 
@@ -779,7 +781,9 @@ async function runTests() {
 
   // TEST SUITE: Cybersecurity Controls & Hardening Verification
   test('Cybersecurity: index.ts enforces security headers, disabled x-powered-by, and rate limiter', () => {
-    const indexPath = path.resolve(__dirname, 'index.ts');
+    const indexPath = fs.existsSync(path.resolve(__dirname, 'index.ts')) 
+      ? path.resolve(__dirname, 'index.ts') 
+      : path.resolve(__dirname, '../src/index.ts');
     const indexContent = fs.readFileSync(indexPath, 'utf-8');
 
     // 1. Check disabled x-powered-by
@@ -1678,6 +1682,65 @@ async function runTests() {
 
     assert.strictEqual(orderTask.hasRepliedQueue, false, 'hasRepliedQueue must start false to preserve replyToken');
     assert.strictEqual(orderTask.replyToken, 'mock_reply_token_12345', 'replyToken must be intact for QR delivery');
+  });
+
+  // TEST SUITE 18: Daily Schedule Automation (23:00 Logoff & 06:00 Morning Store Open Alert)
+  test('DailyScheduleService: triggers 23:00 Logoff + night alert and 06:00 morning open alert with idempotency', async () => {
+    const { DailyScheduleService } = await import('./guard/daily-schedule-service');
+    const service = DailyScheduleService.getInstance();
+    service.resetTrackingForTest();
+
+    // 1. Simulate 23:00:00 (Night Logoff)
+    const nightDate = new Date('2026-09-07T23:00:00+07:00');
+    const r1 = await service.checkSchedule(nightDate);
+    assert.strictEqual(r1.triggeredLogoff, true, 'Must trigger 23:00 Logoff');
+    assert.strictEqual(r1.triggeredMorningAlert, false);
+    assert.strictEqual(service.getLastLogoffDate(), '2026-09-07');
+
+    // 2. Idempotency test: second check at 23:05 on same date should NOT trigger again
+    const nightDate2 = new Date('2026-09-07T23:05:00+07:00');
+    const r1Repeat = await service.checkSchedule(nightDate2);
+    assert.strictEqual(r1Repeat.triggeredLogoff, false, 'Should not trigger duplicate logoff on same date');
+
+    // 3. Simulate 06:00:00 next morning (Morning Store Open Alert)
+    const morningDate = new Date('2026-09-08T06:00:00+07:00');
+    const r2 = await service.checkSchedule(morningDate);
+    assert.strictEqual(r2.triggeredMorningAlert, true, 'Must trigger 06:00 Morning Open Alert');
+    assert.strictEqual(r2.triggeredLogoff, false);
+    assert.strictEqual(service.getLastMorningAlertDate(), '2026-09-08');
+
+    // 4. Idempotency test: second check at 06:15 on same date should NOT trigger again
+    const morningDate2 = new Date('2026-09-08T06:15:00+07:00');
+    const r2Repeat = await service.checkSchedule(morningDate2);
+    assert.strictEqual(r2Repeat.triggeredMorningAlert, false, 'Should not trigger duplicate morning alert on same date');
+
+    service.resetTrackingForTest();
+  });
+
+  test('DailyScheduleService: Flex Messages for 23:00 and 06:00 are structured properly', () => {
+    const nightMsg = FlexMessageBuilder.buildNightlyLogoffMessage('23:00 น.');
+    assert.strictEqual(nightMsg.type, 'flex');
+    assert(nightMsg.altText.includes('ปิดระบบจำหน่ายสลาก N3 ประจำวัน (23:00 น.)'));
+    assert(nightMsg.altText.includes('Logoff เรียบร้อยแล้ว'));
+    const nightStr = JSON.stringify(nightMsg.contents);
+    assert(nightStr.includes('Logoff เรียบร้อยแล้ว'));
+    assert(nightStr.includes('23:00 - 06:00 น.'));
+
+    const morningMsg = FlexMessageBuilder.buildMorningStoreOpenMessage('06:00 น.');
+    assert.strictEqual(morningMsg.type, 'flex');
+    assert(morningMsg.altText.includes('เปิดระบบจำหน่ายสลาก N3 ประจำวัน (06:00 น.)'));
+    const morningStr = JSON.stringify(morningMsg.contents);
+    assert(morningStr.includes('สำนักงานสลากฯ เปิดจำหน่ายแล้ว'));
+    assert(morningStr.includes('login'));
+  });
+
+  test('N3Auth: logoffSession safely executes with closed or null page without throwing', async () => {
+    const resultNull = await N3Auth.logoffSession(null);
+    assert.strictEqual(resultNull, true, 'logoffSession should return true for null page');
+
+    const mockClosedPage: any = { isClosed: () => true };
+    const resultClosed = await N3Auth.logoffSession(mockClosedPage);
+    assert.strictEqual(resultClosed, true, 'logoffSession should return true for closed page');
   });
 
   for (const t of testList) {

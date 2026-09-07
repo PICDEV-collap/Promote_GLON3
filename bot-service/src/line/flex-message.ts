@@ -2605,5 +2605,280 @@ export class FlexMessageBuilder {
       }
     };
   }
+
+  /**
+   * 14. การ์ดแจ้งเตือนปิดระบบจำหน่ายประจำวัน & สั่ง Logoff อัตโนมัติ (เวลา 23:00 น.)
+   */
+  public static buildNightlyLogoffMessage(timeStr: string = '23:00 น.'): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: `🌙 [แจ้งเตือน] ปิดระบบจำหน่ายสลาก N3 ประจำวัน (${timeStr}) และ Logoff เรียบร้อยแล้ว`,
+      contents: {
+        type: 'bubble',
+        size: 'giga',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0f172a',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              alignItems: 'center',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🌙 ปิดระบบจำหน่ายประจำวัน',
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#fbbf24',
+                  flex: 8
+                },
+                {
+                  type: 'text',
+                  text: timeStr,
+                  size: 'xs',
+                  color: '#94a3b8',
+                  align: 'end',
+                  flex: 4
+                }
+              ]
+            },
+            {
+              type: 'text',
+              text: 'ร้านสลาก N3 ธนกิจนำโชค • ระบบอัตโนมัติ',
+              size: 'xxs',
+              color: '#64748b',
+              margin: 'xs'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#ffffff',
+          paddingAll: '16px',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#f1f5f9',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🔒 สถานะระบบ: Logoff เรียบร้อยแล้ว',
+                  weight: 'bold',
+                  size: 'sm',
+                  color: '#0f172a'
+                },
+                {
+                  type: 'text',
+                  text: 'บอทได้ทำการออกจากระบบ (Logoff) และล้างเซสชันร้านค้า GLO เพื่อความปลอดภัยเรียบร้อยแล้ว',
+                  size: 'xs',
+                  color: '#475569',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#eff6ff',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              margin: 'sm',
+              contents: [
+                {
+                  type: 'text',
+                  text: '⏱️ เวลาทำการสำนักงานสลากฯ:',
+                  weight: 'bold',
+                  size: 'xs',
+                  color: '#1e40af'
+                },
+                {
+                  type: 'text',
+                  text: '• เปิดจำหน่ายทุกวัน: 06:00 - 23:00 น.\n• วันออกรางวัล (1 และ 16): 06:00 - 14:00 น.\n• พักระบบอัตโนมัติ: 23:00 - 06:00 น.',
+                  size: 'xs',
+                  color: '#3b82f6',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            {
+              type: 'text',
+              text: '🔔 ระบบจะส่งข้อความแจ้งเตือนอีกครั้งในเวลา 06:00 น. เพื่อเริ่มเปิดรับคำสั่งซื้อของวันถัดไปครับ',
+              size: 'xxs',
+              color: '#64748b',
+              wrap: true,
+              margin: 'sm'
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#334155',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '📊 ตรวจสอบสถานะระบบ',
+                text: 'สถานะ'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * 15. การ์ดแจ้งเตือนเปิดระบบจำหน่ายประจำวัน (เวลา 06:00 น.)
+   */
+  public static buildMorningStoreOpenMessage(timeStr: string = '06:00 น.'): messagingApi.FlexMessage {
+    return {
+      type: 'flex',
+      altText: `☀️ [แจ้งเตือน] เปิดระบบจำหน่ายสลาก N3 ประจำวัน (${timeStr}) - กรุณาล็อกอินแอปเป๋าตัง`,
+      contents: {
+        type: 'bubble',
+        size: 'giga',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#064e3b',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              alignItems: 'center',
+              contents: [
+                {
+                  type: 'text',
+                  text: '☀️ เปิดระบบจำหน่ายประจำวัน',
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#a7f3d0',
+                  flex: 8
+                },
+                {
+                  type: 'text',
+                  text: timeStr,
+                  size: 'xs',
+                  color: '#6ee7b7',
+                  align: 'end',
+                  flex: 4
+                }
+              ]
+            },
+            {
+              type: 'text',
+              text: 'ร้านสลาก N3 ธนกิจนำโชค • เริ่มต้นวันใหม่',
+              size: 'xxs',
+              color: '#34d399',
+              margin: 'xs'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#ffffff',
+          paddingAll: '16px',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#ecfdf5',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🟢 สำนักงานสลากฯ เปิดจำหน่ายแล้ว',
+                  weight: 'bold',
+                  size: 'sm',
+                  color: '#065f46'
+                },
+                {
+                  type: 'text',
+                  text: 'ระบบพร้อมรับคำสั่งซื้อสลาก N3 ประจำวัน ขอให้แอดมินเข้าสู่ระบบด้วยแอปเป๋าตังเพื่อพร้อมขายทันที',
+                  size: 'xs',
+                  color: '#047857',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#fffbeb',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              margin: 'sm',
+              contents: [
+                {
+                  type: 'text',
+                  text: '📱 คำแนะนำสำหรับแอดมิน:',
+                  weight: 'bold',
+                  size: 'xs',
+                  color: '#92400e'
+                },
+                {
+                  type: 'text',
+                  text: 'แตะปุ่ม "📲 ขอรับ QR ล็อกอินเป๋าตัง" ด้านล่าง แล้วใช้แอปเป๋าตังของตัวแทนสแกนเพื่อเริ่มขายได้เลยครับ',
+                  size: 'xs',
+                  color: '#b45309',
+                  wrap: true,
+                  margin: 'xs'
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#059669',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '📲 ขอรับ QR ล็อกอินเป๋าตัง',
+                text: 'login'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#334155',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '📊 ตรวจสอบสถานะระบบ',
+                text: 'สถานะ'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
 }
 

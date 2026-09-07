@@ -229,6 +229,36 @@ export class LineReplyHandler {
   }
 
   /**
+   * แจ้งเตือนเมื่อระบบปิดทำการประจำวันและ Logoff สำเร็จ (เวลา 23:00 น.)
+   */
+  public async notifyNightlyLogoff(timeStr?: string): Promise<boolean> {
+    const time = timeStr || getThaiTime();
+    try {
+      const { FlexMessageBuilder } = await import('./flex-message');
+      const flexMsg = FlexMessageBuilder.buildNightlyLogoffMessage(time);
+      return await this.pushToAdmin([flexMsg]);
+    } catch {
+      const text = `🌙 [แจ้งเตือน] ปิดระบบจำหน่ายสลาก N3 ประจำวัน (${time})\n\n🔒 บอทได้ทำการ Logoff ออกจากระบบตัวแทนจำหน่าย GLO เรียบร้อยแล้ว\n🔔 ระบบจะแจ้งเตือนอีกครั้งในเวลา 06:00 น. ครับ`;
+      return this.pushToAdmin([{ type: 'text', text }]);
+    }
+  }
+
+  /**
+   * แจ้งเตือนเมื่อระบบเปิดทำการจำหน่ายประจำวัน (เวลา 06:00 น.)
+   */
+  public async notifyMorningStoreOpen(timeStr?: string): Promise<boolean> {
+    const time = timeStr || getThaiTime();
+    try {
+      const { FlexMessageBuilder } = await import('./flex-message');
+      const flexMsg = FlexMessageBuilder.buildMorningStoreOpenMessage(time);
+      return await this.pushToAdmin([flexMsg]);
+    } catch {
+      const text = `☀️ [แจ้งเตือน] เปิดระบบจำหน่ายสลาก N3 ประจำวัน (${time})\n\n🟢 สำนักงานสลากฯ เปิดระบบแล้ว ขอให้แอดมินเข้าสู่ระบบด้วยแอปเป๋าตังเพื่อเริ่มขาย\n📲 พิมพ์ "login" ในห้องแชทเพื่อขอรับ QR เข้าสู่ระบบได้เลยครับ`;
+      return this.pushToAdmin([{ type: 'text', text }]);
+    }
+  }
+
+  /**
    * ส่งข้อความ Push โดยตรงไปยัง User ID ของลูกค้า (ใช้เมื่อไม่มี ReplyToken หรือคำสั่งซื้อจากภายนอก)
    */
   public async push(userId: string, messages: messagingApi.Message[]): Promise<boolean> {
