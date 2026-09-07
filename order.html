@@ -7,6 +7,29 @@
       try {
         var href = window.location.href;
         var params = new URLSearchParams(window.location.search);
+        var liffState = params.get('liff.state');
+        
+        if (liffState) {
+          var decoded = decodeURIComponent(liffState);
+          var qIndex = decoded.indexOf('?');
+          var searchPart = qIndex !== -1 ? decoded.substring(qIndex) : (decoded.indexOf('=') !== -1 ? (decoded.startsWith('?') ? decoded : '?' + decoded) : '');
+          
+          if (searchPart) {
+            var stateParams = new URLSearchParams(searchPart);
+            stateParams.forEach(function(val, key) {
+              params.set(key, val);
+            });
+          }
+          if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
+            params.set('mode', '6pack');
+          }
+          params.delete('liff.state');
+          
+          var cleanSearch = params.toString();
+          var cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
+          window.history.replaceState(null, '', cleanUrl);
+        }
+
         var mode = params.get('mode') || params.get('type') || params.get('view');
         if (mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
           document.documentElement.classList.add('mode-6pack');
@@ -2460,9 +2483,6 @@
         window.location.href = 'index.html';
       }
     }
-
-    // Register back interceptor immediately
-    setupMobileBackInterceptor();
 
     // Start Page
     window.addEventListener('DOMContentLoaded', () => {

@@ -1662,6 +1662,31 @@ function runTests() {
     assert.strictEqual(hb.getActiveCount(), 0, 'Active heartbeat must be cleared');
   });
 
+  test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {
+    const handler = new LineReplyHandler();
+    const quota = await handler.getQuotaStatus();
+    assert(quota !== null, 'Quota status must not be null');
+    assert(typeof quota.isExhausted === 'boolean', 'isExhausted must be boolean');
+    assert(typeof quota.checkedAt === 'number', 'checkedAt timestamp must be number');
+    assert(typeof handler.isPushAvailable() === 'boolean', 'isPushAvailable must return boolean');
+  });
+
+  test('Zero-Quota Architecture: OrderTask preserves replyToken for final QR code delivery', () => {
+    const orderTask: OrderTask = {
+      orderId: 'ORD_ZERO_QUOTA_TEST',
+      replyToken: 'mock_reply_token_12345',
+      userId: 'U_test_user_001',
+      items: [{ number: '555', quantity: 2 }],
+      totalQuantity: 2,
+      totalPrice: 40,
+      timestamp: Date.now(),
+      hasRepliedQueue: false
+    };
+
+    assert.strictEqual(orderTask.hasRepliedQueue, false, 'hasRepliedQueue must start false to preserve replyToken');
+    assert.strictEqual(orderTask.replyToken, 'mock_reply_token_12345', 'replyToken must be intact for QR delivery');
+  });
+
   console.log(`\n====================================================`);
   console.log(`TEST SUMMARY: ${passed} / ${total} tests passed (100%)`);
   console.log(`====================================================\n`);

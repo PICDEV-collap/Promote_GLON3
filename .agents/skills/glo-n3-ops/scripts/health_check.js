@@ -53,6 +53,7 @@ async function runHealthCheck() {
     browser: { alive: false, cdpPort: 9222, gloUrl: null, isLoginPage: false, isLandingPage: false },
     tunnel: { alive: false, webhookUrl: null },
     quota: { remaining: 0, sold: 0, max: 2000 },
+    lineQuota: { type: 'unknown', value: 300, totalUsage: 300, remaining: 0, isExhausted: true },
     issues: [],
     recoveries: []
   };
@@ -65,6 +66,7 @@ async function runHealthCheck() {
       const data = JSON.parse(healthRes.data);
       result.botService.uptime = data.uptime;
       if (data.queue) result.botService.queueBusy = data.queue.isBusy;
+      if (data.lineQuota) result.lineQuota = data.lineQuota;
     } catch {}
   } else {
     // Fallback: Check root
@@ -186,6 +188,12 @@ runHealthCheck().then((res) => {
     console.log(`  Webhook URL:      ${res.tunnel.webhookUrl}`);
   }
   console.log(`  Ticket Quota:     \x1b[36m${res.quota.remaining.toLocaleString()} / ${res.quota.max.toLocaleString()} ใบ\x1b[0m (ขายแล้ว ${res.quota.sold.toLocaleString()} ใบ)`);
+
+  const lq = res.lineQuota;
+  const lqUsage = lq.totalUsage !== undefined ? lq.totalUsage : 0;
+  const lqVal = lq.value !== undefined ? lq.value : 300;
+  const lqColor = lq.isExhausted ? '\x1b[33m⚡ 300/300 (Reply-First 100% ฟรีไม่จำกัด)\x1b[0m' : `\x1b[32m● ${lqUsage}/${lqVal} ข้อความ\x1b[0m`;
+  console.log(`  LINE Push Quota:  ${lqColor}`);
   console.log('===============================================================================');
 
   if (res.issues.length > 0) {
