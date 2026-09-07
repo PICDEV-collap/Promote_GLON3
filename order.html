@@ -1439,24 +1439,18 @@
         <div style="font-size: 0.88rem; color: #bae6fd; margin-top: 0.6rem; font-weight: 600;">
           ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 1rem;">10:00</span> นาที
         </div>
-        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 10px; margin-top: 10px; font-size: 0.85rem; color: #fef08a; text-align: left; line-height: 1.5;">
-          👆 <b>วิธีบันทึกภาพลงเครื่อง (ง่ายที่สุด):</b><br>
-          <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <b>"บันทึกรูปภาพ" (Save Image)</b> รูปลงอัลบั้มทันที
+        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.6;">
+          📸 <b>ขั้นตอนชำระเงินง่ายๆ 2 ขั้นตอน:</b><br>
+          1. <b>แคปหน้าจอ (Screenshot)</b> หรือ <b>แตะค้างที่รูป QR (Long-press)</b> แล้วเลือก <i>"บันทึกรูปภาพ"</i><br>
+          2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR จากอัลบั้มรูปเพื่อชำระเงิน
         </div>
       </div>
 
       <!-- Action Buttons -->
       <div class="modal-btns" id="modal-action-btns">
         <button type="button" id="btn-modal-submit-direct" class="btn-modal-line" style="width: 100%; cursor: pointer; border: none; font-size: 1.08rem; padding: 0.95rem;">
-          <i class="fas fa-shopping-cart"></i> 🛒 สั่งซื้อสลาก
+          <i class="fas fa-check-circle"></i> ยืนยันการสั่งซื้อ
         </button>
-
-        <a id="btn-modal-save-qr" href="#" class="btn-modal-line" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none; width: 100%; border: none; cursor: pointer; text-decoration: none;">
-          <i class="fas fa-download"></i> 📥 บันทึกรูป QR ลงเครื่อง
-        </a>
-        <a id="btn-modal-paotang" href="paotang://" class="btn-modal-line" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); display: none; width: 100%; border: none; cursor: pointer; text-decoration: none;">
-          <i class="fas fa-wallet"></i> 🔵 เปิดแอป "เป๋าตัง" สแกนจ่าย
-        </a>
 
         <a id="btn-modal-open-line" href="#" class="btn-quick-tool" style="width: 100%; padding: 0.65rem; color: #6ee7b7; border-color: rgba(16,185,129,0.3); display: none;">
           <i class="fab fa-line"></i> ส่งคำสั่งซื้อเข้าห้องแชท LINE
@@ -1892,21 +1886,7 @@
       });
     }
 
-    // Save QR Code Button
-    const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
-    if (btnModalSaveQr) {
-      btnModalSaveQr.addEventListener('click', () => {
-        saveCurrentModalQr();
-      });
-    }
 
-    // Open Paotang Button
-    const btnModalPaotang = document.getElementById('btn-modal-paotang');
-    if (btnModalPaotang) {
-      btnModalPaotang.addEventListener('click', (e) => {
-        openPaotangApp(e);
-      });
-    }
 
     // Copy Command from Modal
     btnModalCopyCmd.addEventListener('click', () => {
@@ -2245,24 +2225,28 @@
       const modalProcessingArea = document.getElementById('modal-processing-area');
       const modalQrArea = document.getElementById('modal-qr-area');
       const btnModalSubmitDirect = document.getElementById('btn-modal-submit-direct');
-      const btnModalSaveQr = document.getElementById('btn-modal-save-qr');
-      const btnModalPaotang = document.getElementById('btn-modal-paotang');
       const btnModalOpenLine = document.getElementById('btn-modal-open-line');
       const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
       const btnModalClose = document.getElementById('btn-modal-close');
 
       if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-shopping-cart"></i>';
       if (modalTitle) modalTitle.textContent = 'ยืนยันการสั่งซื้อสลาก N3';
-      if (modalDesc) modalDesc.textContent = 'ตรวจสอบรายการตัวเลขและจำนวนสลาก จากนั้นแตะปุ่ม "🛒 สั่งซื้อสลาก" เพื่อสร้าง QR Code ชำระเงินทันที';
+      if (modalDesc) modalDesc.textContent = 'ตรวจสอบรายการตัวเลขและจำนวนสลาก จากนั้นแตะปุ่ม "ยืนยันการสั่งซื้อ" เพื่อสร้าง QR Code ชำระเงินทันที';
       if (modalOrderPreview) modalOrderPreview.style.display = 'block';
       if (modalProcessingArea) modalProcessingArea.style.display = 'none';
       if (modalQrArea) modalQrArea.style.display = 'none';
-      if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
-      if (btnModalSaveQr) btnModalSaveQr.style.display = 'none';
-      if (btnModalPaotang) btnModalPaotang.style.display = 'none';
+      if (btnModalSubmitDirect) {
+        btnModalSubmitDirect.style.display = 'flex';
+        btnModalSubmitDirect.innerHTML = '<i class="fas fa-check-circle"></i> ยืนยันการสั่งซื้อ';
+      }
       if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
       if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
-      if (btnModalClose) btnModalClose.textContent = 'ปิดหน้าต่าง';
+      if (btnModalClose) {
+        btnModalClose.textContent = 'ปิดหน้าต่าง';
+        btnModalClose.style.background = 'transparent';
+        btnModalClose.style.color = 'var(--color-text-muted)';
+        btnModalClose.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+      }
     }
 
     function startCountdown(seconds = 600) {
@@ -2481,38 +2465,30 @@
                 if (modalProcessingArea) modalProcessingArea.style.display = 'none';
                 if (modalQrArea) modalQrArea.style.display = 'block';
                 if (modalTitle) modalTitle.textContent = 'สร้าง QR Code ชำระเงินสำเร็จ!';
-                if (modalDesc) modalDesc.textContent = 'บันทึกภาพ QR Code แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงินได้ทันที';
+                if (modalDesc) modalDesc.textContent = 'แคปหน้าจอหรือแตะค้างที่รูปภาพเพื่อบันทึก แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงิน';
 
                 const qrSrc = statusData.qrImageUrl || statusData.qrUrl || statusData.qrDataUrl || statusData.downloadUrl || statusData.qrImage;
-                const qrFilename = qrSrc.split('/').pop()?.split('?')[0] || `n3-qr-${orderId}.png`;
-
                 if (modalQrImg && qrSrc) {
                   modalQrImg.src = qrSrc;
                 }
 
-                if (btnModalSaveQr) {
-                  btnModalSaveQr.style.display = 'flex';
-                  btnModalSaveQr.href = `/download-qr/${qrFilename}?action=dl`;
-                  btnModalSaveQr.setAttribute('download', `n3-qr-${orderId}.png`);
-                  btnModalSaveQr.onclick = (e) => {
-                    if (e && e.preventDefault) e.preventDefault();
-                    handleDownloadQr(qrSrc, `n3-qr-${orderId}.png`);
-                  };
-                }
-
-                if (btnModalPaotang) {
-                  btnModalPaotang.style.display = 'flex';
-                  const isAndroid = /Android/i.test(navigator.userAgent || '');
-                  if (isAndroid) {
-                    btnModalPaotang.href = "intent://#Intent;scheme=paotang;package=com.ktb.customer.qr;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ktb.customer.qr;end";
-                  } else {
-                    btnModalPaotang.href = "paotang://";
-                  }
-                  btnModalPaotang.onclick = (e) => openPaotangApp(e);
-                }
+                if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'none';
+                if (btnModalOpenLine) btnModalOpenLine.style.display = 'none';
+                if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'none';
 
                 if (btnModalClose) {
                   btnModalClose.textContent = 'เสร็จสิ้น / สั่งซื้อชุดใหม่';
+                  btnModalClose.style.display = 'block';
+                  btnModalClose.style.width = '100%';
+                  btnModalClose.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                  btnModalClose.style.color = '#ffffff';
+                  btnModalClose.style.border = 'none';
+                  btnModalClose.style.padding = '0.9rem';
+                  btnModalClose.style.fontSize = '1rem';
+                  btnModalClose.style.fontWeight = '700';
+                  btnModalClose.style.borderRadius = '12px';
+                  btnModalClose.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.4)';
+                  btnModalClose.style.cursor = 'pointer';
                 }
 
                 startCountdown(600);
@@ -2631,7 +2607,7 @@
       }
 
       modalConfirm.classList.add('active');
-      showToast('📋 บันทึกคำสั่งซื้อแล้ว แตะปุ่ม "🛒 สั่งซื้อสลาก" เพื่อรับ QR Code', 'info');
+      showToast('📋 บันทึกคำสั่งซื้อแล้ว แตะปุ่ม "ยืนยันการสั่งซื้อ" เพื่อรับ QR Code', 'info');
     }
 
     function submitSixPackOrder() {
