@@ -741,16 +741,16 @@ let lastAdminQrUrl: string = '';
 let lastAdminQrTime: number = 0;
 
 /**
- * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้ "ผู้ดูแลระบบ (ADMIN)" เท่านั้น!
+ * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้ "ผู้ดูแลระบบ (ADMIN)" พร้อมระบบ Feedback ครบถ้วน
  */
-async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise<void> {
-  // หากมีภาพ QR ที่ยังไม่หมดอายุ (< 4 นาที) และแอดมินขอผ่าน ReplyToken ให้ส่งภาพนั้นทันที
-  if (replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
+async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRelogin: boolean = false): Promise<void> {
+  // 1. หากมีภาพ QR ที่ยังไม่หมดอายุ (< 4 นาที) และไม่ได้เป็นการบังคับสร้างใหม่ ให้ส่งภาพนั้นทันที
+  if (!forceRelogin && replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
     console.log(`[ADMIN AUTH INSTANT REPLY] ส่งภาพ QR Code เดิมที่กำลังรอสแกนให้แอดมินผ่าน ReplyToken ทันที`);
     const adminMessages: any[] = [
       {
         type: 'text',
-        text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้เพื่อเข้าสู่ระบบตัวแทน N3:\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}`
+        text: `📲 [QR Code เข้าสู่ระบบ GLO N3]\n\nภาพ QR Code เดิมยังสามารถใช้งานได้ (อายุ 4 นาที)\nกรุณาเปิดแอป "เป๋าตัง" แล้วเลือก "สแกน QR" เพื่อเข้าสู่ระบบร้านค้าได้ทันทีครับ\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}`
       },
       {
         type: 'image',
@@ -762,13 +762,14 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
     return;
   }
 
+  // 2. หากกำลังอยู่ในกระบวนการสร้าง/รอล็อกอินอยู่แล้ว
   if (isLoggingIn) {
     if (replyToken) {
       if (lastAdminQrUrl) {
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
-            text: `⚠️ [แจ้งเตือนแอดมิน] กำลังรอสแกนเป๋าตังอยู่ครับ สแกน QR Code นี้ได้ทันที:\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}`
+            text: `📲 [QR Code เข้าสู่ระบบ GLO N3]\n\nระบบกำลังรอการสแกนเป๋าตังอยู่ครับ สามารถสแกนภาพ QR Code ด้านล่างนี้ได้ทันที (อายุ 5 นาที):\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}`
           },
           {
             type: 'image',
@@ -780,7 +781,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
-            text: `⏳ ระบบกำลังจัดเตรียมภาพ QR Login เป๋าตัง กรุณาส่ง 'Q' อีกครั้งในอีกสักครู่ครับ`
+            text: `⏳ ระบบกำลังจัดเตรียมภาพ QR Login จากระบบ GLO N3 กรุณารอสักครู่ (ประมาณ 3-5 วินาที) แล้วพิมพ์ "qr" อีกครั้งครับ`
           }
         ]);
       }
@@ -792,6 +793,29 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
   try {
     const { page: currentPage, context: currentContext } = await ensureBrowser();
 
+    // 3. ตรวจสอบว่าระบบล็อกอินอยู่แล้วหรือไม่ (หากไม่ได้ระบุ forceRelogin)
+    if (!forceRelogin) {
+      const isValid = await N3Auth.isSessionValid(currentPage).catch(() => false);
+      if (isValid) {
+        await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
+        const liveQuota = quotaManager.getStatus();
+        const salesStatus = OperatingHoursGuard.checkSalesStatus();
+        const adminFeedback: any[] = [
+          {
+            type: 'text',
+            text: `🟢 [สถานะระบบร้านค้า N3: ออนไลน์พร้อมขาย 100%]\n\nขณะนี้ระบบของร้านล็อกอินด้วยแอปเป๋าตังเรียบร้อยแล้ว (Session Active)\n\n📊 โควต้าคงเหลือจริง: ${liveQuota.remainingQuota.toLocaleString()} / ${liveQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveQuota.usedQuota.toLocaleString()} ใบ)\n🏪 สถานะเวลาทำการ: ${salesStatus.reason}\n\n✨ ระบบพร้อมรับและสั่งซื้อสลากให้ลูกค้าอัตโนมัติตลอด 24 ชม. ไม่จำเป็นต้องสแกนใหม่ครับ\n\n💡 หากต้องการบังคับสร้าง QR Login ใหม่จริงๆ กรุณาพิมพ์คำว่า "relogin"`
+          }
+        ];
+        if (replyToken) {
+          await lineHandler.reply(replyToken, adminFeedback);
+        } else {
+          await lineHandler.pushToAdmin(adminFeedback);
+        }
+        return;
+      }
+    }
+
+    // 4. สร้างภาพ QR Login เป๋าตังใหม่จากหน้าเว็บ GLO N3
     console.log(`[ADMIN AUTH] ${reason} -> กำลังสร้าง QR Login ส่งให้แอดมิน...`);
     const { qrImagePath } = await N3Auth.generatePaotangLoginQR(currentPage);
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
@@ -803,7 +827,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
     const adminMessages: any[] = [
       {
         type: 'text',
-        text: `⚠️ [แจ้งเตือนแอดมิน] ${reason}\n\nกรุณาเปิดแอป "เป๋าตัง" แล้วสแกน QR Code นี้ภายใน 5 นาที เพื่อเข้าสู่ระบบตัวแทน N3:\n🔗 ลิงก์ตรงรูปภาพ: ${qrPublicUrl}`
+        text: `🔐 [QR Code เข้าสู่ระบบ GLO N3 สำหรับแอดมิน]\n\n📲 กรุณาเปิดแอป "เป๋าตัง" แล้วเลือก "สแกน QR" เพื่อเข้าสู่ระบบร้านค้าภายใน 5 นาทีครับ\n\n🔗 ลิงก์ตรงรูปภาพ: ${qrPublicUrl}`
       },
       {
         type: 'image',
@@ -821,6 +845,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
 
     console.log('[ADMIN AUTH] ส่งภาพ QR เข้า LINE แอดมินเรียบร้อยแล้ว กำลังรอสแกน...');
 
+    // 5. รอผลการสแกนเป๋าตังจากแอดมิน
     const success = await N3Auth.waitForAdminScan(currentPage, currentContext);
     if (success) {
       lastAdminQrUrl = '';
@@ -829,20 +854,38 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string): Promise
       await lineHandler.pushToAdmin([
         {
           type: 'text',
-          text: `✅ ล็อกอินเข้าสู่ระบบ N3 สำเร็จแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติแล้วครับ 🎉\n\n📊 โควต้าคงเหลือจริง: ${liveQuota.remainingQuota.toLocaleString()} / ${liveQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveQuota.usedQuota.toLocaleString()} ใบ)`
+          text: `🎉 [เข้าสู่ระบบสำเร็จ]\n\nแอดมินสแกนเป๋าตังเชื่อมต่อระบบ N3 เรียบร้อยแล้ว! ระบบพร้อมประมวลผลออเดอร์ลูกค้าอัตโนมัติ 24 ชม. 🎉\n\n📊 โควต้าคงเหลือจริง: ${liveQuota.remainingQuota.toLocaleString()} / ${liveQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveQuota.usedQuota.toLocaleString()} ใบ)`
         }
       ]);
       console.log(`[BROWSER READY] ล็อกอินสำเร็จ โควต้าจริง ${liveQuota.remainingQuota}/${liveQuota.maxQuota} ใบ หน้าต่าง Chrome พร้อมรับคำสั่งซื้อทันที`);
     } else {
-      // หากหมดเวลาหรือไม่สำเร็จ ให้ปิดหน้าต่างเบราว์เซอร์
-      await PersistentBrowserManager.close();
+      // หากหมดเวลาหรือไม่สำเร็จ ให้แจ้งเตือนและปิดเบราว์เซอร์
+      await PersistentBrowserManager.close().catch(() => {});
       context = null;
       page = null;
       lastAdminQrUrl = '';
+      await lineHandler.pushToAdmin([
+        {
+          type: 'text',
+          text: `⏳ [หมดเวลาการสแกน QR Login]\n\nภาพ QR Code เข้าสู่ระบบหมดอายุแล้ว กรุณาพิมพ์ "qr" ในแชทอีกครั้งเมื่อพร้อมสแกนครับ`
+        }
+      ]);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('[ADMIN AUTH ERROR]', err);
-    await PersistentBrowserManager.close();
+    const errMsg = err?.message || String(err);
+    const errFeedback: any[] = [
+      {
+        type: 'text',
+        text: `❌ [เกิดข้อผิดพลาดในการสร้าง QR Login]\n\nสาเหตุ: ${errMsg}\n💡 กรุณาตรวจสอบสถานะระบบ GLO หรือลองพิมพ์ "qr" ใหม่อีกครั้งในอีกสักครู่ครับ`
+      }
+    ];
+    if (replyToken) {
+      await lineHandler.reply(replyToken, errFeedback).catch(() => {});
+    } else {
+      await lineHandler.pushToAdmin(errFeedback).catch(() => {});
+    }
+    await PersistentBrowserManager.close().catch(() => {});
     context = null;
     page = null;
     lastAdminQrUrl = '';
@@ -1571,14 +1614,22 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       // 1. ตรวจสอบคำสั่งล็อกอิน Admin (ครอบคลุม Q, q, qr, QR, login, ล็อกอิน ทุกรูปแบบ)
-      const isAdminLoginCmd = /^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|ล็อกอิน|คิว|ขอคิว|ขอ\s*qr)$/i.test(userText);
+      const isAdminLoginCmd = /^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|relogin|ล็อกอิน|เข้าสู่ระบบ|ขอคิว|ขอ\s*qr|ขอ\s*qr\s*login|ขอคิวอาร์|ขอคิวอาร์โค้ด)$/i.test(userText);
+      const isForceRelogin = /^(?:relogin|ขอ\s*qr\s*ใหม่|บังคับล็อกอิน|รีล็อกอิน|ขอคิวใหม่)$/i.test(userText);
       if (isAdminLoginCmd) {
         if (isAdmin) {
-          triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง', replyToken);
+          await lineHandler.showLoading(userId, 30);
+          await triggerAdminLoginQR('แอดมินสั่งขอรับ QR Code เข้าสู่ระบบเป๋าตัง', replyToken, isForceRelogin);
         } else {
-          // ถ้าไม่ใช่ Admin: ห้ามส่ง QR เด็ดขาด! ส่งการ์ดเมนูหลักแทน
-          console.warn(`[SECURITY] ผู้ใช้ทั่วไป ${userId} พยายามสั่ง ${userText} -> ปฏิเสธและส่งเมนูหลัก`);
-          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+          // ถ้าไม่ใช่ Admin: ส่งคำแนะนำและเมนูหลัก
+          console.warn(`[SECURITY] ผู้ใช้ทั่วไป ${userId} พยายามสั่ง ${userText} -> ปฏิเสธและส่งคำแนะนำ`);
+          await lineHandler.reply(replyToken, [
+            {
+              type: 'text',
+              text: `💡 คุณลูกค้าต้องการขอรับ QR Code ชำระเงินสลาก N3 ใช่หรือไม่ครับ?\n\n🛒 กรุณาแตะปุ่ม "🛒 สั่งซื้อสลาก N3" ด้านล่าง เพื่อเปิดตารางเลือกเลข 3 หลักและจำนวนใบในตารางก่อนครับ ระบบจะสร้าง QR Code ชำระเงินผ่านแอปเป๋าตังให้ทันที 100% ครับ 🙏`
+            },
+            FlexMessageBuilder.buildMainMenuMessage()
+          ]);
         }
         continue;
       }
