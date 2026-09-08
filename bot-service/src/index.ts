@@ -226,7 +226,7 @@ app.get(['/webhook', '/webhook/'], (req: Request, res: Response) => {
   return res.redirect('/order');
 });
 
-// Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code พร้อมหน้ารองรับทั้ง Direct Download และ Mobile Web View
+// Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code ส่งตรงเข้าเครื่องทันที (Direct Download)
 app.get('/download-qr/:filename', (req: Request, res: Response): void => {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
   if (!rateLimiter.check(`download:${ip}`, 60, 60000)) {
@@ -253,127 +253,16 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     return;
   }
 
-  // หากระบุ ?action=dl หรือ ?download=1 ให้ส่งเป็นไฟล์ดาวน์โหลดตรงทันที
-  const isDirectDownload = req.query.action === 'dl' || req.query.download === '1';
-  if (isDirectDownload) {
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.removeHeader('X-Frame-Options');
-    res.setHeader('Content-Disposition', `attachment; filename="n3-qr-${filename}"`);
-    if (cachedBuf) {
-      res.send(cachedBuf);
-    } else {
-      res.download(filePath, `n3-qr-${filename}`);
-    }
-    return;
-  }
-
-  // ส่งหน้าดาวน์โหลดแบบ Responsive สวยงาม รองรับทั้ง Android, iOS, และ LINE In-App Browser
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  // ส่งเป็นไฟล์ภาพ PNG ดาวน์โหลดตรงเข้าเครื่องทันที (ไม่มีหน้าเว็บ HTML ดักคั่น)
+  res.setHeader('Content-Type', 'image/png');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.removeHeader('X-Frame-Options');
-  res.send(`<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>QR Code ชำระเงินสลาก N3 | ร้านสลาก N3 ธนกิจนำโชค</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body { background: linear-gradient(135deg, #091322 0%, #0f172a 50%, #1e293b 100%); color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
-    .card { background: #1e293b; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); max-width: 440px; width: 100%; padding: 24px 20px; text-align: center; position: relative; }
-    .header h2 { font-size: 1.3rem; color: #fde68a; font-weight: 700; margin-bottom: 4px; }
-    .header p { font-size: 0.88rem; color: #94a3b8; }
-    .line-warning-banner { display: none; background: rgba(2, 132, 199, 0.15); border: 1px solid #0284c7; border-radius: 12px; padding: 10px; margin-bottom: 14px; font-size: 0.82rem; color: #bae6fd; text-align: left; }
-    .line-warning-banner a { color: #38bdf8; font-weight: 700; text-decoration: underline; }
-    .qr-container { background: #ffffff; padding: 14px; border: 2.5px dashed #10b981; border-radius: 20px; margin: 16px auto; display: inline-block; width: 100%; max-width: 270px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); transition: all 0.3s ease; }
-    .qr-container img { width: 100%; height: auto; display: block; border-radius: 10px; -webkit-touch-callout: default !important; -webkit-user-select: auto !important; user-select: auto !important; pointer-events: auto !important; touch-action: auto !important; }
-    .touch-hint { font-size: 0.82rem; color: #fde68a; margin-top: 6px; font-weight: 600; display: block; }
-    .btn-action { display: flex; align-items: center; justify-content: center; width: 100%; padding: 14px; border-radius: 14px; font-weight: 700; font-size: 1.02rem; margin-bottom: 12px; border: none; cursor: pointer; transition: transform 0.1s ease, filter 0.2s; text-decoration: none; }
-    .btn-action:active { transform: scale(0.98); }
-    .btn-download { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); }
-    .btn-paotang { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); }
-    .btn-external { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; font-size: 0.85rem; padding: 10px; }
-    .touch-guide-box { background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 14px; padding: 12px; margin: 12px 0; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.55; }
-    .guide-box { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 14px; font-size: 0.82rem; color: #cbd5e1; text-align: left; line-height: 1.55; margin-top: 10px; }
-    .guide-box b { color: #fde68a; }
-    .guide-step { display: flex; align-items: flex-start; margin-bottom: 10px; }
-    .guide-step:last-child { margin-bottom: 0; }
-    .step-badge { background: #d4af37; color: #0c1b33; font-weight: 800; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; margin-right: 8px; flex-shrink: 0; margin-top: 2px; }
-    .toast-msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 9999; }
-    .toast-msg.show { opacity: 1; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div id="lineBanner" class="line-warning-banner">
-      💡 <b>เปิดในแอป LINE อยู่ใช่ไหม?</b><br>
-      หากบันทึกรูปหรือเปิดแอปเป๋าตังไม่ได้ <a href="javascript:openExternalBrowser()">แตะที่นี่เพื่อเปิดใน Safari / Chrome</a>
-    </div>
-
-    <div class="header">
-      <h2>ร้านสลาก N3 ธนกิจนำโชค</h2>
-      <p>QR Code สำหรับชำระเงินผ่านแอป "เป๋าตัง"</p>
-    </div>
-
-    <div class="qr-container" id="qrContainer">
-      <img id="qrImg" src="/qrcodes/${filename}" alt="N3 Payment QR Code">
-    </div>
-
-    <div class="touch-guide-box">
-      📸 <b>ขั้นตอนชำระเงินง่ายๆ 2 ขั้นตอน:</b><br>
-      1. <b>แคปหน้าจอ (Screenshot)</b> หรือ <b>แตะค้างที่รูป QR ด้านบน (Long-press)</b> แล้วเลือก <b>"บันทึกรูปภาพ"</b><br>
-      2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR จากอัลบั้มรูปในเครื่อง
-    </div>
-
-    <div class="guide-box" style="margin-top: 16px;">
-      <div class="guide-step">
-        <span class="step-badge">1</span>
-        <div><b>บันทึกรูป QR:</b> แคปหน้าจอ หรือแตะค้างที่รูป QR ด้านบนแล้วเลือก <i>"บันทึกรูปภาพ"</i></div>
-      </div>
-      <div class="guide-step">
-        <span class="step-badge">2</span>
-        <div><b>เปิดแอปเป๋าตัง:</b> เปิดแอปเป๋าตังในโทรศัพท์มือถือของคุณ</div>
-      </div>
-      <div class="guide-step">
-        <span class="step-badge">3</span>
-        <div><b>สแกนชำระเงิน:</b> ในแอปเป๋าตัง กดเมนู <i>"สแกน"</i> แล้วเลือกรูป QR จากอัลบั้มรูปเพื่อจ่ายเงิน 20 บาท/ใบ</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast-msg">บันทึกรูปภาพสำเร็จ</div>
-
-  <script>
-    const isLine = /Line\//i.test(navigator.userAgent || '');
-
-    if (isLine) {
-      const banner = document.getElementById('lineBanner');
-      const btnExt = document.getElementById('btnExternal');
-      if (banner) banner.style.display = 'block';
-      if (btnExt) btnExt.style.display = 'flex';
-    }
-
-    function showToast(text) {
-      const toast = document.getElementById('toast');
-      if (toast) {
-        toast.textContent = text;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2500);
-      }
-    }
-
-    function openExternalBrowser() {
-      const currentUrl = window.location.href;
-      const sep = currentUrl.includes('?') ? '&' : '?';
-      window.location.href = currentUrl + sep + 'openExternalBrowser=1';
-    }
-  </script>
-</body>
-</html>`);
+  res.setHeader('Content-Disposition', `attachment; filename="n3-qr-${filename}"`);
+  if (cachedBuf) {
+    res.send(cachedBuf);
+  } else {
+    res.download(filePath, `n3-qr-${filename}`);
+  }
 });
 
 // เริ่มต้นระบบหลัก
@@ -1037,7 +926,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
 
       const activePublicBase = getPublicBaseUrl();
       const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, activePublicBase);
-      const downloadUrl = `${activePublicBase}/download-qr/${qrFileName}?openExternalBrowser=1`;
+      const downloadUrl = `${activePublicBase}/download-qr/${qrFileName}?action=dl`;
 
       // อัปเดตสถานะใน orderStatusStore สำหรับ Web Polling
       orderStatusStore.set(task.orderId, {
