@@ -230,11 +230,15 @@ const DreamArtGenerator = (function () {
     canvas.height = height;
     const ctx = canvas.getContext('2d');
 
-    const promptText = (prediction && prediction.prompt) || 'นิมิตโชคลาภมหาเศรษฐี';
+    // Extract exact predicted parameters from AIDreamEngine / TarotEngine
+    const promptText = (prediction && (prediction.dreamText || prediction.prompt || prediction.topic)) || 'นิมิตโชคลาภมหาเศรษฐี';
     const meaning = (prediction && prediction.meaning) || '';
-    const digits = (prediction && prediction.luckyDigitsPrimary) || ['5', '9', '8'];
-    const threeStraight = (prediction && prediction.threeStraight) || '598';
-    const category = (prediction && prediction.category) || '';
+    const threeStraight = (prediction && (prediction.n3Direct || prediction.threeStraight)) || '954';
+    const digits = (prediction && (prediction.n3Direct ? prediction.n3Direct.split('') : (prediction.luckyDigitsPrimary || threeStraight.split('')))) || ['9', '5', '4'];
+    const twoStraight = (prediction && (prediction.n2Digit || (threeStraight.length >= 2 ? threeStraight.slice(-2) : '54'))) || '54';
+    const n3Tod = (prediction && prediction.n3Tod) || '';
+    const category = (prediction && (prediction.matchedSymbols || prediction.category || prediction.element)) || '';
+    const confidence = (prediction && prediction.confidence) || '98.5%';
 
     // 1. Deep Celestial Space Background
     const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width * 0.75);
@@ -249,25 +253,25 @@ const DreamArtGenerator = (function () {
 
     // 3. Category Motif Selection
     const cx = width / 2;
-    const cy = height * 0.44;
-    const motifSize = width * 0.38;
+    const cy = height * 0.42;
+    const motifSize = width * 0.36;
 
     if (/งู|พญานาค|มังกร/i.test(promptText) || /สัตว์เลื้อยคลาน/i.test(category)) {
       drawNagaMotif(ctx, cx, cy, motifSize);
-    } else if (/พระ|วัด|สงฆ์|โบสถ์|หลวงพ่อ/i.test(promptText) || /สิ่งศักดิ์สิทธิ์/i.test(category)) {
+    } else if (/พระ|วัด|สงฆ์|โบสถ์|หลวงพ่อ|เกจิ/i.test(promptText) || /สิ่งศักดิ์สิทธิ์/i.test(category)) {
       drawSacredTempleMotif(ctx, cx, cy, motifSize);
-    } else if (/ปลา|น้ำ|ทะเล|แม่น้ำ|ฝน/i.test(promptText) || /น้ำ/i.test(category)) {
+    } else if (/ปลา|น้ำ|ทะเล|แม่น้ำ|ฝน|คลื่น/i.test(promptText) || /น้ำ/i.test(category)) {
       drawOceanicMotif(ctx, cx, cy, motifSize);
-    } else if (/ไฟ|เพลิง|ควัน|ทอง/i.test(promptText) || /ไฟ/i.test(category)) {
+    } else if (/ไฟ|เพลิง|ควัน|ทอง|ตะวัน/i.test(promptText) || /ไฟ/i.test(category)) {
       drawSolarFireMotif(ctx, cx, cy, motifSize);
-    } else if (/ช้าง|เสือ|สัตว์/i.test(promptText)) {
+    } else if (/ช้าง|เสือ|สิงโต|สัตว์/i.test(promptText)) {
       drawCelestialBeastMotif(ctx, cx, cy, motifSize);
     } else {
       drawMandalaRays(ctx, cx, cy, motifSize * 0.8, 16, 'rgba(250, 204, 21, 0.3)');
       drawNagaMotif(ctx, cx, cy, motifSize * 0.85);
     }
 
-    // 4. Floating Celestial Lucky Glyphs (Astro Runes)
+    // 4. Floating Celestial Lucky Glyphs (Astro Runes matching exact digits)
     ctx.save();
     ctx.textAlign = 'center';
     ctx.font = '800 52px "Prompt", sans-serif';
@@ -275,24 +279,24 @@ const DreamArtGenerator = (function () {
     ctx.shadowColor = '#facc15';
     ctx.shadowBlur = 20;
 
-    const glyphRadius = motifSize * 0.88;
+    const glyphRadius = motifSize * 0.92;
     digits.forEach((d, idx) => {
       const angle = (idx * (Math.PI * 2 / digits.length)) - Math.PI / 2;
       const gx = cx + Math.cos(angle) * glyphRadius;
       const gy = cy + Math.sin(angle) * glyphRadius;
 
       // Glow backing
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
       ctx.beginPath();
-      ctx.arc(gx, gy, 36, 0, Math.PI * 2);
+      ctx.arc(gx, gy, 38, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#fef08a';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
       // Number text
       ctx.fillStyle = '#fef08a';
-      ctx.fillText(d, gx, gy + 18);
+      ctx.fillText(d, gx, gy + 19);
     });
     ctx.restore();
 
@@ -322,7 +326,7 @@ const DreamArtGenerator = (function () {
     drawCorner(width - 30, height - 30, -1, -1);
     ctx.restore();
 
-    // 6. Typography & Overlay Details (Bottom Banner)
+    // 6. Typography & Overlay Details (Header & Bottom Banner)
     ctx.save();
     ctx.textAlign = 'center';
 
@@ -338,31 +342,59 @@ const DreamArtGenerator = (function () {
     const cleanPrompt = promptText.length > 24 ? promptText.substring(0, 24) + '...' : promptText;
     ctx.fillText(`"${cleanPrompt}"`, width / 2, 145);
 
-    // Bottom Badge: 3 Straight Combo Highlight
-    const boxY = height - 190;
-    const boxW = width - 120;
-    const boxH = 130;
+    // Bottom Badge: Comprehensive Lucky Number Board
+    const boxY = height - 215;
+    const boxW = width - 100;
+    const boxH = 155;
     const boxX = (width - boxW) / 2;
 
     const boxGrad = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY + boxH);
-    boxGrad.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
-    boxGrad.addColorStop(1, 'rgba(30, 41, 59, 0.92)');
+    boxGrad.addColorStop(0, 'rgba(15, 23, 42, 0.95)');
+    boxGrad.addColorStop(1, 'rgba(30, 41, 59, 0.95)');
     ctx.fillStyle = boxGrad;
     ctx.beginPath();
     ctx.roundRect(boxX, boxY, boxW, boxH, 20);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(250, 204, 21, 0.5)';
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Inside Box Text
-    ctx.font = '700 26px "Prompt", sans-serif';
+    // Main 3-Straight Number
+    ctx.font = '700 24px "Prompt", sans-serif';
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText('🎯 ชุดเลขมงคล 3 ตัวตรง N3', width / 2, boxY + 45);
+    ctx.fillText('🎯 เลข 3 ตัวตรง N3', boxX + boxW * 0.32, boxY + 42);
 
-    ctx.font = '900 56px "Prompt", sans-serif';
+    ctx.font = '900 60px "Prompt", sans-serif';
     ctx.fillStyle = '#fef08a';
-    ctx.fillText(threeStraight, width / 2, boxY + 105);
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 12;
+    ctx.fillText(threeStraight, boxX + boxW * 0.32, boxY + 110);
+    ctx.shadowBlur = 0;
+
+    // Divider Line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(boxX + boxW * 0.62, boxY + 20);
+    ctx.lineTo(boxX + boxW * 0.62, boxY + boxH - 20);
+    ctx.stroke();
+
+    // Secondary 2-Straight & Tod
+    ctx.font = '700 22px "Prompt", sans-serif';
+    ctx.fillStyle = '#34d399';
+    ctx.fillText('💎 2 ตัวตรง', boxX + boxW * 0.81, boxY + 42);
+
+    ctx.font = '900 48px "Prompt", sans-serif';
+    ctx.fillStyle = '#6ee7b7';
+    ctx.fillText(twoStraight, boxX + boxW * 0.81, boxY + 98);
+
+    // Tod Summary Footer inside card
+    if (n3Tod && n3Tod !== 'ไม่มี (เลขตอง)') {
+      ctx.font = '500 18px "Prompt", sans-serif';
+      ctx.fillStyle = '#cbd5e1';
+      const cleanTod = n3Tod.length > 28 ? n3Tod.substring(0, 28) + '...' : n3Tod;
+      ctx.fillText(`ชุดโต๊ด: ${cleanTod}`, boxX + boxW * 0.5, boxY + 140);
+    }
 
     // Footer Watermark
     ctx.font = '500 20px "Prompt", sans-serif';

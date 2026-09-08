@@ -2745,50 +2745,119 @@ footer {
 .heatmap-table-wrapper {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(11, 19, 41, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 19, 41, 0.7);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .heatmap-table {
   width: 100%;
+  min-width: 500px;
   border-collapse: collapse;
   text-align: center;
   font-family: var(--font-heading);
 }
 
 .heatmap-table th {
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.95);
   color: var(--color-gold-light);
-  padding: 1rem 0.75rem;
-  font-size: 0.95rem;
+  padding: 0.85rem 0.6rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  border-bottom: 1px solid rgba(250, 204, 21, 0.25);
+  border-bottom: 1.5px solid rgba(250, 204, 21, 0.3);
+  white-space: nowrap;
 }
 
 .heatmap-table td {
-  padding: 0.85rem 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.heatmap-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+}
+
+.filter-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.filter-btn-group {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-pill:hover,
+.filter-pill.active {
+  background: linear-gradient(135deg, #ffd700 0%, #d4af37 100%);
+  color: #0f172a;
+  border-color: #fef08a;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.35);
+}
+
+.mobile-scroll-hint {
+  display: none;
+  font-size: 0.75rem;
+  color: var(--color-gold-light);
+  text-align: center;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: rgba(250, 204, 21, 0.08);
+  border-radius: 6px;
+  border: 1px dashed rgba(250, 204, 21, 0.25);
+}
+
+@media (max-width: 640px) {
+  .mobile-scroll-hint {
+    display: block;
+  }
 }
 
 .digit-cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .digit-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 800;
 }
 
@@ -2800,19 +2869,14 @@ footer {
 }
 
 .hot-tag {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: #fef08a;
-  background: rgba(239, 68, 68, 0.4);
-  padding: 0.2rem 0.45rem;
-  border-radius: 6px;
-  border: 1px solid rgba(239, 68, 68, 0.6);
-  font-weight: 700;
 }
 
 .heat-bar-box {
   position: relative;
-  height: 36px;
-  border-radius: 8px;
+  height: 32px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2824,9 +2888,9 @@ footer {
   position: relative;
   z-index: 2;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: #ffffff;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .heat-fill {
@@ -2839,19 +2903,42 @@ footer {
   transition: width 0.6s ease;
 }
 
+.order-digit-btn {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.order-digit-btn:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #34d399;
+  transform: translateY(-1px);
+}
+
 /* Astrological Day Grid */
 .astro-day-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
-  margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
 }
 
 .astro-day-card {
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(15, 23, 42, 0.75);
   border: 1.5px solid rgba(250, 204, 21, 0.3);
   border-radius: var(--radius-md);
-  padding: 1.25rem;
+  padding: 1.15rem;
   text-align: center;
   transition: all 0.3s ease;
 }
@@ -2866,14 +2953,14 @@ footer {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ffd700 0%, #d4af37 100%);
   color: #0f172a;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 900;
-  margin: 0.35rem;
+  margin: 0.25rem;
   box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
 }
 
@@ -2892,9 +2979,9 @@ footer {
   gap: 0.6rem;
   background: rgba(15, 23, 42, 0.85);
   border: 1.5px solid var(--border-gold);
-  padding: 0.65rem 1.2rem;
+  padding: 0.6rem 1.1rem;
   border-radius: 9999px;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #fef08a;
   margin: 0.35rem;
@@ -2905,7 +2992,7 @@ footer {
 .combo-num-pill:hover {
   background: #fef08a;
   color: #0f172a;
-  transform: scale(1.06);
+  transform: scale(1.05);
 }
 
 /* ==========================================================================
