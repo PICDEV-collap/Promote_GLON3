@@ -1114,6 +1114,71 @@
       cursor: pointer;
       padding: 0.3rem;
     }
+
+    /* Mobile-First ImageSaver & Long-Press Modal */
+    #modal-image-saver {
+      z-index: 10050 !important;
+    }
+    .image-saver-guide-box {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.18), rgba(16, 185, 129, 0.15));
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      text-align: left;
+      transition: all 0.3s ease;
+    }
+    .image-saver-guide-box.pulse-highlight {
+      border-color: #f59e0b;
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
+      transform: scale(1.02);
+    }
+    .guide-icon-pulse {
+      font-size: 1.4rem;
+      color: var(--color-gold);
+      animation: tapBounce 1.5s infinite ease-in-out;
+      flex-shrink: 0;
+    }
+    @keyframes tapBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-4px) scale(1.15); color: #f59e0b; }
+    }
+    .guide-text {
+      font-size: 0.82rem;
+      color: #f1f5f9;
+      line-height: 1.35;
+    }
+    .guide-text span {
+      color: var(--color-gold-light);
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .image-saver-img-wrapper {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      padding: 0.5rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 180px;
+    }
+    .image-saver-img {
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+      pointer-events: auto !important;
+      max-width: 100%;
+      max-height: 52vh;
+      height: auto;
+      border-radius: var(--radius-sm);
+      display: block;
+      object-fit: contain;
+    }
   </style>
 </head>
 <body>
@@ -1431,9 +1496,13 @@
 
         <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.6;">
           📸 <b>ขั้นตอนชำระเงิน:</b><br>
-          1. <b>แคปหน้าจอ (Screenshot)</b> หรือแตะค้างที่รูปภาพ QR เพื่อบันทึกลงเครื่อง<br>
+          1. แตะปุ่ม <b>"📥 บันทึกรูปภาพ QR Code"</b> ด้านล่าง หรือแคปหน้าจอ<br>
           2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR เพื่อชำระเงิน
         </div>
+
+        <button type="button" id="btn-modal-save-qr" class="btn-modal-line" style="width: 100%; margin-top: 12px; cursor: pointer; border: none; font-size: 1.02rem; padding: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 700; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);" onclick="downloadModalQr()">
+          <i class="fas fa-download"></i> 📥 บันทึกรูปภาพ QR Code
+        </button>
       </div>
 
       <!-- Action Buttons -->
@@ -1455,12 +1524,57 @@
     </div>
   </div>
 
+  <!-- Modal: Universal Mobile Image Saver & Long-Press Preview -->
+  <div id="modal-image-saver" class="modal-overlay" style="z-index: 10050;">
+    <div class="modal-card image-saver-card" style="max-width: 480px; width: 92%; max-height: 90vh; overflow-y: auto; text-align: center; background: var(--bg-card); border: 1px solid var(--border-gold); border-radius: var(--radius-lg); padding: 1.5rem; position: relative; box-shadow: var(--shadow-card);">
+      <button type="button" class="modal-close" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;" onclick="ImageSaver.closeModal()">&times;</button>
+      
+      <div style="margin-bottom: 0.5rem;">
+        <span id="image-saver-line-badge" class="badge badge-emerald" style="display: none; font-size: 0.72rem; margin-bottom: 0.4rem;">
+          <i class="fab fa-line"></i> LINE In-App Browser
+        </span>
+        <h3 id="image-saver-title" style="color: var(--color-gold-light); font-size: 1.2rem; margin: 0 0 0.25rem 0; font-family: var(--font-heading);">บันทึกรูปภาพ QR Code</h3>
+      </div>
+
+      <!-- High-contrast long-press instruction banner -->
+      <div id="image-saver-guide-banner" class="image-saver-guide-box">
+        <div class="guide-icon-pulse"><i class="fas fa-hand-pointer"></i></div>
+        <div class="guide-text">
+          <strong>วิธีเซฟภาพลงเครื่อง:</strong> แตะค้างที่รูปภาพด้านล่าง (Long-press) แล้วเลือก <span>"บันทึกรูปภาพ" (Save Image)</span> ลงแกลเลอรีโทรศัพท์
+        </div>
+      </div>
+
+      <!-- Preview Image Container (touch callout enabled) -->
+      <div class="image-saver-img-wrapper">
+        <img id="image-saver-img" class="image-saver-img" src="" alt="GLO N3 Payment QR Code" />
+      </div>
+
+      <!-- Action buttons -->
+      <div class="image-saver-actions">
+        <button type="button" id="btn-image-saver-share" class="btn btn-emerald" style="width: 100%; padding: 0.8rem; font-size: 0.95rem; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; border-radius: 12px; cursor: pointer;">
+          <i class="fas fa-share-alt"></i> 📲 เซฟ / แชร์ด้วยระบบมือถือ
+        </button>
+        
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+          <button type="button" id="btn-image-saver-external" class="btn btn-glass" style="flex: 1; font-size: 0.78rem; padding: 0.55rem; color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(255,255,255,0.05); cursor: pointer;" onclick="ImageSaver.openInExternalBrowser()">
+            <i class="fas fa-external-link-alt"></i> เปิดใน Safari/Chrome
+          </button>
+          <button type="button" id="btn-image-saver-dl" class="btn btn-glass" style="flex: 1; font-size: 0.78rem; padding: 0.55rem; color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(255,255,255,0.05); cursor: pointer;">
+            <i class="fas fa-download"></i> ดาวน์โหลดตรง
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Box -->
   <div id="toast-box" class="toast-box">
     <i class="fas fa-info-circle"></i>
     <span id="toast-msg">ข้อความ</span>
   </div>
 
+  <!-- Application Scripts -->
+  <script src="js/image-saver.js"></script>
   <script>
     // Configuration
     const CONFIG = {
@@ -2329,69 +2443,37 @@
       }, 1000);
     }
 
-    // 3-Tier Mobile-First Image Saving Strategy
-    async function handleDownloadQr(url, filename = 'n3-payment-qr.png') {
-      // Highlight QR Container to prompt touch & hold
-      const qrContainer = document.querySelector('#modal-qr-area > div');
-      if (qrContainer) {
-        qrContainer.style.border = '3px solid #f59e0b';
-        qrContainer.style.transform = 'scale(1.02)';
-        setTimeout(() => {
-          qrContainer.style.border = '2.5px dashed #10b981';
-          qrContainer.style.transform = 'none';
-        }, 1800);
-      }
-
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Fetch failed: ' + response.status);
-        const blob = await response.blob();
-        const file = new File([blob], filename, { type: 'image/png' });
-
-        // Tier 1: Native Web Share API Level 2 (iOS & Android Native Share Sheet)
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'QR Code ชำระเงินสลาก N3',
-              text: 'QR Code ชำระเงินสลาก N3 ร้านธนกิจนำโชค ผ่านแอปเป๋าตัง'
-            });
-            showToast('เปิดหน้าต่างบันทึกรูปภาพเรียบร้อยแล้ว', 'success');
-            return;
-          } catch (shareErr) {
-            if (shareErr.name === 'AbortError') return;
-            console.warn('Web Share failed:', shareErr);
-          }
-        }
-
-        // Tier 2: Synthetic Download Click (Standard Chrome / Safari / Desktop)
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-        showToast('ดาวน์โหลดรูปภาพ QR Code สำเร็จ', 'success');
-      } catch (e) {
-        console.warn('handleDownloadQr fallback to direct download link:', e);
-        // Tier 3: Direct Download via endpoint
-        const fileOnly = url.split('/').pop()?.split('?')[0] || filename;
-        const dlUrl = `/download-qr/${fileOnly}?action=dl`;
-        window.location.href = dlUrl;
-      }
-    }
-
-    function saveCurrentModalQr() {
+    // QR Download Handler using Mobile-First ImageSaver (Same as Dream Engine)
+    async function downloadModalQr() {
       const qrImg = document.getElementById('modal-qr-img');
-      const src = qrImg ? qrImg.src : '';
-      if (src) {
-        handleDownloadQr(src, 'n3-payment-qr.png');
+      const qrSrc = qrImg ? qrImg.src : '';
+      if (!qrSrc) {
+        showToast('ไม่พบรูปภาพ QR Code สำหรับบันทึก', 'error');
+        return;
+      }
+      const filename = `GLO-N3-Payment-QR-${Date.now()}.png`;
+      const title = 'QR Code ชำระเงินสลาก N3';
+      const text = 'บันทึกภาพ QR Code แล้วเปิดแอปเป๋าตังเพื่อสแกนชำระเงิน';
+
+      if (typeof window.ImageSaver !== 'undefined' && typeof window.ImageSaver.saveImage === 'function') {
+        await window.ImageSaver.saveImage({
+          dataUrl: qrSrc,
+          filename,
+          title,
+          text
+        });
       } else {
-        showToast('ไม่พบรูปภาพ QR Code', 'error');
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = qrSrc;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('กำลังดาวน์โหลดภาพ QR Code...');
       }
     }
+    window.downloadModalQr = downloadModalQr;
+    window.saveCurrentModalQr = downloadModalQr;
 
     // Smart Multi-OS Paotang Launcher
     function openPaotangApp(e) {
