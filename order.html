@@ -8,30 +8,19 @@
         var href = window.location.href;
         var params = new URLSearchParams(window.location.search);
         var liffState = params.get('liff.state');
+        var is6Pack = false;
         
         if (liffState) {
-          var decoded = decodeURIComponent(liffState);
-          var qIndex = decoded.indexOf('?');
-          var searchPart = qIndex !== -1 ? decoded.substring(qIndex) : (decoded.indexOf('=') !== -1 ? (decoded.startsWith('?') ? decoded : '?' + decoded) : '');
-          
-          if (searchPart) {
-            var stateParams = new URLSearchParams(searchPart);
-            stateParams.forEach(function(val, key) {
-              params.set(key, val);
-            });
-          }
-          if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
-            params.set('mode', '6pack');
-          }
-          params.delete('liff.state');
-          
-          var cleanSearch = params.toString();
-          var cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
-          window.history.replaceState(null, '', cleanUrl);
+          try {
+            var decoded = decodeURIComponent(liffState);
+            if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
+              is6Pack = true;
+            }
+          } catch (err) {}
         }
 
         var mode = params.get('mode') || params.get('type') || params.get('view');
-        if (mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
+        if (is6Pack || mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
           document.documentElement.classList.add('mode-6pack');
         }
       } catch (e) {}
@@ -2001,6 +1990,17 @@
         await liff.init({ liffId: CONFIG.LIFF_ID });
         isLiffReady = true;
         console.log('[LIFF] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
+        
+        // Clean URL after LIFF has completed initialization
+        if (window.location.search.includes('liff.state')) {
+          try {
+            const cleanParams = new URLSearchParams(window.location.search);
+            cleanParams.delete('liff.state');
+            const cleanSearch = cleanParams.toString();
+            const cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
+            window.history.replaceState(null, '', cleanUrl);
+          } catch (e) {}
+        }
       } catch (err) {
         console.warn('[LIFF] Initialization failed:', err);
       }
@@ -2791,6 +2791,24 @@
     function initFromParams() {
       const href = window.location.href;
       const params = new URLSearchParams(window.location.search);
+      const liffState = params.get('liff.state');
+      if (liffState) {
+        try {
+          const decoded = decodeURIComponent(liffState);
+          const qIndex = decoded.indexOf('?');
+          const searchPart = qIndex !== -1 ? decoded.substring(qIndex) : (decoded.indexOf('=') !== -1 ? (decoded.startsWith('?') ? decoded : '?' + decoded) : '');
+          if (searchPart) {
+            const stateParams = new URLSearchParams(searchPart);
+            stateParams.forEach((val, key) => {
+              if (!params.has(key)) params.set(key, val);
+            });
+          }
+          if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
+            params.set('mode', '6pack');
+          }
+        } catch (e) {}
+      }
+
       const modeParam = params.get('mode') || params.get('type') || params.get('view');
       const is6Pack = (modeParam === '6pack' || modeParam === 'sixpack' || modeParam === '6-pack' || href.includes('order-6pack') || href.includes('6pack'));
 
@@ -2913,8 +2931,10 @@
 
       if (hasPushedInitialState) return;
       try {
-        window.history.pushState({ liffApp: true, page: 'order', t: Date.now() }, '', window.location.href);
-        hasPushedInitialState = true;
+        if (isLineBrowser()) {
+          window.history.pushState({ liffApp: true, page: 'order' }, '', window.location.href);
+          hasPushedInitialState = true;
+        }
       } catch (e) {}
 
       window.addEventListener('popstate', () => {
@@ -2940,7 +2960,7 @@
       if (window.history.length > 1) {
         window.history.back();
       } else {
-        window.location.href = 'index.html';
+        window.location.href = './';
       }
     }
 

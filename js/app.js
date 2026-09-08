@@ -21,12 +21,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function initIndexLiff() {
     if (typeof liff !== 'undefined' && LIFF_ID) {
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        isLiffReady = true;
-        console.log('[LIFF index.html] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
-      } catch (err) {
-        console.warn('[LIFF index.html] Init failed:', err);
+      // Only initialize LIFF if actually inside LINE app or opened via LIFF URL
+      const isLineUa = /Line/i.test(navigator.userAgent || '');
+      const hasLiffParam = window.location.search.includes('liff');
+      if (isLineUa || hasLiffParam) {
+        try {
+          await liff.init({ liffId: LIFF_ID });
+          isLiffReady = true;
+          console.log('[LIFF index.html] Initialized. InClient:', liff.isInClient());
+        } catch (err) {
+          console.warn('[LIFF index.html] Init skipped (web mode):', err);
+        }
       }
     }
   }
@@ -134,11 +139,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // 2. Outside LINE App (or LIFF sendMessages fallback): Open order.html directly
+    // 2. Outside LINE App (or LIFF sendMessages fallback): Open order page directly
     if (typeof copyToClipboard === 'function' && message) {
       try { copyToClipboard(message); } catch (e) {}
     }
-    const orderPageUrl = orderParam ? `order.html?order=${encodeURIComponent(orderParam)}` : 'order.html';
+    const orderPageUrl = orderParam ? `order?order=${encodeURIComponent(orderParam)}` : 'order';
     if (typeof showToast === 'function') showToast(`🛒 กำลังเปิดตารางสั่งซื้อ N3...`);
     window.location.href = orderPageUrl;
   }
