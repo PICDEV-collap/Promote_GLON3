@@ -147,7 +147,7 @@ export class FlexMessageBuilder {
           },
           {
             type: 'text',
-            text: '❌ ไม่สามารถใช้แอปธนาคารทั่วไปสแกนได้\n💡 แตะที่รูป QR ด้านบน แล้วกดปุ่ม 📥 ที่มุมขวาล่าง หรือกดปุ่มเขียว "📥 ดาวน์โหลด" ด้านล่างนี้เพื่อบันทึกรูปลงเครื่อง แล้วเปิดแอปเป๋าตังเข้าเมนูสแกนจ่ายเงินได้ทันที',
+            text: '❌ ไม่สามารถใช้แอปธนาคารทั่วไปสแกนได้\n💡 แตะที่รูป QR ด้านบน แล้วกดปุ่ม 📥 ที่มุมขวาล่าง หรือกดปุ่มเขียว "📥 ดาวน์โหลด" เพื่อบันทึกรูปลงเครื่อง แล้วเปิดแอปเป๋าตังเข้าเมนูสแกนจ่ายเงินได้ทันที\n\n📲 เมื่อชำระเงินสำเร็จ คุณจะได้รับสลากฯ ที่เมนู "สลากฯ ของฉัน" บนแอปฯ เป๋าตัง\n⭐ แนะนำ: ซื้อครั้งต่อไปง่ายกว่าเดิมเพียงเลือกเมนู "ซื้อผ่านร้านค้าที่เคยใช้บริการ" ในแอปเป๋าตังได้ทันที ไม่ต้องสแกน QR ซ้ำ',
             size: 'xxs',
             color: '#856404',
             wrap: true,
@@ -285,7 +285,7 @@ export class FlexMessageBuilder {
   public static buildHowToOrderMessage(): messagingApi.FlexMessage {
     return {
       type: 'flex',
-      altText: 'ยินดีต้อนรับสู่ร้านสลาก N3 ธนกิจนำโชค - วิธีพิมพ์สั่งซื้อ',
+      altText: '📌 วิธีการสั่งซื้อสลาก N3 ร้านธนกิจนำโชค - สั่งง่ายผ่านตาราง',
       contents: {
         type: 'bubble',
         header: {
@@ -301,7 +301,7 @@ export class FlexMessageBuilder {
             },
             {
               type: 'text',
-              text: '📌 วิธีการพิมพ์สั่งซื้อสลาก',
+              text: '📌 วิธีการสั่งซื้อสลาก N3',
               weight: 'bold',
               size: 'lg',
               color: '#ffffff'
@@ -316,10 +316,10 @@ export class FlexMessageBuilder {
           contents: [
             {
               type: 'text',
-              text: 'ท่านสามารถพิมพ์สั่งซื้อได้ง่ายๆ ดังนี้:',
+              text: '✨ สั่งซื้อง่ายๆ ใน 3 ขั้นตอน (ไม่ต้องพิมพ์เอง):',
               weight: 'bold',
               size: 'sm',
-              color: '#333333'
+              color: '#111827'
             },
             {
               type: 'box',
@@ -331,24 +331,48 @@ export class FlexMessageBuilder {
                   type: 'box',
                   layout: 'horizontal',
                   contents: [
-                    { type: 'text', text: '• สั่งเลขเดี่ยว:', size: 'xs', color: '#666666', flex: 4 },
-                    { type: 'text', text: '123 2 (ได้ 2 ใบ)', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
+                    { type: 'text', text: '1️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'แตะปุ่ม "🛒 สั่งซื้อสลาก N3" ด้านล่าง', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'ระบบจะเปิดหน้าตารางสั่งซื้อออนไลน์ให้ทันที', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
                   ]
                 },
                 {
                   type: 'box',
                   layout: 'horizontal',
                   contents: [
-                    { type: 'text', text: '• สั่งหลายเลข (บิลเดียว):', size: 'xs', color: '#666666', flex: 4 },
-                    { type: 'text', text: '123 2, 456 1, 789 3', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
+                    { type: 'text', text: '2️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'เลือกเลข 3 หลัก & จำนวนใบที่ต้องการ', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'จัดได้หลายเลขในบิลเดียว ใบละ 20 บาท ไม่มีเลขอั้น', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
                   ]
                 },
                 {
                   type: 'box',
                   layout: 'horizontal',
                   contents: [
-                    { type: 'text', text: '• สั่งเท่ากันทุกเลข:', size: 'xs', color: '#666666', flex: 4 },
-                    { type: 'text', text: '123 456 อย่างละ 2 ใบ', size: 'xs', weight: 'bold', color: '#0056b3', flex: 5 }
+                    { type: 'text', text: '3️⃣', size: 'xs', flex: 1 },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 9,
+                      contents: [
+                        { type: 'text', text: 'กดยืนยันเพื่อรับ QR Code ชำระเงิน', size: 'xs', weight: 'bold', color: '#28a745' },
+                        { type: 'text', text: 'ระบบจะสร้างภาพ QR Code ให้สแกนจ่ายผ่านแอปเป๋าตังทันที', size: 'xxs', color: '#555555', wrap: true }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -358,30 +382,42 @@ export class FlexMessageBuilder {
               type: 'box',
               layout: 'vertical',
               margin: 'md',
-              backgroundColor: '#fff3cd',
+              backgroundColor: '#fffbe6',
               cornerRadius: 'md',
-              paddingAll: '8px',
+              paddingAll: '10px',
+              borderWidth: '1px',
+              borderColor: '#ffe58f',
               contents: [
                 {
                   type: 'text',
-                  text: '👛 ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น',
+                  text: '👛 เมื่อชำระเงินสำเร็จ:',
                   size: 'xs',
                   weight: 'bold',
                   color: '#856404'
                 },
                 {
                   type: 'text',
-                  text: 'ใบละ 20 บาท (ไม่สามารถใช้แอปธนาคารอื่นสแกนได้)',
+                  text: 'คุณจะได้รับสลากฯ ที่เมนู "สลากฯ ของฉัน" บนแอปฯ เป๋าตัง (ถูกรางวัลเงินโอนเข้าบัญชีอัตโนมัติ)',
                   size: 'xxs',
                   color: '#856404',
+                  wrap: true,
                   margin: 'xs'
+                },
+                {
+                  type: 'text',
+                  text: '⭐ แนะนำ ซื้อซ้ำง่ายกว่าเดิม:\nเพียงเลือกเมนู "ซื้อผ่านร้านค้าที่เคยใช้บริการ" ในแอปเป๋าตัง ซื้อได้ทันทีไม่ต้องสแกน QR ซ้ำ!',
+                  size: 'xxs',
+                  color: '#b45309',
+                  weight: 'bold',
+                  wrap: true,
+                  margin: 'sm'
                 }
               ]
             },
             {
               type: 'box',
               layout: 'vertical',
-              margin: 'md',
+              margin: 'sm',
               contents: [
                 {
                   type: 'text',
@@ -416,7 +452,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL || CONFIG.ORDER_LIFF_URL
               }
             },
             {
@@ -437,7 +473,7 @@ export class FlexMessageBuilder {
               height: 'sm',
               action: {
                 type: 'uri',
-                label: '🔮 ทำนายฝัน หาเลขเด็ด N3',
+                label: '🔮 ทำนายฝัน หาเลขเด็ด AI',
                 uri: CONFIG.DREAM_PREDICTION_URL
               }
             },
@@ -565,39 +601,60 @@ export class FlexMessageBuilder {
               margin: 'md',
               backgroundColor: '#fff3cd',
               cornerRadius: 'md',
-              paddingAll: '8px',
+              paddingAll: '10px',
               contents: [
                 {
                   type: 'text',
-                  text: '👛 การชำระเงิน: จ่ายผ่านแอป "เป๋าตัง" เท่านั้น',
+                  text: '👛 ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น',
                   size: 'xs',
                   weight: 'bold',
                   color: '#856404'
                 },
                 {
                   type: 'text',
-                  text: 'สแกนจ่ายง่าย รวดเร็ว ปลอดภัย สลากเข้าเมนู "สลากของฉัน" ทันที',
+                  text: 'เมื่อชำระเงินสำเร็จ สลากฯ จะเข้าเมนู "สลากฯ ของฉัน" บนแอปฯ เป๋าตังทันที ปลอดภัย ถูกรางวัลเงินโอนเข้าบัญชีอัตโนมัติ!',
                   size: 'xxs',
                   color: '#856404',
+                  wrap: true,
                   margin: 'xs'
                 }
               ]
             },
             {
-              type: 'text',
-              text: '🛒 วิธีการสั่งซื้อสลากง่ายๆ:',
-              weight: 'bold',
-              size: 'xs',
-              color: '#333333',
-              margin: 'md'
-            },
-            {
-              type: 'text',
-              text: 'ท่านสามารถพิมพ์เลขที่ต้องการในแชทนี้ได้ทันที เช่น:\n• สั่งเลขเดียว: 123 2 (ได้ 2 ใบ)\n• สั่งหลายเลข: 334 2, 447 3\n• สั่งเท่ากัน: 111 222 อย่างละ 2 ใบ',
-              size: 'xxs',
-              color: '#666666',
-              wrap: true,
-              margin: 'xs'
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#fffbe6',
+              cornerRadius: 'md',
+              paddingAll: '10px',
+              borderWidth: '1px',
+              borderColor: '#ffe58f',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🛒 สั่งซื้อง่ายๆ ไม่ต้องพิมพ์เอง:',
+                  weight: 'bold',
+                  size: 'xs',
+                  color: '#b45309'
+                },
+                {
+                  type: 'text',
+                  text: 'เพียงแตะปุ่ม "🛒 สั่งซื้อสลาก N3" ด้านล่าง เพื่อเปิดตารางเลือกเลข 3 หลักและจำนวนใบได้ทันที',
+                  size: 'xxs',
+                  color: '#555555',
+                  wrap: true,
+                  margin: 'xs'
+                },
+                {
+                  type: 'text',
+                  text: '⭐ แนะนำ ซื้อซ้ำง่ายกว่าเดิม:\nซื้อผ่านเมนู "ซื้อผ่านร้านค้าที่เคยใช้บริการ" ในแอปเป๋าตังได้ทันที ไม่ต้องสแกน QR ซ้ำ!',
+                  size: 'xxs',
+                  color: '#b45309',
+                  weight: 'bold',
+                  wrap: true,
+                  margin: 'sm'
+                }
+              ]
             },
             {
               type: 'text',
@@ -974,10 +1031,74 @@ export class FlexMessageBuilder {
                       flex: 9,
                       contents: [
                         { type: 'text', text: 'รับสลากดิจิทัลเข้าบัญชีทันที', size: 'xs', weight: 'bold', color: '#28a745' },
-                        { type: 'text', text: 'สลากจะถูกบันทึกในเมนู "สลากของฉัน" ในแอปเป๋าตัง มีผลทางกฎหมาย 100% ถูกรางวัลเงินโอนเข้าเป๋าตังโดยตรง!', size: 'xxs', color: '#555555', wrap: true }
+                        { type: 'text', text: 'เมื่อชำระเงินสำเร็จ คุณจะได้รับสลากฯ ที่เมนู "สลากฯ ของฉัน" บนแอปฯ เป๋าตัง ถูกรางวัลเงินโอนเข้าบัญชีอัตโนมัติ!', size: 'xxs', color: '#555555', wrap: true }
                       ]
                     }
                   ]
+                }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#fffbe6',
+              cornerRadius: 'md',
+              paddingAll: '10px',
+              borderWidth: '1px',
+              borderColor: '#ffe58f',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      backgroundColor: '#fa8c16',
+                      cornerRadius: 'sm',
+                      paddingStart: '6px',
+                      paddingEnd: '6px',
+                      paddingTop: '2px',
+                      paddingBottom: '2px',
+                      contents: [
+                        {
+                          type: 'text',
+                          text: 'แนะนำ',
+                          size: 'xxs',
+                          color: '#ffffff',
+                          weight: 'bold',
+                          align: 'center'
+                        }
+                      ]
+                    },
+                    {
+                      type: 'text',
+                      text: ' ซื้อซ้ำง่ายกว่าเดิมบนเป๋าตัง',
+                      size: 'xs',
+                      weight: 'bold',
+                      color: '#b45309',
+                      gravity: 'center'
+                    }
+                  ]
+                },
+                {
+                  type: 'text',
+                  text: 'ซื้อง่ายกว่าเดิมเพียงซื้อสลากฯ ผ่านเมนู "ซื้อผ่านร้านค้าที่เคยใช้บริการ" ซื้อได้ทันทีไม่ต้องสแกน QR ซ้ำ',
+                  size: 'xxs',
+                  color: '#111827',
+                  weight: 'bold',
+                  wrap: true,
+                  margin: 'sm'
+                },
+                {
+                  type: 'text',
+                  text: '💡 เมนูนี้จะแสดงเมื่อคุณเคยสแกน QR ร้านสลากฯ แล้วเลือกซื้อสลากฯ จากร้านค้านั้นๆ หรือสแกน QR ซื้อ-ขายสลากฯ แล้วเพิ่มสลากฯ ลงตะกร้ามาก่อนเท่านั้น',
+                  size: 'xxs',
+                  color: '#666666',
+                  wrap: true,
+                  margin: 'xs'
                 }
               ]
             }
@@ -1030,12 +1151,12 @@ export class FlexMessageBuilder {
   }
 
   /**
-   * 2.4 การ์ดแนะนำการสั่งซื้อสลาก N3 และตัวอย่างการพิมพ์
+   * 2.4 การ์ดแนะนำการสั่งซื้อสลาก N3 ผ่านระบบตารางออนไลน์
    */
   public static buildOrderGuidanceMessage(): messagingApi.FlexMessage {
     return {
       type: 'flex',
-      altText: '🛒 วิธีการสั่งซื้อสลาก N3 ร้านธนกิจนำโชค',
+      altText: '🛒 วิธีการสั่งซื้อสลาก N3 ร้านธนกิจนำโชค - สั่งง่ายผ่านตาราง',
       contents: {
         type: 'bubble',
         header: {
@@ -1067,10 +1188,18 @@ export class FlexMessageBuilder {
           contents: [
             {
               type: 'text',
-              text: 'ท่านสามารถเปิดตารางสั่งซื้อ หรือพิมพ์เลข 3 หลักในแชทนี้ได้ทันที:',
+              text: '✨ สั่งซื้อง่ายๆ เพียงแตะเปิดตารางสั่งซื้อออนไลน์:',
               size: 'xs',
-              color: '#333333',
+              color: '#111827',
               weight: 'bold'
+            },
+            {
+              type: 'text',
+              text: 'เลือกเลข 3 หลักและจำนวนใบได้สะดวก รวดเร็ว พร้อมสรุปยอดคำนวณเงินให้อัตโนมัติ (ใบละ 20 บาท)',
+              size: 'xxs',
+              color: '#666666',
+              wrap: true,
+              margin: 'xs'
             },
             {
               type: 'box',
@@ -1078,13 +1207,13 @@ export class FlexMessageBuilder {
               backgroundColor: '#0c1b33',
               cornerRadius: 'md',
               paddingAll: '10px',
-              margin: 'sm',
+              margin: 'md',
               borderWidth: '1px',
               borderColor: '#d4af37',
               contents: [
                 {
                   type: 'text',
-                  text: '📋 ตัวอย่างตารางสั่งซื้อ (สั่งได้หลายเลขในบิลเดียว)',
+                  text: '📋 ตัวอย่างตารางสั่งซื้อ (จัดได้หลายเลขในบิลเดียว เช่น 123 2, 334 2, 447 3)',
                   weight: 'bold',
                   size: 'xxs',
                   color: '#fde68a'
@@ -1135,52 +1264,74 @@ export class FlexMessageBuilder {
             {
               type: 'box',
               layout: 'vertical',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: '#f0fdf4',
               cornerRadius: 'md',
               paddingAll: '10px',
               margin: 'sm',
+              borderColor: '#bbf7d0',
+              borderWidth: '1px',
               spacing: 'xs',
               contents: [
                 {
                   type: 'text',
-                  text: '• เลขเดียว: 123 2 (ได้เลข 123 จำนวน 2 ใบ)',
+                  text: '✨ จุดเด่นการสั่งซื้อผ่านตารางออนไลน์:',
                   size: 'xxs',
-                  color: '#444444'
+                  weight: 'bold',
+                  color: '#166534'
                 },
                 {
                   type: 'text',
-                  text: '• หลายเลข: 334 2, 447 3 (คั่นด้วยจุลภาค)',
+                  text: '• เลือกและจัดได้หลายเลขในตะกร้าเดียว ไม่ต้องพิมพ์เอง',
                   size: 'xxs',
-                  color: '#444444'
+                  color: '#15803d'
                 },
                 {
                   type: 'text',
-                  text: '• จำนวนเท่ากัน: 111 222 อย่างละ 2 ใบ',
+                  text: '• ระบบคำนวณยอดเงินรวมให้แบบเรียลไทม์ (ใบละ 20 บาท)',
                   size: 'xxs',
-                  color: '#444444'
+                  color: '#15803d'
                 },
                 {
                   type: 'text',
-                  text: '• สั่ง 1 ใบ: พิมพ์เฉพาะเลข เช่น 999',
+                  text: '• สร้าง QR Code ชำระเงินผ่านแอป "เป๋าตัง" ทันที 100%',
                   size: 'xxs',
-                  color: '#444444'
+                  color: '#15803d'
                 }
               ]
             },
             {
               type: 'box',
               layout: 'vertical',
-              backgroundColor: '#fff3cd',
+              backgroundColor: '#fffbe6',
               cornerRadius: 'md',
-              paddingAll: '8px',
-              margin: 'md',
+              paddingAll: '10px',
+              margin: 'sm',
+              borderWidth: '1px',
+              borderColor: '#ffe58f',
               contents: [
                 {
                   type: 'text',
-                  text: '⚠️ จ่ายผ่านแอป "เป๋าตัง" เท่านั้น (ใบละ 20 บาท)',
-                  size: 'xxs',
+                  text: '👛 เมื่อชำระเงินสำเร็จ:',
+                  size: 'xs',
                   weight: 'bold',
                   color: '#856404'
+                },
+                {
+                  type: 'text',
+                  text: 'สลากฯ จะเข้าเมนู "สลากฯ ของฉัน" บนแอปฯ เป๋าตังทันที (ถูกรางวัลเงินโอนเข้าบัญชีอัตโนมัติ)',
+                  size: 'xxs',
+                  color: '#856404',
+                  wrap: true,
+                  margin: 'xs'
+                },
+                {
+                  type: 'text',
+                  text: '⭐ แนะนำ ซื้อซ้ำง่ายกว่าเดิม:\nซื้อผ่านเมนู "ซื้อผ่านร้านค้าที่เคยใช้บริการ" ในแอปเป๋าตัง ซื้อได้ทันทีไม่ต้องสแกน QR ซ้ำ!',
+                  size: 'xxs',
+                  color: '#b45309',
+                  weight: 'bold',
+                  wrap: true,
+                  margin: 'xs'
                 }
               ]
             }
@@ -1207,17 +1358,6 @@ export class FlexMessageBuilder {
               type: 'button',
               style: 'primary',
               color: '#0056b3',
-              height: 'sm',
-              action: {
-                type: 'message',
-                label: '🛒 สั่งซื้อตัวอย่าง 334 2 ใบ',
-                text: '334 2'
-              }
-            },
-            {
-              type: 'button',
-              style: 'secondary',
-              color: '#555555',
               height: 'sm',
               action: {
                 type: 'message',
