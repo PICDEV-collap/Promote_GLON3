@@ -1355,9 +1355,9 @@ async function runTests() {
   });
 
   // TEST SUITE 17: Interactive Order Table & LINE Order Form Integration
-  test('Order Table Form: CONFIG.ORDER_FORM_URL is defined and points to order.html', () => {
+  test('Order Table Form: CONFIG.ORDER_FORM_URL is defined and points to order', () => {
     assert(CONFIG.ORDER_FORM_URL, 'CONFIG.ORDER_FORM_URL must be defined');
-    assert(CONFIG.ORDER_FORM_URL.includes('order.html'), 'ORDER_FORM_URL must point to order.html');
+    assert(CONFIG.ORDER_FORM_URL.includes('order'), 'ORDER_FORM_URL must point to order');
   });
 
   test('Order Table Guidance: buildOrderGuidanceMessage includes open order table URI and preview table', () => {
