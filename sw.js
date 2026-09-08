@@ -60,9 +60,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('.js') ||
     url.pathname === '/' ||
-    url.pathname.endsWith('/') ||
-    url.pathname.endsWith('/order') ||
-    url.pathname.endsWith('/order-6pack');
+    url.pathname.endsWith('/');
 
   if (isHtmlOrScript) {
     // 1. Network First: พยายามดึงจากเซิร์ฟเวอร์ก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุดทันที
