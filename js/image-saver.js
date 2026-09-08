@@ -199,18 +199,38 @@ const ImageSaver = (function () {
       return;
     }
 
-    const inLine = isLineWebview();
-
-    // 1. Inside LINE In-App Browser:
-    // LINE blocks <a download> and displays download error dialog,
-    // so we MUST guide user with 3-tier mobile modal (touch & hold, Web Share API, or openExternalBrowser)
-    if (inLine || forceModal) {
+    // If explicit forceModal is requested, show modal
+    if (forceModal) {
       openMobileSaveModal({ dataUrl, filename, title, text });
       return;
     }
 
-    // 2. Standard Mobile & Desktop Browsers (Samsung Internet, Chrome, Safari, Firefox, Edge):
-    // Direct download via Blob object URL works natively and saves file to Downloads / Gallery!
+    // 1. Mobile Native Web Share API Level 2 (Direct Share / Save to Gallery)
+    // Triggers native OS Save Image sheet directly on user click without popping up HTML modal
+    if (isMobile() && canShareFiles()) {
+      try {
+        const blob = await srcToBlob(dataUrl);
+        const file = new File([blob], filename, { type: blob.type || 'image/png' });
+        await navigator.share({
+          title: title,
+          text: text,
+          files: [file]
+        });
+        if (typeof window.showToast === 'function') {
+          window.showToast('✅ บันทึก / แชร์รูปภาพสำเร็จแล้ว!', 'success');
+        }
+        return true;
+      } catch (shareErr) {
+        if (shareErr && shareErr.name === 'AbortError') {
+          // User closed the share sheet
+          return false;
+        }
+        console.warn('[ImageSaver] Web Share direct trigger failed, proceeding to direct download:', shareErr);
+      }
+    }
+
+    // 2. Direct Download via Blob Object URL / <a download>
+    // Supported natively by Android Chrome, Samsung Internet, Safari, Firefox, Edge & Desktop
     try {
       if (typeof window.showToast === 'function') {
         window.showToast('📥 กำลังบันทึกรูปภาพลงในเครื่อง...', 'info');
@@ -220,15 +240,29 @@ const ImageSaver = (function () {
         if (typeof window.showToast === 'function') {
           window.showToast('✅ บันทึกรูปภาพลงในเครื่องแล้ว! (ดูในแกลเลอรี/ดาวน์โหลด)', 'success');
         }
-        return;
+        return true;
       }
     } catch (err) {
-      console.warn('[ImageSaver] Direct download failed, falling back to modal:', err);
+      console.warn('[ImageSaver] Direct download failed, attempting standard link:', err);
     }
 
-    // 3. Fallback: If direct download failed on mobile, open the Mobile Save Modal
-    if (isMobile()) {
-      openMobileSaveModal({ dataUrl, filename, title, text });
+    // 3. Fallback direct link click
+    try {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) document.body.removeChild(link);
+      }, 500);
+      if (typeof window.showToast === 'function') {
+        window.showToast('✅ บันทึกรูปภาพเรียบร้อยแล้ว', 'success');
+      }
+      return true;
+    } catch (e) {
+      console.error('[ImageSaver] Fallback download failed:', e);
     }
   }
 
