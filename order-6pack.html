@@ -1574,7 +1574,7 @@
   </div>
 
   <!-- Application Scripts -->
-  <script src="js/image-saver.js"></script>
+  <script src="js/image-saver.js?v=2.1"></script>
   <script>
     // Configuration
     const CONFIG = {
@@ -2443,7 +2443,7 @@
       }, 1000);
     }
 
-    // QR Download Handler using Mobile-First ImageSaver (Same as Dream Engine)
+    // QR Download Handler - Save/Download Image Directly
     async function downloadModalQr() {
       const qrImg = document.getElementById('modal-qr-img');
       const qrSrc = qrImg ? qrImg.src : '';
@@ -2455,21 +2455,70 @@
       const title = 'QR Code ชำระเงินสลาก N3';
       const text = 'บันทึกภาพ QR Code แล้วเปิดแอปเป๋าตังเพื่อสแกนชำระเงิน';
 
-      if (typeof window.ImageSaver !== 'undefined' && typeof window.ImageSaver.saveImage === 'function') {
-        await window.ImageSaver.saveImage({
-          dataUrl: qrSrc,
-          filename,
-          title,
-          text
-        });
-      } else {
+      // 1. If Web Share API is available on mobile, directly trigger native system share/save sheet
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+      if (isMobile && navigator.share && navigator.canShare) {
+        try {
+          let blob;
+          if (qrSrc.startsWith('data:')) {
+            const parts = qrSrc.split(';base64,');
+            const contentType = (parts[0].split(':')[1] || 'image/png').split(';')[0];
+            const raw = window.atob(parts[1] || '');
+            const uInt8 = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) uInt8[i] = raw.charCodeAt(i);
+            blob = new Blob([uInt8], { type: contentType });
+          } else {
+            const res = await fetch(qrSrc, { mode: 'cors' });
+            blob = await res.blob();
+          }
+          const file = new File([blob], filename, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ title, text, files: [file] });
+            showToast('✅ บันทึก / แชร์รูปภาพสำเร็จแล้ว!', 'success');
+            return;
+          }
+        } catch (shareErr) {
+          if (shareErr && shareErr.name === 'AbortError') return;
+        }
+      }
+
+      // 2. Direct Blob / Data URL Download (Android Chrome, Samsung Internet, Safari, Desktop)
+      try {
+        let blobUrl = qrSrc;
+        let isBlob = false;
+        if (qrSrc.startsWith('data:')) {
+          const parts = qrSrc.split(';base64,');
+          const contentType = (parts[0].split(':')[1] || 'image/png').split(';')[0];
+          const raw = window.atob(parts[1] || '');
+          const uInt8 = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) uInt8[i] = raw.charCodeAt(i);
+          const blob = new Blob([uInt8], { type: contentType });
+          blobUrl = URL.createObjectURL(blob);
+          isBlob = true;
+        }
+
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = blobUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) document.body.removeChild(link);
+          if (isBlob) URL.revokeObjectURL(blobUrl);
+        }, 1200);
+        showToast('📥 บันทึกรูปภาพ QR Code ลงในเครื่องแล้ว!', 'success');
+      } catch (dlErr) {
         const link = document.createElement('a');
         link.download = filename;
         link.href = qrSrc;
+        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-        showToast('กำลังดาวน์โหลดภาพ QR Code...');
+        setTimeout(() => {
+          if (document.body.contains(link)) document.body.removeChild(link);
+        }, 500);
+        showToast('📥 กำลังดาวน์โหลดภาพ QR Code...');
       }
     }
     window.downloadModalQr = downloadModalQr;
