@@ -205,40 +205,16 @@ const ImageSaver = (function () {
       return;
     }
 
-    // 1. Mobile Native Web Share API Level 2 (Direct Share / Save to Gallery)
-    // Triggers native OS Save Image sheet directly on user click without popping up HTML modal
-    if (isMobile() && canShareFiles()) {
-      try {
-        const blob = await srcToBlob(dataUrl);
-        const file = new File([blob], filename, { type: blob.type || 'image/png' });
-        await navigator.share({
-          title: title,
-          text: text,
-          files: [file]
-        });
-        if (typeof window.showToast === 'function') {
-          window.showToast('✅ บันทึก / แชร์รูปภาพสำเร็จแล้ว!', 'success');
-        }
-        return true;
-      } catch (shareErr) {
-        if (shareErr && shareErr.name === 'AbortError') {
-          // User closed the share sheet
-          return false;
-        }
-        console.warn('[ImageSaver] Web Share direct trigger failed, proceeding to direct download:', shareErr);
-      }
-    }
-
-    // 2. Direct Download via Blob Object URL / <a download>
-    // Supported natively by Android Chrome, Samsung Internet, Safari, Firefox, Edge & Desktop
+    // 1. Direct Download via Blob Object URL / <a download> directly from HTML webpage
+    // Supported natively across all mobile and desktop browsers
     try {
       if (typeof window.showToast === 'function') {
-        window.showToast('📥 กำลังบันทึกรูปภาพลงในเครื่อง...', 'info');
+        window.showToast('📥 กำลังดาวน์โหลดรูปภาพลงเครื่อง...', 'info');
       }
       const success = await triggerDirectDownload(dataUrl, filename);
       if (success) {
         if (typeof window.showToast === 'function') {
-          window.showToast('✅ บันทึกรูปภาพลงในเครื่องแล้ว! (ดูในแกลเลอรี/ดาวน์โหลด)', 'success');
+          window.showToast('✅ ดาวน์โหลดรูปภาพลงเครื่องเรียบร้อยแล้ว!', 'success');
         }
         return true;
       }
@@ -246,7 +222,7 @@ const ImageSaver = (function () {
       console.warn('[ImageSaver] Direct download failed, attempting standard link:', err);
     }
 
-    // 3. Fallback direct link click
+    // 2. Fallback direct link click
     try {
       const link = document.createElement('a');
       link.download = filename;
@@ -258,7 +234,7 @@ const ImageSaver = (function () {
         if (document.body.contains(link)) document.body.removeChild(link);
       }, 500);
       if (typeof window.showToast === 'function') {
-        window.showToast('✅ บันทึกรูปภาพเรียบร้อยแล้ว', 'success');
+        window.showToast('✅ ดาวน์โหลดรูปภาพเรียบร้อยแล้ว', 'success');
       }
       return true;
     } catch (e) {
