@@ -672,7 +672,7 @@
           ไพ่ทั้งสามใบชี้ถึงพลัง The Magician ผสานกับ The Sun นำพาโชคใหญ่ N3 เลข 109 มีโอกาสถูกรางวัลสูงในงวดนี้
         </p>
 
-        <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <div class="tarot-actions-wrapper" style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
           <button id="btn-draw-tarot" class="btn btn-emerald">
             <i class="fas fa-magic"></i> สับไพ่และเปิดไพ่ 3 ใบใหม่
           </button>
@@ -757,7 +757,7 @@
         </div>
 
         <!-- Special Jackpot & GLO 6-digit bar -->
-        <div style="background: rgba(0, 0, 0, 0.35); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; border: 1px dashed rgba(245, 158, 11, 0.35); margin-bottom: 1rem;">
+        <div class="latest-jackpot-bar">
           <div>
             <span style="font-size: 0.8rem; color: var(--color-gold-light); font-weight: 600;">
               <i class="fas fa-crown"></i> รางวัลพิเศษ (Jackpot):
@@ -774,14 +774,14 @@
         </div>
 
         <!-- Direct Instant N3 Prize Checker Form -->
-        <div style="padding-top: 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-            <div style="font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">
+        <div class="instant-checker-container" style="padding-top: 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+          <div class="instant-checker-wrapper">
+            <div class="instant-checker-label">
               <i class="fas fa-search"></i> ตรวจรางวัลสลาก N3 ของท่าน:
             </div>
-            <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 240px;">
-              <input type="text" id="input-check-n3" maxlength="3" placeholder="ระบุเลข 3 หลัก เช่น 212" style="flex: 1; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-glass); color: #fff; text-align: center; font-size: 1.1rem; font-weight: 600; letter-spacing: 2px;">
-              <button id="btn-check-n3" class="btn btn-emerald" style="padding: 0.5rem 1.25rem; white-space: nowrap;">
+            <div class="instant-checker-input-row">
+              <input type="text" id="input-check-n3" maxlength="3" placeholder="ระบุเลข 3 หลัก เช่น 212" class="instant-checker-input">
+              <button id="btn-check-n3" class="btn btn-emerald btn-instant-check">
                 <i class="fas fa-check-circle"></i> ตรวจผล
               </button>
             </div>
@@ -810,11 +810,11 @@
           </div>
         </div>
 
-        <div style="display: flex; gap: 0.75rem; justify-content: center; max-width: 420px; margin: 0 auto;">
-          <button id="btn-roll-lucky" class="btn btn-emerald" style="flex: 1;">
-            <i class="fas fa-sync-alt"></i> หมุนสุ่มเลขมงคล
+        <div class="roller-actions-wrapper">
+          <button id="btn-roll-lucky" class="btn btn-emerald btn-roll-lucky-main">
+            <i class="fas fa-sync-alt"></i> หมุนสุ่มเลข
           </button>
-          <button id="btn-copy-rolled" class="btn btn-outline" style="padding: 0.6rem 1rem;" title="คัดลอกเลขที่สุ่มได้">
+          <button id="btn-copy-rolled" class="btn btn-outline btn-copy-rolled-sub" title="คัดลอกเลขที่สุ่มได้">
             <i class="fas fa-copy"></i> คัดลอก
           </button>
         </div>
@@ -1094,7 +1094,7 @@
       </div>
 
       <!-- Toolbar Buttons: Add Row, Random, Toad Permute, Fullscreen -->
-      <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;">
+      <div class="modal-order-toolbar" style="display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;">
         <button type="button" id="btn-modal-add-row" class="btn btn-outline" style="flex: 2; min-width: 140px; border-color: var(--color-gold); color: var(--color-gold-light); font-size: 0.85rem; padding: 0.5rem;">
           <i class="fas fa-plus-circle"></i> เพิ่มแถว (สั่งหลายเลข)
         </button>
@@ -1158,7 +1158,7 @@
         <i class="fas fa-hand-pointer"></i> บนมือถือ: แตะค้างที่รูปภาพเพื่อเลือก "บันทึกรูปภาพ" ลงแกลเลอรี
       </div>
 
-      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <div class="modal-share-actions" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
         <button id="btn-download-card-png" class="btn btn-gold" style="flex: 1;">
           <i class="fas fa-download"></i> ดาวน์โหลดรูป PNG
         </button>
@@ -1313,7 +1313,7 @@
             <label for="agent-input-name" style="font-size: 0.8rem; color: var(--text-secondary);">ชื่อร้านค้าตัวแทน:</label>
             <input type="text" id="agent-input-name" class="calc-input-field" placeholder="เช่น ร้านสลาก N3 ธนกิจนำโชค">
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="agent-settings-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
             <div>
               <label for="agent-input-dealer-code" style="font-size: 0.8rem; color: var(--text-secondary);">รหัสตัวแทนจำหน่าย GLO:</label>
               <input type="text" id="agent-input-dealer-code" class="calc-input-field" placeholder="เช่น GLO-N3-XXXX">
@@ -1323,7 +1323,7 @@
               <input type="text" id="agent-input-line" class="calc-input-field" placeholder="เช่น @586xxhlx">
             </div>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="agent-settings-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
             <div>
               <label for="agent-input-tel" style="font-size: 0.8rem; color: var(--text-secondary);">เบอร์โทรติดต่อ (ไม่บังคับ):</label>
               <input type="text" id="agent-input-tel" class="calc-input-field" placeholder="เว้นว่างได้">

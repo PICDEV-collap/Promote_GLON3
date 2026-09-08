@@ -2182,6 +2182,118 @@ footer {
 }
 
 /* ==========================================================================
+   INSTANT PRIZE CHECKER, JACKPOT BAR, ROLLER ACTIONS & MODAL TOOLBARS (DESKTOP)
+   ========================================================================== */
+.latest-jackpot-bar {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+  margin-bottom: 1rem;
+}
+
+.instant-checker-wrapper {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
+.instant-checker-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.instant-checker-input-row {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.instant-checker-input {
+  flex: 1;
+  min-width: 0 !important;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-glass);
+  color: #fff;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  box-sizing: border-box;
+}
+
+.btn-instant-check {
+  padding: 0.5rem 1.25rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-sizing: border-box;
+}
+
+.roller-actions-wrapper {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-roll-lucky-main {
+  flex: 2;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.btn-copy-rolled-sub {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 1rem;
+  white-space: nowrap;
+}
+
+.tarot-actions-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.modal-order-toolbar {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.modal-share-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.agent-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* ==========================================================================
    AI DREAM ART 2.0 & VOICE RECORDING (DESKTOP DEFAULTS)
    ========================================================================== */
 .dream-art-card {
@@ -3570,6 +3682,125 @@ footer {
     padding: 0.85rem 1rem !important;
     box-sizing: border-box !important;
   }
+
+  /* Instant Checker Form Mobile Fluid (Zero Horizontal Overflow) */
+  .instant-checker-wrapper {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .instant-checker-label {
+    white-space: normal !important;
+    font-size: 0.84rem !important;
+  }
+
+  .instant-checker-input-row {
+    width: 100% !important;
+    display: flex !important;
+    gap: 0.4rem !important;
+  }
+
+  .instant-checker-input {
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: auto !important;
+    font-size: 0.95rem !important;
+    padding: 0.5rem 0.4rem !important;
+    letter-spacing: 1.5px !important;
+  }
+
+  .btn-instant-check {
+    flex-shrink: 0 !important;
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.82rem !important;
+  }
+
+  /* Lucky Roller Buttons Mobile Fluid */
+  .roller-actions-wrapper {
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  .btn-roll-lucky-main {
+    flex: 2 !important;
+    min-width: 0 !important;
+    padding: 0.65rem 0.4rem !important;
+    font-size: 0.84rem !important;
+    white-space: nowrap !important;
+  }
+
+  .btn-copy-rolled-sub {
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 0.65rem 0.4rem !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* Jackpot Bar Mobile Fluid */
+  .latest-jackpot-bar {
+    flex-direction: column !important;
+    text-align: center !important;
+    padding: 0.75rem 0.5rem !important;
+    gap: 0.45rem !important;
+  }
+
+  /* Tarot Actions Mobile Fluid */
+  .tarot-actions-wrapper {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .tarot-actions-wrapper .btn {
+    width: 100% !important;
+  }
+
+  /* Modal Order Toolbar Mobile Fluid */
+  .modal-order-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.4rem !important;
+    width: 100% !important;
+  }
+
+  .modal-order-toolbar button,
+  .modal-order-toolbar a {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0.5rem 0.25rem !important;
+    font-size: 0.76rem !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Modal Share Actions Mobile Fluid */
+  .modal-share-actions {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .modal-share-actions .btn {
+    width: 100% !important;
+  }
+
+  /* Agent Settings Grid Mobile Fluid */
+  .agent-settings-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .latest-prizes-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .latest-results-card {
+    padding: 1rem 0.75rem !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -3600,6 +3831,26 @@ footer {
 
   .pred-number {
     font-size: 1.75rem;
+  }
+
+  .instant-checker-input {
+    font-size: 0.88rem !important;
+    letter-spacing: 1px !important;
+  }
+
+  .btn-instant-check {
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .btn-roll-lucky-main {
+    font-size: 0.8rem !important;
+    padding: 0.6rem 0.35rem !important;
+  }
+
+  .btn-copy-rolled-sub {
+    font-size: 0.78rem !important;
+    padding: 0.6rem 0.35rem !important;
   }
 }
 
