@@ -44,7 +44,8 @@ export class QuotaManager {
   }
 
   /**
-   * คำนวณชื่องวดปัจจุบันตามปฏิทินสลากกินแบ่งรัฐบาล พร้อมรองรับการเลื่อนวันหยุดราชการ
+   * คำนวณชื่องวดปัจจุบันตามปฏิทินสลากกินแบ่งรัฐบาล พร้อมรองรับเวลาปิดงวด 14:30 น. ในวันออกรางวัล
+   * เมื่อเวลาผ่าน 14:30 น. ในวันออกรางวัล (หวยออกแล้ว) ระบบจะเปลี่ยนเป็นงวดถัดไป และรีเซ็ตโควต้า 2,000 ใบอัตโนมัติ
    */
   public static getCurrentRoundIdentifier(dateObj?: Date): string {
     const now = dateObj || new Date();
@@ -52,33 +53,36 @@ export class QuotaManager {
     const year = bkkTime.getFullYear();
     const month = bkkTime.getMonth() + 1;
     const day = bkkTime.getDate();
+    const hour = bkkTime.getHours();
+    const minute = bkkTime.getMinutes();
+    const isPastDrawCutoff = (hour > 14) || (hour === 14 && minute >= 30);
 
     // 1. เดือนมกราคม (เลื่อนวันปีใหม่เป็น 2 ม.ค. และวันครูเป็น 17 ม.ค.)
     if (month === 1) {
-      if (day <= 2) return `${year}-01-02`;
-      if (day <= 17) return `${year}-01-17`;
+      if (day < 2 || (day === 2 && !isPastDrawCutoff)) return `${year}-01-02`;
+      if (day < 17 || (day === 17 && !isPastDrawCutoff)) return `${year}-01-17`;
       return `${year}-02-01`;
     }
 
     // 2. เดือนพฤษภาคม (เลื่อนวันแรงงานแห่งชาติเป็น 2 พ.ค.)
     if (month === 5) {
-      if (day <= 2) return `${year}-05-02`;
-      if (day <= 16) return `${year}-05-16`;
+      if (day < 2 || (day === 2 && !isPastDrawCutoff)) return `${year}-05-02`;
+      if (day < 16 || (day === 16 && !isPastDrawCutoff)) return `${year}-05-16`;
       return `${year}-06-01`;
     }
 
     // 3. เดือนธันวาคม (งวดสิ้นปีออกเร็วขึ้นเป็น 30 ธ.ค.)
     if (month === 12) {
-      if (day <= 1) return `${year}-12-01`;
-      if (day <= 16) return `${year}-12-16`;
-      if (day <= 30) return `${year}-12-30`;
+      if (day < 1 || (day === 1 && !isPastDrawCutoff)) return `${year}-12-01`;
+      if (day < 16 || (day === 16 && !isPastDrawCutoff)) return `${year}-12-16`;
+      if (day < 30 || (day === 30 && !isPastDrawCutoff)) return `${year}-12-30`;
       return `${year + 1}-01-02`;
     }
 
     // 4. กำหนดการปกติวันที่ 1 และ 16 ของเดือน
-    if (day <= 1) {
+    if (day < 1 || (day === 1 && !isPastDrawCutoff)) {
       return `${year}-${String(month).padStart(2, '0')}-01`;
-    } else if (day <= 16) {
+    } else if (day < 16 || (day === 16 && !isPastDrawCutoff)) {
       return `${year}-${String(month).padStart(2, '0')}-16`;
     } else {
       const nextMonth = month === 12 ? 1 : month + 1;
@@ -88,12 +92,12 @@ export class QuotaManager {
   }
 
   /**
-   * ตรวจสอบว่างวดเปลี่ยนหรือยัง หากเปลี่ยนให้รีเซ็ตอัตโนมัติ
+   * ตรวจสอบว่างวดเปลี่ยนหรือยัง หากเปลี่ยน (หวยออกแล้ว) ให้รีเซ็ตโควต้า 2,000 ใบอัตโนมัติ
    */
   public checkAndAutoResetRound(): void {
     const currentRound = QuotaManager.getCurrentRoundIdentifier();
     if (this.data.round !== currentRound) {
-      console.log(`[QUOTA AUTO-RESET] ตรวจพบการเปลี่ยนงวดสลากจาก ${this.data.round} เป็น ${currentRound} -> รีเซ็ตโควต้า ${CONFIG.DEFAULT_MAX_QUOTA} ใบ`);
+      console.log(`[QUOTA AUTO-RESET] ตรวจพบการเปลี่ยนงวดสลากจาก ${this.data.round} เป็น ${currentRound} (หวยออกแล้ว) -> รีเซ็ตโควต้า ${CONFIG.DEFAULT_MAX_QUOTA} ใบ`);
       this.resetRound(currentRound, CONFIG.DEFAULT_MAX_QUOTA);
     }
   }
@@ -129,8 +133,8 @@ export class QuotaManager {
     const defaultData: QuotaData = {
       round: QuotaManager.getCurrentRoundIdentifier(),
       maxQuota: CONFIG.DEFAULT_MAX_QUOTA,
-      usedQuota: 32,
-      remainingQuota: 1968,
+      usedQuota: 0,
+      remainingQuota: CONFIG.DEFAULT_MAX_QUOTA,
       lastUpdated: new Date().toISOString(),
       syncedAt: new Date().toISOString()
     };
@@ -335,8 +339,10 @@ export class QuotaManager {
       const roundExtracted = QuotaManager.parseOfficialRoundFromPortal(pageText);
       if (roundExtracted) {
         if (this.data.round !== roundExtracted.round) {
-          console.log(`[QUOTA ROUND SYNC] อัปเดตชื่องวดจากหน้าเว็บ: ${this.data.round} -> ${roundExtracted.round} (${roundExtracted.thaiDate})`);
+          console.log(`[QUOTA ROUND SYNC] ตรวจพบการเปลี่ยนงวดสลากจากหน้าเว็บ: ${this.data.round} -> ${roundExtracted.round} (${roundExtracted.thaiDate}) -> รีเซ็ตโควต้าสำหรับงวดใหม่`);
           this.data.round = roundExtracted.round;
+          this.data.usedQuota = 0;
+          this.data.remainingQuota = this.data.maxQuota;
         }
         this.data.drawDateThai = roundExtracted.thaiDate;
       }
