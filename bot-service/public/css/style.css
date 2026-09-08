@@ -2053,13 +2053,30 @@ footer {
   overflow: hidden;
 }
 
-.heat-val {
+.heat-val, .heat-val-full {
   position: relative;
   z-index: 2;
   font-weight: 700;
   font-size: 0.82rem;
   color: #ffffff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  display: inline-block;
+}
+
+.heat-val-compact {
+  display: none;
+  position: relative;
+  z-index: 2;
+}
+
+.btn-text-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.btn-text-compact {
+  display: none;
 }
 
 .heat-fill {
@@ -3238,16 +3255,181 @@ footer {
     font-size: 0.8rem !important;
   }
 
+  /* Heatmap Table 100% Mobile Fluid (Zero Horizontal Overflow) */
+  .heatmap-table-wrapper {
+    overflow-x: hidden !important;
+    border-radius: var(--radius-md) !important;
+    background: rgba(11, 19, 41, 0.95) !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .heatmap-table {
+    min-width: 100% !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  /* When viewing all columns on mobile: 5 fixed column ratios */
+  .heatmap-table-wrapper.view-all-columns .th-digit,
+  .heatmap-table-wrapper.view-all-columns .digit-cell {
+    width: 16% !important;
+    padding: 0.35rem 0.1rem !important;
+  }
+
+  .heatmap-table-wrapper.view-all-columns .th-hundreds,
+  .heatmap-table-wrapper.view-all-columns .col-hundreds,
+  .heatmap-table-wrapper.view-all-columns .th-tens,
+  .heatmap-table-wrapper.view-all-columns .col-tens,
+  .heatmap-table-wrapper.view-all-columns .th-units,
+  .heatmap-table-wrapper.view-all-columns .col-units {
+    width: 21% !important;
+    padding: 0.35rem 0.12rem !important;
+  }
+
+  .heatmap-table-wrapper.view-all-columns .th-total,
+  .heatmap-table-wrapper.view-all-columns .col-total {
+    width: 21% !important;
+    padding: 0.35rem 0.12rem !important;
+  }
+
+  /* When viewing single column on mobile */
+  .heatmap-table-wrapper.view-single-column .th-digit,
+  .heatmap-table-wrapper.view-single-column .digit-cell {
+    width: 22% !important;
+  }
+  .heatmap-table-wrapper.view-single-column .col-hundreds,
+  .heatmap-table-wrapper.view-single-column .col-tens,
+  .heatmap-table-wrapper.view-single-column .col-units {
+    width: 48% !important;
+  }
+  .heatmap-table-wrapper.view-single-column .col-total {
+    width: 30% !important;
+  }
+
+  .heat-val-full {
+    display: none !important;
+  }
+
+  .heat-val-compact {
+    display: inline-block !important;
+    font-size: 0.84rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+  }
+
+  .btn-text-full {
+    display: none !important;
+  }
+
+  .btn-text-compact {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.2rem !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+  }
+
+  .heatmap-table th {
+    padding: 0.5rem 0.12rem !important;
+    font-size: 0.78rem !important;
+    letter-spacing: -0.2px !important;
+    white-space: normal !important;
+  }
+
+  .heatmap-table td {
+    padding: 0.32rem 0.12rem !important;
+  }
+
+  .digit-badge {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.95rem !important;
+  }
+
+  .hot-tag {
+    font-size: 0.65rem !important;
+  }
+
+  .heat-bar-box {
+    height: 26px !important;
+    border-radius: 4px !important;
+    padding: 0 !important;
+  }
+
+  .order-digit-btn {
+    width: 100% !important;
+    padding: 0.32rem 0.15rem !important;
+    border-radius: 6px !important;
+    justify-content: center !important;
+    font-size: 0.72rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Filter Bar Styling for Mobile */
   .heatmap-filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.45rem;
-    text-align: center;
-    padding: 0.5rem;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.45rem !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    border: 1px solid var(--border-gold) !important;
+    padding: 0.6rem 0.65rem !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 0.75rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .filter-header-line {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .filter-label {
+    font-size: 0.8rem !important;
+    color: var(--color-gold-light) !important;
+    font-weight: 700 !important;
+  }
+
+  .filter-hint {
+    font-size: 0.72rem !important;
+    color: var(--color-emerald-light) !important;
   }
 
   .filter-btn-group {
-    justify-content: center;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.3rem !important;
+    width: 100% !important;
+  }
+
+  .filter-pill {
+    width: 100% !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    padding: 0.45rem 0.15rem !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.2rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .filter-pill.active {
+    background: linear-gradient(135deg, #ffd700 0%, #d4af37 100%) !important;
+    color: #090d16 !important;
+    border-color: #fef08a !important;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.45) !important;
+  }
+
+  .filter-pill .pill-icon {
+    font-size: 0.85rem !important;
   }
 
   .astro-day-grid {
