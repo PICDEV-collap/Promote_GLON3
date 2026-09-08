@@ -316,10 +316,11 @@ export class FlexMessageBuilder {
           contents: [
             {
               type: 'text',
-              text: '✨ สั่งซื้อง่ายๆ ใน 3 ขั้นตอน (ไม่ต้องพิมพ์เอง):',
+              text: '✨ สั่งซื้อง่ายๆ ใน 3 ขั้นตอน:',
               weight: 'bold',
               size: 'sm',
-              color: '#111827'
+              color: '#111827',
+              wrap: true
             },
             {
               type: 'box',
@@ -337,7 +338,7 @@ export class FlexMessageBuilder {
                       layout: 'vertical',
                       flex: 9,
                       contents: [
-                        { type: 'text', text: 'แตะปุ่ม "🛒 สั่งซื้อสลาก N3" ด้านล่าง', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'แตะปุ่ม "🛒 สั่งซื้อสลาก N3" ด้านล่าง', size: 'xs', weight: 'bold', color: '#0056b3', wrap: true },
                         { type: 'text', text: 'ระบบจะเปิดหน้าตารางสั่งซื้อออนไลน์ให้ทันที', size: 'xxs', color: '#555555', wrap: true }
                       ]
                     }
@@ -353,7 +354,7 @@ export class FlexMessageBuilder {
                       layout: 'vertical',
                       flex: 9,
                       contents: [
-                        { type: 'text', text: 'เลือกเลข 3 หลัก & จำนวนใบที่ต้องการ', size: 'xs', weight: 'bold', color: '#0056b3' },
+                        { type: 'text', text: 'เลือกเลข 3 หลัก & จำนวนใบที่ต้องการ', size: 'xs', weight: 'bold', color: '#0056b3', wrap: true },
                         { type: 'text', text: 'จัดได้หลายเลขในบิลเดียว ใบละ 20 บาท ไม่มีเลขอั้น', size: 'xxs', color: '#555555', wrap: true }
                       ]
                     }
@@ -369,7 +370,7 @@ export class FlexMessageBuilder {
                       layout: 'vertical',
                       flex: 9,
                       contents: [
-                        { type: 'text', text: 'กดยืนยันเพื่อรับ QR Code ชำระเงิน', size: 'xs', weight: 'bold', color: '#28a745' },
+                        { type: 'text', text: 'กดยืนยันเพื่อรับ QR Code ชำระเงิน', size: 'xs', weight: 'bold', color: '#28a745', wrap: true },
                         { type: 'text', text: 'ระบบจะสร้างภาพ QR Code ให้สแกนจ่ายผ่านแอปเป๋าตังทันที', size: 'xxs', color: '#555555', wrap: true }
                       ]
                     }
@@ -632,10 +633,11 @@ export class FlexMessageBuilder {
               contents: [
                 {
                   type: 'text',
-                  text: '🛒 สั่งซื้อง่ายๆ ไม่ต้องพิมพ์เอง:',
+                  text: '🛒 สั่งซื้อง่ายผ่านตารางออนไลน์:',
                   weight: 'bold',
                   size: 'xs',
-                  color: '#b45309'
+                  color: '#b45309',
+                  wrap: true
                 },
                 {
                   type: 'text',
@@ -1191,7 +1193,8 @@ export class FlexMessageBuilder {
               text: '✨ สั่งซื้อง่ายๆ เพียงแตะเปิดตารางสั่งซื้อออนไลน์:',
               size: 'xs',
               color: '#111827',
-              weight: 'bold'
+              weight: 'bold',
+              wrap: true
             },
             {
               type: 'text',
@@ -1216,7 +1219,8 @@ export class FlexMessageBuilder {
                   text: '📋 ตัวอย่างตารางสั่งซื้อ (จัดได้หลายเลขในบิลเดียว เช่น 123 2, 334 2, 447 3)',
                   weight: 'bold',
                   size: 'xxs',
-                  color: '#fde68a'
+                  color: '#fde68a',
+                  wrap: true
                 },
                 {
                   type: 'box',
