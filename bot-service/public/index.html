@@ -306,6 +306,19 @@
                 <i class="fas fa-microphone"></i>
               </button>
             </div>
+            
+            <!-- Voice Waveform Animation Box -->
+            <div id="voice-waveform-box" class="voice-waveform-box">
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <span style="font-size: 0.85rem; color: #fecaca; font-weight: 700; margin-left: 0.5rem;">
+                <i class="fas fa-circle pulse-dot"></i> กำลังบันทึกเสียงเล่าความฝัน... กรุณาพูดได้เลยครับ
+              </span>
+            </div>
+
             <div id="voice-status-hint" class="voice-status-hint">
               <i class="fas fa-circle" style="font-size: 0.6rem;"></i> กำลังฟังเสียงพูดความฝันของคุณ... พูดได้เลยครับ
             </div>
@@ -394,10 +407,25 @@
               </div>
             </div>
 
+            <!-- Generative Dream Art 2.0 Preview Card -->
+            <div class="dream-art-card">
+              <div style="font-size: 0.92rem; color: var(--color-gold-light); font-weight: 700; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: center; gap: 0.45rem;">
+                <i class="fas fa-palette"></i> <span>ภาพจำลองนิมิตฝัน AI (Generative Dream Art 2.0)</span>
+              </div>
+              <div class="dream-art-canvas-wrapper" id="dream-art-wrapper">
+                <img id="dream-art-preview" src="" alt="AI Dream Art" />
+              </div>
+              <div style="display: flex; justify-content: center; gap: 0.6rem; margin-top: 0.75rem; flex-wrap: wrap;">
+                <button type="button" id="btn-save-dream-art" class="btn btn-gold" style="font-size: 0.88rem; padding: 0.6rem 1.25rem;">
+                  <i class="fas fa-download"></i> 📥 บันทึกภาพนิมิตฝันลงเครื่อง
+                </button>
+              </div>
+            </div>
+
             <!-- Lucky Packages Quick Presets -->
             <div class="dream-packages-section">
               <div class="packages-header">
-                <i class="fas fa-bolt" style="color: var(--color-gold);"></i> <strong>เลือกแพ็กเกจสั่งซื้อด่วน (แตะเพื่อสั่งซื้อใน LINE ทันที):</strong>
+                <i class="fas fa-bolt" style="color: var(--color-gold);"></i> <strong>เลือกแพ็กเกจสั่งซื้อด่วน:</strong>
               </div>
               <div class="packages-grid">
                 <button type="button" class="pkg-card" id="pkg-btn-direct" data-type="direct">
@@ -427,7 +455,7 @@
               <div class="guide-steps">
                 <div class="guide-step">
                   <span class="step-num">1</span>
-                  <span>แตะปุ่มสั่งซื้อ ส่งข้อความใน LINE</span>
+                  <span>แตะปุ่มสั่งซื้อ ส่งข้อความใน LINE หรือเปิดตารางเว็บ</span>
                 </div>
                 <div class="guide-step">
                   <span class="step-num">2</span>
@@ -450,26 +478,108 @@
             </div>
 
             <div class="result-actions">
-              <!-- Primary 1-Tap LINE Order Action (Direct LINE App) -->
-              <a href="https://line.me/R/oaMessage/%40586xxhlx/?%E0%B8%AA%E0%B8%B1%E0%B9%88%E0%B8%87%E0%B8%8B%E0%B8%B7%E0%B9%89%E0%B8%AD%20789%201%20%E0%B9%83%E0%B8%9A" class="btn btn-gold btn-order-prominent" id="btn-order-dream-line">
-                <i class="fab fa-line" style="font-size: 1.4rem;"></i> <span>⚡ สั่งซื้อเลขนี้ผ่าน LINE (20 บ.)</span>
+              <!-- 1-Click Order in Web Table -->
+              <a href="order" id="btn-order-dream-table" class="btn btn-emerald" style="flex: 1 1 100%; padding: 0.9rem; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 0.55rem; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);">
+                <i class="fas fa-table-list"></i> <span>🛒 สั่งซื้อเลขนี้ในตารางเว็บทันที (20 บ.)</span>
               </a>
 
-              <!-- Direct Multi-Ticket Order Button -->
-              <a href="order" class="btn btn-emerald" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 700; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
-                <i class="fas fa-cart-shopping"></i> <span>🛒 สั่งซื้อสลาก N3 (เปิดตาราง)</span>
+              <!-- 1-Click 6-Pack Order -->
+              <a href="order?mode=6pack" id="btn-order-dream-6pack" class="btn btn-gold" style="flex: 1 1 100%; padding: 0.85rem; font-size: 1rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 0.55rem; box-shadow: 0 4px 18px rgba(250, 204, 21, 0.35);">
+                <i class="fas fa-dice"></i> <span>🎲 สั่งซื้อสูตรชุด 6 กลับ (120 บ.)</span>
+              </a>
+
+              <!-- LINE Order Button -->
+              <a href="https://line.me/R/oaMessage/%40586xxhlx/?%E0%B8%AA%E0%B8%B1%E0%B9%88%E0%B8%87%E0%B8%8B%E0%B8%B7%E0%B9%89%E0%B8%AD%20789%201%20%E0%B9%83%E0%B8%9A" class="btn btn-glass" id="btn-order-dream-line" style="flex: 1; border-color: rgba(6, 199, 85, 0.4); color: #86efac;">
+                <i class="fab fa-line"></i> <span>สั่งซื้อผ่าน LINE</span>
               </a>
 
               <!-- Secondary Actions -->
-              <button id="btn-share-card" class="btn btn-emerald">
-                <i class="fas fa-camera"></i> บันทึกรูปการ์ด
+              <button id="btn-share-card" class="btn btn-outline" style="flex: 1;">
+                <i class="fas fa-share-alt"></i> แชร์การ์ดคำทำนาย
               </button>
-              <button id="btn-copy-num" class="btn btn-outline">
-                <i class="fas fa-copy"></i> คัดลอกคำสั่งซื้อ
-              </button>
-              <button id="btn-reset-dream" class="btn btn-outline">
+              <button id="btn-reset-dream" class="btn btn-outline" style="flex: 1;">
                 <i class="fas fa-redo"></i> ทำนายใหม่
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: N3 Historical Probability Heatmap & Astrological Analytics Center -->
+  <section id="n3-probability-center" class="n3-analytics-section">
+    <div class="container">
+      <div class="section-title">
+        <span class="badge badge-gold"><i class="fas fa-chart-pie"></i> PROBABILITY & ASTRO ANALYTICS</span>
+        <h2><span class="text-gradient-gold">ศูนย์วิเคราะห์สถิติความน่าจะเป็น</span> สลาก N3</h2>
+        <p>วิเคราะห์ความถี่ตัวเลข 0–9 ย้อนหลังทุกหลัก ผสานเลขกำลังวันตามหลักโหราศาสตร์สากล ช่วยให้คุณเลือกเลขมงคลแม่นยำยิ่งขึ้น</p>
+      </div>
+
+      <div class="analytics-card">
+        <!-- Tab Controls -->
+        <div class="analytics-tabs">
+          <button type="button" class="analytics-tab-btn active" id="tab-btn-heatmap" onclick="switchAnalyticsTab('heatmap')">
+            <i class="fas fa-fire"></i> 🔥 Heatmap ความถี่หลักร้อย/สิบ/หน่วย
+          </button>
+          <button type="button" class="analytics-tab-btn" id="tab-btn-astro" onclick="switchAnalyticsTab('astro')">
+            <i class="fas fa-sun"></i> ⭐ เลขกำลังวันประจำงวด
+          </button>
+          <button type="button" class="analytics-tab-btn" id="tab-btn-combos" onclick="switchAnalyticsTab('combos')">
+            <i class="fas fa-wand-magic-sparkles"></i> 🎯 ชุดเลขวิเคราะห์ความน่าจะเป็นสูง
+          </button>
+        </div>
+
+        <!-- View 1: Heatmap Table -->
+        <div id="analytics-view-heatmap" class="analytics-view">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; gap: 0.5rem;">
+            <div style="font-size: 0.92rem; color: var(--color-gold-light); font-weight: 700;">
+              📊 ตารางแสดงความถี่ตัวเลข 0–9 ย้อนหลัง (แยกตามตำแหน่งหลัก)
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              🔴 ความถี่สูง | 🟡 ปานกลาง | 🟢 ปกติ
+            </div>
+          </div>
+
+          <div id="n3-heatmap-container">
+            <!-- Rendered by js/n3-analytics.js -->
+          </div>
+        </div>
+
+        <!-- View 2: Astrological Day Matrix -->
+        <div id="analytics-view-astro" class="analytics-view" style="display: none;">
+          <div style="text-align: center; margin-bottom: 1.25rem;">
+            <h3 style="color: var(--color-gold-light); font-size: 1.25rem; margin-bottom: 0.35rem;">
+              🔮 เลขกำลังวัน & ศาสตร์แห่งดวงดาวประจำวันออกรางวัล
+            </h3>
+            <p style="font-size: 0.88rem; color: var(--text-secondary);">
+              กำลังวันคือพลังงานจักรวาลที่ส่งผลต่อการเหนี่ยวนำตัวเลขในแต่ละวัน
+            </p>
+          </div>
+
+          <div class="astro-day-grid" id="astro-day-container">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- View 3: Smart Recommended Combos -->
+        <div id="analytics-view-combos" class="analytics-view" style="display: none;">
+          <div class="smart-combo-box">
+            <h3 style="color: var(--color-gold); font-size: 1.2rem; margin-bottom: 0.5rem;">
+              💡 ชุดเลขแนะนำความน่าจะเป็นสูง (ผสานเลขเด่น + กำลังวัน)
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+              แตะที่ตัวเลขเพื่อนำเข้าสู่ตารางสั่งซื้อสลาก N3 ได้ทันทีใน 1 คลิก!
+            </p>
+
+            <div id="smart-combos-container" style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+              <!-- Dynamically populated -->
+            </div>
+
+            <div style="margin-top: 1rem;">
+              <a href="order" class="btn btn-gold" style="padding: 0.75rem 1.8rem; font-weight: 700;">
+                <i class="fas fa-cart-shopping"></i> เปิดตารางสั่งซื้อสลาก N3 ทันที
+              </a>
             </div>
           </div>
         </div>
@@ -1430,6 +1540,8 @@
   <script src="js/sound-effects.js"></script>
   <script src="js/particle-canvas.js"></script>
   <script src="js/image-saver.js?v=2.2"></script>
+  <script src="js/dream-art-generator.js"></script>
+  <script src="js/n3-analytics.js"></script>
   <script src="js/ai-dream-engine.js"></script>
   <script src="js/n3-calculator.js"></script>
   <script src="js/n3-checker.js"></script>
