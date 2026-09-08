@@ -35,6 +35,80 @@ function getLineConfig() {
 }
 
 /**
+ * ดึงการตั้งค่า Telegram จาก bot-service/.env
+ */
+function getTelegramConfig() {
+  const envPath = path.join(BOT_DIR, '.env');
+  let botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+  let chatId = process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_CHAT_ID || '';
+  let enabled = process.env.TELEGRAM_NOTIFY_ENABLED !== 'false';
+  if (fs.existsSync(envPath)) {
+    try {
+      const envContent = fs.readFileSync(envPath, 'utf-8');
+      for (const line of envContent.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const k = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim();
+        if (k === 'TELEGRAM_BOT_TOKEN' && !botToken) botToken = val;
+        if ((k === 'TELEGRAM_ADMIN_CHAT_ID' || k === 'TELEGRAM_CHAT_ID') && !chatId) chatId = val;
+        if (k === 'TELEGRAM_NOTIFY_ENABLED') enabled = val !== 'false';
+      }
+    } catch {}
+  }
+  return { botToken, chatId, enabled: enabled && !!botToken && !!chatId };
+}
+
+/**
+ * ส่งแจ้งเตือนไปยัง Telegram Admin (ฟรี 100% ไม่จำกัดโควต้า)
+ */
+function sendTelegramAdminAlert(messageText) {
+  return new Promise((resolve) => {
+    const { botToken, chatId, enabled } = getTelegramConfig();
+    if (!enabled || !botToken || !chatId) {
+      return resolve(false);
+    }
+    const payload = JSON.stringify({
+      chat_id: chatId,
+      text: messageText
+    });
+    const req = https.request(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      },
+      timeout: 10000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          console.log('[TELEGRAM ALERT SUCCESS] ส่งแจ้งเตือนเข้า Telegram แอดมินสำเร็จ');
+          resolve(true);
+        } else {
+          console.warn(`[TELEGRAM ALERT WARNING] HTTP ${res.statusCode}: ${data}`);
+          resolve(false);
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.warn('[TELEGRAM ALERT ERROR]', err.message);
+      resolve(false);
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      console.warn('[TELEGRAM ALERT TIMEOUT]');
+      resolve(false);
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
  * ส่งแจ้งเตือน Push Message ไปยัง LINE Admin
  */
 function sendLineAdminAlert(messageText) {
@@ -161,27 +235,41 @@ function isStopIntentional() {
 /**
  * แจ้งเตือนเมื่อบอทเปิดใช้งาน (On Start)
  */
-function notifyBotStarted(webhookUrl) {
-  return sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
+async function notifyBotStarted(webhookUrl) {
+  const text = `🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`;
+  await Promise.allSettled([
+    sendTelegramAdminAlert(text),
+    sendLineAdminAlert(text)
+  ]);
+  return true;
 }
 
 /**
  * แจ้งเตือนด่วนเมื่อบอทหยุดทำงาน / แครช (On Stop / Shutdown / Crash)
  */
-function notifyBotStopped(timeStr, reason) {
+async function notifyBotStopped(timeStr, reason) {
   const time = timeStr || getThaiTime();
   let text = `⚠️ [แจ้งเตือนด่วน] บอทสลาก N3 หยุดทำงานแล้ว (Bot Service Stopped) เมื่อเวลา ${time} กรุณาตรวจสอบหรือเปิดบอทใหม่`;
   if (reason) {
     text += `\n(สาเหตุ: ${reason})`;
   }
-  return sendLineAdminAlert(text);
+  await Promise.allSettled([
+    sendTelegramAdminAlert(text),
+    sendLineAdminAlert(text)
+  ]);
+  return true;
 }
 
 /**
  * แจ้งเตือนเมื่อแอดมินสั่งหยุดบอทเองอย่างถูกต้อง
  */
-function notifyBotStoppedByAdmin() {
-  return sendLineAdminAlert('🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว');
+async function notifyBotStoppedByAdmin() {
+  const text = '🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว';
+  await Promise.allSettled([
+    sendTelegramAdminAlert(text),
+    sendLineAdminAlert(text)
+  ]);
+  return true;
 }
 
 let hasEngineAlerted = false;
@@ -833,10 +921,14 @@ async function startBackground(options = {}) {
     console.log(`  - บันทึกการทำงาน: bot.log`);
     console.log('===============================================================================\n');
 
-    // แจ้งเตือนแอดมินทาง LINE ว่ารีสตาร์ทบอทสำเร็จโดยใช้ Webhook เดิม
-    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการรีสตาร์ทไปยัง LINE แอดมิน...');
+    // แจ้งเตือนแอดมินทาง LINE และ Telegram ว่ารีสตาร์ทบอทสำเร็จโดยใช้ Webhook เดิม
+    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการรีสตาร์ทไปยัง LINE และ Telegram แอดมิน...');
+    const restartAlertText = `🚀 [รีสตาร์ทบอทสำเร็จ] บอทสลาก N3 อัปเดตและเริ่มทำงานใหม่เรียบร้อยแล้ว (ใช้ Webhook เดิม: ${webhookUrl})`;
     try {
-      await sendLineAdminAlert(`🚀 [รีสตาร์ทบอทสำเร็จ] บอทสลาก N3 อัปเดตและเริ่มทำงานใหม่เรียบร้อยแล้ว (ใช้ Webhook เดิม: ${webhookUrl})`);
+      await Promise.allSettled([
+        sendTelegramAdminAlert(restartAlertText),
+        sendLineAdminAlert(restartAlertText)
+      ]);
     } catch (e) {
       console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนรีสตาร์ทไม่สำเร็จ:', e.message);
     }
@@ -880,11 +972,15 @@ async function startBackground(options = {}) {
 
     console.log(`\n  >>> LINE WEBHOOK URL ใหม่: \x1b[32m\x1b[1m${webhookUrl}\x1b[0m\n`);
 
-    // ส่งแจ้งเตือนเปิดบอทเข้า LINE Admin
-    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE แอดมิน...');
+    // ส่งแจ้งเตือนเปิดบอทเข้า LINE และ Telegram Admin
+    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE และ Telegram แอดมิน...');
+    const startAlertText = `🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`;
     try {
-      await sendLineAdminAlert(`🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`);
-      await updateLineWebhookEndpoint(webhookUrl);
+      await Promise.allSettled([
+        sendTelegramAdminAlert(startAlertText),
+        sendLineAdminAlert(startAlertText),
+        updateLineWebhookEndpoint(webhookUrl)
+      ]);
     } catch (e) {
       console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนเปิดบอทไม่สำเร็จ:', e.message);
     }

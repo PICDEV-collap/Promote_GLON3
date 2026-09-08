@@ -16,6 +16,11 @@ export const CONFIG = {
   ADMIN_LINE_USER_ID: adminId,
   ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
   
+  // Telegram Bot Notification สำหรับแจ้งเตือนแอดมิน (ฟรี ไม่จำกัดโควต้า)
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
+  TELEGRAM_ADMIN_CHAT_ID: process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_CHAT_ID || '',
+  TELEGRAM_NOTIFY_ENABLED: process.env.TELEGRAM_NOTIFY_ENABLED !== 'false',
+
   // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
   DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3-1nui.vercel.app/',
   ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3-1nui.vercel.app/order',
