@@ -22,9 +22,9 @@ export const CONFIG = {
   TELEGRAM_NOTIFY_ENABLED: process.env.TELEGRAM_NOTIFY_ENABLED !== 'false',
 
   // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
-  DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/',
-  ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3.vercel.app/order',
-  ORDER_6PACK_URL: process.env.ORDER_6PACK_URL || 'https://promote-glon-3.vercel.app/order-6pack',
+  DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/?openExternalBrowser=1',
+  ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3.vercel.app/order?openExternalBrowser=1',
+  ORDER_6PACK_URL: process.env.ORDER_6PACK_URL || 'https://promote-glon-3.vercel.app/order-6pack?openExternalBrowser=1',
   LIFF_ID: process.env.LIFF_ID || '2011462211-WVsuHFk4',
   ORDER_LIFF_URL: process.env.ORDER_LIFF_URL || 'https://liff.line.me/2011462211-WVsuHFk4',
 

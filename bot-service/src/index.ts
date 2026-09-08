@@ -375,6 +375,7 @@ export interface StoredOrderStatus {
   status: 'queued' | 'processing' | 'completed' | 'failed';
   queuePosition?: number;
   qrImageUrl?: string;
+  qrDataUrl?: string;
   downloadUrl?: string;
   fulfilledItems?: OrderItem[];
   outOfStockItems?: string[];
@@ -927,12 +928,14 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const activePublicBase = getPublicBaseUrl();
       const qrPublicUrl = result.qrImageUrl.replace(CONFIG.BASE_URL, activePublicBase);
       const downloadUrl = `${activePublicBase}/download-qr/${qrFileName}?action=dl`;
+      const qrBase64 = fs.existsSync(qrFilePath) ? `data:image/png;base64,${fs.readFileSync(qrFilePath).toString('base64')}` : undefined;
 
       // อัปเดตสถานะใน orderStatusStore สำหรับ Web Polling
       orderStatusStore.set(task.orderId, {
         orderId: task.orderId,
         status: 'completed',
         qrImageUrl: qrPublicUrl,
+        qrDataUrl: qrBase64,
         downloadUrl,
         fulfilledItems: result.fulfilledItems || orderItems,
         outOfStockItems: result.outOfStockItems,

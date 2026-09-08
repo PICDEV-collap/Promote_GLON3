@@ -6,6 +6,14 @@
     (function() {
       try {
         var href = window.location.href;
+        var ua = navigator.userAgent || '';
+        // If opened inside LINE In-App Browser without openExternalBrowser=1, automatically redirect to native external browser
+        if (/Line\//i.test(ua) && window.location.search.indexOf('openExternalBrowser=1') === -1) {
+          var sep = href.indexOf('?') !== -1 ? '&' : '?';
+          window.location.replace(href + sep + 'openExternalBrowser=1');
+          return;
+        }
+
         var params = new URLSearchParams(window.location.search);
         var liffState = params.get('liff.state');
         var is6Pack = false;
@@ -2446,19 +2454,19 @@
     // QR Download Handler - Direct Download from HTML webpage
     async function downloadModalQr() {
       const qrImg = document.getElementById('modal-qr-img');
-      const qrSrc = qrImg ? qrImg.src : '';
+      const qrSrc = window.currentQrData || (qrImg ? qrImg.src : '');
       if (!qrSrc) {
         showToast('ไม่พบรูปภาพ QR Code สำหรับบันทึก', 'error');
         return;
       }
       const filename = `GLO-N3-Payment-QR-${Date.now()}.png`;
 
-      showToast('📥 กำลังดาวน์โหลดรูปภาพ QR Code ลงเครื่อง...', 'info');
+      showToast('📥 กำลังบันทึกรูปภาพ QR Code ลงเครื่อง...', 'info');
 
       try {
         let blob = null;
 
-        // 1. Base64 Data URL to Blob
+        // 1. Base64 Data URL to Blob (Instant, 0 latency, no CORS required)
         if (qrSrc.startsWith('data:')) {
           const parts = qrSrc.split(';base64,');
           const contentType = (parts[0].split(':')[1] || 'image/png').split(';')[0];
@@ -2475,15 +2483,24 @@
             }
           } catch (e) {}
 
-          if (!blob && qrImg.complete && qrImg.naturalWidth > 0) {
+          if (!blob) {
             try {
               const canvas = document.createElement('canvas');
-              canvas.width = qrImg.naturalWidth;
-              canvas.height = qrImg.naturalHeight;
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = qrSrc;
+              });
+              canvas.width = img.naturalWidth || 400;
+              canvas.height = img.naturalHeight || 400;
               const ctx = canvas.getContext('2d');
-              ctx.drawImage(qrImg, 0, 0);
+              ctx.drawImage(img, 0, 0);
               blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-            } catch (canvasErr) {}
+            } catch (canvasErr) {
+              console.warn('Canvas blob fallback failed:', canvasErr);
+            }
           }
         }
 
@@ -2499,28 +2516,29 @@
           setTimeout(() => {
             if (document.body.contains(link)) document.body.removeChild(link);
             URL.revokeObjectURL(blobUrl);
-          }, 1500);
-          showToast('✅ ดาวน์โหลดรูปภาพ QR Code เรียบร้อยแล้ว!', 'success');
+          }, 2000);
+          showToast('✅ บันทึกรูปภาพ QR Code ลงเครื่องเรียบร้อยแล้ว!', 'success');
           return;
         }
       } catch (err) {
         console.warn('Blob direct download failed:', err);
       }
 
-      // 4. Fallback: Direct attachment download URL
-      const dlUrl = qrSrc.includes('/qrcodes/')
-        ? qrSrc.replace('/qrcodes/', '/download-qr/') + (qrSrc.includes('?') ? '&' : '?') + 'action=dl'
-        : qrSrc;
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = dlUrl;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        if (document.body.contains(link)) document.body.removeChild(link);
-      }, 500);
-      showToast('✅ กำลังดาวน์โหลดรูปภาพ QR Code...', 'success');
+      // 4. Fallback link click
+      try {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = qrSrc;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) document.body.removeChild(link);
+        }, 500);
+        showToast('✅ กำลังบันทึกรูปภาพ QR Code...', 'success');
+      } catch (e) {
+        showToast('กรุณาแตะค้างที่รูปภาพ QR Code เพื่อเลือก "บันทึกรูปภาพ"', 'info');
+      }
     }
     window.downloadModalQr = downloadModalQr;
     window.saveCurrentModalQr = downloadModalQr;
@@ -2718,8 +2736,10 @@
                 if (modalTitle) modalTitle.textContent = 'สร้าง QR Code ชำระเงินสำเร็จ!';
                 if (modalDesc) modalDesc.textContent = 'แคปหน้าจอหรือแตะค้างที่รูปภาพเพื่อบันทึก แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงิน';
 
-                const qrSrc = statusData.qrImageUrl || statusData.qrUrl || statusData.qrDataUrl || statusData.downloadUrl || statusData.qrImage;
+                const qrSrc = statusData.qrDataUrl || statusData.qrImageUrl || statusData.qrUrl || statusData.downloadUrl || statusData.qrImage;
+                window.currentQrData = qrSrc;
                 if (modalQrImg && qrSrc) {
+                  modalQrImg.crossOrigin = 'anonymous';
                   modalQrImg.src = qrSrc;
                 }
 
