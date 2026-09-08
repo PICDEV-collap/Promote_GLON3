@@ -48,6 +48,19 @@
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
+    /* Modern Web Guidance: Native Cross-Document View Transitions */
+    @view-transition {
+      navigation: auto;
+    }
+
+    .header-bar {
+      view-transition-name: site-header-nav;
+    }
+
+    .shop-badge {
+      view-transition-name: site-brand-badge;
+    }
+
     :root {
       --font-heading: 'Prompt', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-body: 'Kanit', -apple-system, BlinkMacSystemFont, sans-serif;

@@ -2088,21 +2088,29 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   window.switchAnalyticsTab = function (tabName) {
-    const btnHeatmap = document.getElementById('tab-btn-heatmap');
-    const btnAstro = document.getElementById('tab-btn-astro');
-    const btnCombos = document.getElementById('tab-btn-combos');
+    const updateTabDOM = () => {
+      const btnHeatmap = document.getElementById('tab-btn-heatmap');
+      const btnAstro = document.getElementById('tab-btn-astro');
+      const btnCombos = document.getElementById('tab-btn-combos');
 
-    const viewHeatmap = document.getElementById('analytics-view-heatmap');
-    const viewAstro = document.getElementById('analytics-view-astro');
-    const viewCombos = document.getElementById('analytics-view-combos');
+      const viewHeatmap = document.getElementById('analytics-view-heatmap');
+      const viewAstro = document.getElementById('analytics-view-astro');
+      const viewCombos = document.getElementById('analytics-view-combos');
 
-    if (btnHeatmap) btnHeatmap.classList.toggle('active', tabName === 'heatmap');
-    if (btnAstro) btnAstro.classList.toggle('active', tabName === 'astro');
-    if (btnCombos) btnCombos.classList.toggle('active', tabName === 'combos');
+      if (btnHeatmap) btnHeatmap.classList.toggle('active', tabName === 'heatmap');
+      if (btnAstro) btnAstro.classList.toggle('active', tabName === 'astro');
+      if (btnCombos) btnCombos.classList.toggle('active', tabName === 'combos');
 
-    if (viewHeatmap) viewHeatmap.style.display = tabName === 'heatmap' ? 'block' : 'none';
-    if (viewAstro) viewAstro.style.display = tabName === 'astro' ? 'block' : 'none';
-    if (viewCombos) viewCombos.style.display = tabName === 'combos' ? 'block' : 'none';
+      if (viewHeatmap) viewHeatmap.style.display = tabName === 'heatmap' ? 'block' : 'none';
+      if (viewAstro) viewAstro.style.display = tabName === 'astro' ? 'block' : 'none';
+      if (viewCombos) viewCombos.style.display = tabName === 'combos' ? 'block' : 'none';
+    };
+
+    if (document.startViewTransition) {
+      document.startViewTransition(() => updateTabDOM());
+    } else {
+      updateTabDOM();
+    }
 
     try {
       if (typeof SoundEngine !== 'undefined' && SoundEngine.playClick) SoundEngine.playClick();

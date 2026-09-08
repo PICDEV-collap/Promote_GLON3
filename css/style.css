@@ -8,6 +8,45 @@
 /* --- Fonts & CSS Variables --- */
 @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Prompt:wght@300;400;500;600;700;800&display=swap');
 
+/* --- Modern Web Guidance: Native Cross-Document & Same-Document View Transitions --- */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: 260ms cubic-bezier(0.16, 1, 0.3, 1) both modernPageFadeOut;
+}
+
+::view-transition-new(root) {
+  animation: 300ms cubic-bezier(0.16, 1, 0.3, 1) both modernPageFadeIn;
+}
+
+@keyframes modernPageFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+    filter: blur(2px);
+  }
+}
+
+@keyframes modernPageFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(1.015);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
 :root {
   --font-heading: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Kanit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -2816,6 +2855,157 @@ footer {
 .btn-line-open-ext:active {
   transform: scale(1.04);
   background: #f0fdf4;
+}
+
+/* ==========================================================================
+   MODERN WEB GUIDANCE: VIEW TRANSITION NAMES & SMOOTH INTERACTIVE MORPHING
+   ========================================================================== */
+.navbar, .header-bar {
+  view-transition-name: site-header-nav;
+}
+
+.brand-logo-img, .brand-logo-glow, .shop-badge {
+  view-transition-name: site-brand-badge;
+}
+
+.hero-quota-badge, .quota-badge-top, .quota-tracker-card {
+  view-transition-name: live-quota-tracker;
+}
+
+/* ==========================================================================
+   MODERN WEB GUIDANCE: @starting-style & DISCRETE TRANSITIONS (MODALS & TOASTS)
+   ========================================================================== */
+.modal-overlay,
+#modal-image-saver,
+#dream-art-modal {
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              backdrop-filter 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              overlay 0.3s allow-discrete,
+              display 0.3s allow-discrete;
+}
+
+.modal-overlay .modal-card,
+.modal-overlay .modal-content,
+#modal-image-saver .modal-card,
+#dream-art-modal .dream-art-card {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@starting-style {
+  .modal-overlay.active,
+  #modal-image-saver.active,
+  #dream-art-modal.active {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+
+  .modal-overlay.active .modal-card,
+  .modal-overlay.active .modal-content,
+  #modal-image-saver.active .modal-card,
+  #dream-art-modal.active .dream-art-card {
+    transform: scale(0.92) translateY(16px);
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+.mobile-drawer {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.35s allow-discrete;
+}
+
+@starting-style {
+  .mobile-drawer.active {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              display 0.35s allow-discrete;
+}
+
+@starting-style {
+  .toast.show {
+    transform: translate(-50%, 20px) scale(0.92);
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   MODERN WEB GUIDANCE: GPU-ACCELERATED SPRING MICRO-INTERACTIONS & SHIMMERS
+   ========================================================================== */
+.btn, .btn-primary, .btn-secondary, .btn-emerald, .analytics-tab-btn, .num-pill-btn {
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.2s ease,
+              border-color 0.2s ease;
+  will-change: transform;
+}
+
+.btn:active, .analytics-tab-btn:active, .num-pill-btn:active {
+  transform: scale(0.94);
+}
+
+.feature-card, .analytics-card, .dream-card, .guide-card, .faq-item {
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease;
+  will-change: transform;
+}
+
+.feature-card:hover, .analytics-card:hover, .dream-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Shimmer Flow Highlight */
+.shimmer-badge, .badge-glow-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-badge::after, .badge-glow-effect::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 35%,
+    rgba(253, 230, 138, 0.22) 50%,
+    transparent 65%
+  );
+  transform: rotate(30deg);
+  animation: shimmerFlowAnimation 4.5s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes shimmerFlowAnimation {
+  0% { transform: translate(-100%, -100%) rotate(30deg); }
+  100% { transform: translate(100%, 100%) rotate(30deg); }
+}
+
+/* Modern Accessibility: Reduced Motion Compliance */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 /* ==========================================================================
