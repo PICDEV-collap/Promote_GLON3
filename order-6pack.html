@@ -8,30 +8,19 @@
         var href = window.location.href;
         var params = new URLSearchParams(window.location.search);
         var liffState = params.get('liff.state');
+        var is6Pack = false;
         
         if (liffState) {
-          var decoded = decodeURIComponent(liffState);
-          var qIndex = decoded.indexOf('?');
-          var searchPart = qIndex !== -1 ? decoded.substring(qIndex) : (decoded.indexOf('=') !== -1 ? (decoded.startsWith('?') ? decoded : '?' + decoded) : '');
-          
-          if (searchPart) {
-            var stateParams = new URLSearchParams(searchPart);
-            stateParams.forEach(function(val, key) {
-              params.set(key, val);
-            });
-          }
-          if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
-            params.set('mode', '6pack');
-          }
-          params.delete('liff.state');
-          
-          var cleanSearch = params.toString();
-          var cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
-          window.history.replaceState(null, '', cleanUrl);
+          try {
+            var decoded = decodeURIComponent(liffState);
+            if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
+              is6Pack = true;
+            }
+          } catch (err) {}
         }
 
         var mode = params.get('mode') || params.get('type') || params.get('view');
-        if (mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
+        if (is6Pack || mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
           document.documentElement.classList.add('mode-6pack');
         }
       } catch (e) {}
@@ -1440,20 +1429,10 @@
           ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 1rem;">10:00</span> นาที
         </div>
 
-        <!-- 1-Tap Action Buttons for Mobile QR -->
-        <div style="display: flex; gap: 0.6rem; margin-top: 0.85rem;">
-          <button type="button" class="btn-submit-order" style="flex: 1; padding: 0.75rem 0.5rem; font-size: 0.95rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); margin-top: 0; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);" onclick="saveCurrentModalQr()">
-            <i class="fas fa-download"></i> บันทึกรูป QR
-          </button>
-          <button type="button" class="btn-submit-order" style="flex: 1; padding: 0.75rem 0.5rem; font-size: 0.95rem; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); margin-top: 0; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);" onclick="openPaotangApp(event)">
-            <i class="fas fa-wallet"></i> เปิดแอปเป๋าตัง
-          </button>
-        </div>
-
-        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.6;">
-          📸 <b>ขั้นตอนชำระเงินง่ายๆ 2 ขั้นตอน:</b><br>
-          1. <b>แคปหน้าจอ (Screenshot)</b> หรือกดปุ่ม <b>"บันทึกรูป QR"</b> ด้านบน<br>
-          2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR จากอัลบั้มรูปเพื่อชำระเงิน
+        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.6;">
+          📸 <b>ขั้นตอนชำระเงิน:</b><br>
+          1. <b>แคปหน้าจอ (Screenshot)</b> หรือแตะค้างที่รูปภาพ QR เพื่อบันทึกลงเครื่อง<br>
+          2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR เพื่อชำระเงิน
         </div>
       </div>
 
@@ -2001,12 +1980,23 @@
         await liff.init({ liffId: CONFIG.LIFF_ID });
         isLiffReady = true;
         console.log('[LIFF] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
+        
+        // Clean URL parameter quietly after LIFF initialization is completely resolved
+        if (window.location.search.includes('liff.state')) {
+          try {
+            const cleanParams = new URLSearchParams(window.location.search);
+            cleanParams.delete('liff.state');
+            const cleanSearch = cleanParams.toString();
+            const cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
+            window.history.replaceState(null, '', cleanUrl);
+          } catch (e) {}
+        }
       } catch (err) {
         console.warn('[LIFF] Initialization failed:', err);
       }
     }
 
-    function switchOrderMode(mode) {
+    function switchOrderMode(mode, updateHistory = true) {
       const htmlEl = document.documentElement;
       const btnNormal = document.getElementById('tab-btn-normal');
       const btn6Pack = document.getElementById('tab-btn-6pack');
@@ -2019,22 +2009,30 @@
         if (btn6Pack) btn6Pack.classList.add('active');
         if (viewNormal) viewNormal.style.display = 'none';
         if (view6Pack) view6Pack.style.display = 'block';
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.set('mode', '6pack');
-          history.replaceState(null, '', url.pathname + url.search);
-        } catch (e) {}
+        if (updateHistory) {
+          try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('mode') !== '6pack') {
+              url.searchParams.set('mode', '6pack');
+              history.replaceState(null, '', url.pathname + url.search);
+            }
+          } catch (e) {}
+        }
       } else {
         htmlEl.classList.remove('mode-6pack');
         if (btn6Pack) btn6Pack.classList.remove('active');
         if (btnNormal) btnNormal.classList.add('active');
         if (viewNormal) viewNormal.style.display = 'block';
         if (view6Pack) view6Pack.style.display = 'none';
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('mode');
-          history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
-        } catch (e) {}
+        if (updateHistory) {
+          try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('mode')) {
+              url.searchParams.delete('mode');
+              history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+            }
+          } catch (e) {}
+        }
       }
     }
 
@@ -2791,13 +2789,31 @@
     function initFromParams() {
       const href = window.location.href;
       const params = new URLSearchParams(window.location.search);
+      const liffState = params.get('liff.state');
+      if (liffState) {
+        try {
+          const decoded = decodeURIComponent(liffState);
+          const qIndex = decoded.indexOf('?');
+          const searchPart = qIndex !== -1 ? decoded.substring(qIndex) : (decoded.indexOf('=') !== -1 ? (decoded.startsWith('?') ? decoded : '?' + decoded) : '');
+          if (searchPart) {
+            const stateParams = new URLSearchParams(searchPart);
+            stateParams.forEach((val, key) => {
+              if (!params.has(key)) params.set(key, val);
+            });
+          }
+          if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
+            params.set('mode', '6pack');
+          }
+        } catch (e) {}
+      }
+
       const modeParam = params.get('mode') || params.get('type') || params.get('view');
       const is6Pack = (modeParam === '6pack' || modeParam === 'sixpack' || modeParam === '6-pack' || href.includes('order-6pack') || href.includes('6pack'));
 
       if (is6Pack) {
-        switchOrderMode('6pack');
+        switchOrderMode('6pack', false);
       } else {
-        switchOrderMode('normal');
+        switchOrderMode('normal', false);
       }
 
       const lineParam = params.get('line');
@@ -2913,8 +2929,10 @@
 
       if (hasPushedInitialState) return;
       try {
-        window.history.pushState({ liffApp: true, page: 'order', t: Date.now() }, '', window.location.href);
-        hasPushedInitialState = true;
+        if (isLineBrowser()) {
+          window.history.pushState({ liffApp: true, page: 'order' }, '', window.location.href);
+          hasPushedInitialState = true;
+        }
       } catch (e) {}
 
       window.addEventListener('popstate', () => {
@@ -2940,7 +2958,7 @@
       if (window.history.length > 1) {
         window.history.back();
       } else {
-        window.location.href = 'index.html';
+        window.location.href = './';
       }
     }
 

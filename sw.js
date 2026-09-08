@@ -2,7 +2,7 @@
    GLO N3 - Service Worker (Network-First for fresh updates & Offline Cache)
    ========================================================================== */
 
-const CACHE_NAME = 'glo-n3-portal-v9-thanakit';
+const CACHE_NAME = 'glo-n3-portal-v10-thanakit';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -60,7 +60,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('.js') ||
     url.pathname === '/' ||
-    url.pathname.endsWith('/');
+    url.pathname.endsWith('/') ||
+    !url.pathname.split('/').pop().includes('.');
 
   if (isHtmlOrScript) {
     // 1. Network First: พยายามดึงจากเซิร์ฟเวอร์ก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุดทันที
