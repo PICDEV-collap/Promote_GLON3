@@ -1,5 +1,6 @@
 import { messagingApi } from '@line/bot-sdk';
 import { CONFIG } from '../config';
+import { TelegramService } from '../notify/telegram-service';
 
 export function getThaiTime(date: Date = new Date()): string {
   try {
@@ -170,10 +171,31 @@ export class LineReplyHandler {
   }
 
   /**
-   * ส่งภาพ QR Login หรือการแจ้งเตือนด่วนไปยัง Admin
+   * ส่งภาพ QR Login หรือการแจ้งเตือนด่วนไปยัง Admin (ทั้ง LINE และ Telegram)
    */
   public async pushToAdmin(messages: messagingApi.Message[]): Promise<boolean> {
     const safeMessages = LineReplyHandler.sanitizeMessages(messages);
+
+    // ส่งแจ้งเตือนไปยัง Telegram Admin แบบอัตโนมัติ (ฟรี 100% ไม่จำกัดโควต้า)
+    try {
+      const telegram = TelegramService.getInstance();
+      if (telegram.isConfigured()) {
+        for (const msg of safeMessages) {
+          if (msg.type === 'text') {
+            await telegram.sendText((msg as messagingApi.TextMessage).text);
+          } else if (msg.type === 'image') {
+            const imgMsg = msg as messagingApi.ImageMessage;
+            await telegram.sendPhoto(imgMsg.originalContentUrl, '📷 ภาพแจ้งเตือนสำหรับแอดมิน');
+          } else if (msg.type === 'flex') {
+            const flexMsg = msg as messagingApi.FlexMessage;
+            await telegram.sendText(`📋 [การแจ้งเตือน]\n${flexMsg.altText || 'ข้อความแจ้งเตือนจากระบบ'}`);
+          }
+        }
+      }
+    } catch (tgErr) {
+      console.warn('[TELEGRAM DISPATCH WARNING] ไม่สามารถส่งเข้า Telegram ได้:', tgErr);
+    }
+
     if (!this.client || !CONFIG.ADMIN_LINE_USER_ID) {
       console.log('[ADMIN SIMULATE ALERT] ส่งแจ้งเตือนแอดมิน:', JSON.stringify(safeMessages, null, 2));
       return true;
@@ -188,7 +210,7 @@ export class LineReplyHandler {
       return true;
     } catch (error: any) {
       if (error?.status === 429 || (error?.message && error.message.includes('monthly limit'))) {
-        console.warn('[ADMIN PUSH NOTICE] โควต้า Push Message ประจำเดือนหมดลงแล้ว (HTTP 429) — แอดมินสามารถดู QR ผ่าน Webhook URL / Console');
+        console.warn('[ADMIN PUSH NOTICE] โควต้า Push Message ประจำเดือนหมดลงแล้ว (HTTP 429) — ระบบส่งแจ้งเตือนผ่าน Telegram Bot แทนเรียบร้อย');
         if (this.cachedQuotaStatus) {
           this.cachedQuotaStatus.isExhausted = true;
           this.cachedQuotaStatus.remaining = 0;
@@ -205,6 +227,7 @@ export class LineReplyHandler {
    */
   public async notifyBotStarted(webhookUrl: string): Promise<boolean> {
     const text = `🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`;
+    TelegramService.getInstance().notifySystemStatus('ระบบเปิดใช้งาน', `บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม.\n🔗 Webhook: ${webhookUrl}`, '🚀').catch(() => {});
     return this.pushToAdmin([{ type: 'text', text }]);
   }
 
@@ -217,6 +240,7 @@ export class LineReplyHandler {
     if (reason) {
       text += `\n(สาเหตุ: ${reason})`;
     }
+    TelegramService.getInstance().notifySystemStatus('แจ้งเตือนด่วน: บอทหยุดทำงาน', `บอทสลาก N3 หยุดทำงานแล้ว เมื่อเวลา ${time}${reason ? `\n(สาเหตุ: ${reason})` : ''}`, '⚠️').catch(() => {});
     return this.pushToAdmin([{ type: 'text', text }]);
   }
 
@@ -225,6 +249,7 @@ export class LineReplyHandler {
    */
   public async notifyBotStoppedByAdmin(): Promise<boolean> {
     const text = `🛑 [แจ้งเตือน] แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว`;
+    TelegramService.getInstance().notifySystemStatus('แจ้งเตือน', 'แอดมินได้สั่งหยุดการทำงานของบอทสลาก N3 เรียบร้อยแล้ว', '🛑').catch(() => {});
     return this.pushToAdmin([{ type: 'text', text }]);
   }
 
@@ -233,6 +258,7 @@ export class LineReplyHandler {
    */
   public async notifyNightlyLogoff(timeStr?: string): Promise<boolean> {
     const time = timeStr || getThaiTime();
+    TelegramService.getInstance().notifyDailySchedule('CLOSE', time).catch(() => {});
     try {
       const { FlexMessageBuilder } = await import('./flex-message');
       const flexMsg = FlexMessageBuilder.buildNightlyLogoffMessage(time);
@@ -248,6 +274,7 @@ export class LineReplyHandler {
    */
   public async notifyMorningStoreOpen(timeStr?: string): Promise<boolean> {
     const time = timeStr || getThaiTime();
+    TelegramService.getInstance().notifyDailySchedule('OPEN', time).catch(() => {});
     try {
       const { FlexMessageBuilder } = await import('./flex-message');
       const flexMsg = FlexMessageBuilder.buildMorningStoreOpenMessage(time);

@@ -20,6 +20,7 @@ import { CustomerRegistry } from './storage/customer-registry';
 import { CampaignService } from './automation/campaign-service';
 import { LuckyDistributor } from './dream/lucky-distributor';
 import { DailyScheduleService } from './guard/daily-schedule-service';
+import { TelegramService } from './notify/telegram-service';
 
 const app = express();
 
@@ -637,6 +638,9 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
   const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, validItems.length);
 
+  // ส่งแจ้งเตือนคำสั่งซื้อใหม่เข้า Telegram ของแอดมินทันที
+  TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, effectiveUserId).catch(() => {});
+
   const waitingMessage = queuePos > 1
     ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
     : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
@@ -824,6 +828,11 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
     lastAdminQrUrl = qrPublicUrl;
     lastAdminQrTime = Date.now();
 
+    // ส่งภาพ QR Login เข้า Telegram แอดมินทันที (ฟรี 100% ไม่พึ่งพาโควต้า LINE)
+    TelegramService.getInstance().notifyAdminLoginQR(qrImagePath, reason).catch(err => {
+      console.warn('[TELEGRAM QR WARNING] ส่ง QR Login เข้า Telegram ไม่สำเร็จ:', err);
+    });
+
     const adminMessages: any[] = [
       {
         type: 'text',
@@ -851,6 +860,10 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
       lastAdminQrUrl = '';
       await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
       const liveQuota = quotaManager.getStatus();
+
+      // ส่งแจ้งเตือนล็อกอินสำเร็จเข้า Telegram แอดมิน
+      TelegramService.getInstance().notifyLoginSuccess(liveQuota).catch(() => {});
+
       await lineHandler.pushToAdmin([
         {
           type: 'text',
@@ -1061,6 +1074,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
       // 5. ส่งข้อความให้ลูกค้าทันที! ลูกค้าได้รับ QR Code รวดเร็วที่สุด
       await sendCustomerMessage([imageMsg, flexMsg]);
       console.log(`[SUCCESS] ส่งภาพ QR Code คมชัดสูง (Native Image + การ์ดสรุปคำสั่งซื้อ) ให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
+
+      // ส่งแจ้งเตือนออเดอร์สำเร็จพร้อมภาพ QR ชำระเงินเข้า Telegram ของแอดมิน
+      const fulfilledDesc = (result.fulfilledItems || orderItems).map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
+      TelegramService.getInstance().notifyOrderCompleted(fulfilledDesc, actualPrice, qrFilePath || qrPublicUrl, task.userId).catch(() => {});
 
       // 6. ดำเนินการกดกลับหน้าหลักและซิงค์โควต้าสดจาก GLO Portal ในเบื้องหลัง (ไม่ถ่วงเวลาการส่งรูปให้ลูกค้า)
       N3OrderService.postOrderCleanupAndQuotaSync(currentPage).then(liveSynced => {
@@ -1710,6 +1727,9 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
       const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, parsedItems.length);
 
+      // ส่งแจ้งเตือนคำสั่งซื้อใหม่เข้า Telegram ของแอดมินทันที
+      TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, userId).catch(() => {});
+
       // สำหรับออเดอร์ทั่วไป (คิวที่ 1-2): สงวน ReplyToken ไว้ส่ง QR Code สุดท้าย เพื่อให้ฟรี 100% ตลอดชีพ
       // เฉพาะกรณีคิวยาวมาก (คิว >= 3 และเวลารอ > 45 วินาที): แจ้งเตือนข้อความรอคิวก่อน ReplyToken หมดอายุ
       if (queuePos >= 3 && estSeconds > 45) {
@@ -1777,13 +1797,43 @@ app.get('/api/line-quota', async (_req: Request, res: Response) => {
   res.json({ success: true, lineQuota });
 });
 
+app.get('/api/telegram/status', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const tg = TelegramService.getInstance();
+  res.json({
+    success: true,
+    configured: tg.isConfigured(),
+    enabled: tg.isEnabled(),
+    chatIdMasked: CONFIG.TELEGRAM_ADMIN_CHAT_ID ? `${CONFIG.TELEGRAM_ADMIN_CHAT_ID.slice(0, 3)}****` : '(Not configured)'
+  });
+});
+
+app.post('/api/telegram/test', async (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  if (CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
+    res.status(401).json({ success: false, error: 'Unauthorized: Invalid API Key' });
+    return;
+  }
+
+  const tg = TelegramService.getInstance();
+  const result = await tg.testConnection();
+  if (result.ok) {
+    res.json({ success: true, message: 'ส่งข้อความทดสอบเข้า Telegram แอดมินสำเร็จ!', result });
+  } else {
+    res.status(400).json({ success: false, error: result.error, result });
+  }
+});
+
 app.get('/status', async (_req: Request, res: Response) => {
   const lineQuota = await lineHandler.getQuotaStatus().catch(() => null);
+  const tg = TelegramService.getInstance();
   res.json({
     status: 'online',
     queueLength: orderQueue.getQueueLength(),
     quota: quotaManager.getStatus(),
     lineQuota: lineQuota || { type: 'unknown', value: 300, totalUsage: 300, remaining: 0, isExhausted: true },
+    telegram: { configured: tg.isConfigured(), enabled: tg.isEnabled() },
     salesHours: OperatingHoursGuard.checkSalesStatus()
   });
 });

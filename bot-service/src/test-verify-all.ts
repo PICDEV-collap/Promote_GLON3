@@ -16,6 +16,7 @@ import { N3Auth } from './automation/n3-auth';
 import { CustomerRegistry } from './storage/customer-registry';
 import { LuckyDistributor } from './dream/lucky-distributor';
 import { CampaignService } from './automation/campaign-service';
+import { TelegramService } from './notify/telegram-service';
 
 async function runTests() {
   console.log('====================================================');
@@ -1741,6 +1742,65 @@ async function runTests() {
     const mockClosedPage: any = { isClosed: () => true };
     const resultClosed = await N3Auth.logoffSession(mockClosedPage);
     assert.strictEqual(resultClosed, true, 'logoffSession should return true for closed page');
+  });
+
+  // TEST SUITE 16: Telegram Bot Notification Service
+  test('TelegramService: getInstance returns singleton instance', () => {
+    const instance1 = TelegramService.getInstance();
+    const instance2 = TelegramService.getInstance();
+    assert.strictEqual(instance1, instance2, 'TelegramService must follow singleton pattern');
+    assert.strictEqual(typeof instance1.sendText, 'function', 'sendText must be a function');
+    assert.strictEqual(typeof instance1.sendPhoto, 'function', 'sendPhoto must be a function');
+    assert.strictEqual(typeof instance1.notifyAdminLoginQR, 'function', 'notifyAdminLoginQR must be a function');
+    assert.strictEqual(typeof instance1.notifyLoginSuccess, 'function', 'notifyLoginSuccess must be a function');
+    assert.strictEqual(typeof instance1.notifyOrderCreated, 'function', 'notifyOrderCreated must be a function');
+    assert.strictEqual(typeof instance1.notifyOrderCompleted, 'function', 'notifyOrderCompleted must be a function');
+    assert.strictEqual(typeof instance1.notifyDailySchedule, 'function', 'notifyDailySchedule must be a function');
+    assert.strictEqual(typeof instance1.testConnection, 'function', 'testConnection must be a function');
+  });
+
+  test('TelegramService: handles empty or missing credentials safely without throwing', async () => {
+    const tg = TelegramService.getInstance();
+    // When credentials are not provided or in testing environment, methods must return boolean without throwing unhandled exceptions
+    const isConfig = tg.isConfigured();
+    assert.strictEqual(typeof isConfig, 'boolean', 'isConfigured should return boolean');
+
+    const isEn = tg.isEnabled();
+    assert.strictEqual(typeof isEn, 'boolean', 'isEnabled should return boolean');
+
+    if (!isConfig) {
+      const sendResult = await tg.sendText('Test message');
+      assert.strictEqual(sendResult, false, 'sendText should safely return false when unconfigured');
+
+      const photoResult = await tg.sendPhoto('https://example.com/test.png', 'Test Photo');
+      assert.strictEqual(photoResult, false, 'sendPhoto should safely return false when unconfigured');
+
+      const loginQrResult = await tg.notifyAdminLoginQR('https://example.com/qr.png', 'Test');
+      assert.strictEqual(loginQrResult, false, 'notifyAdminLoginQR should safely return false when unconfigured');
+
+      const testConnResult = await tg.testConnection();
+      assert.strictEqual(testConnResult.ok, false, 'testConnection should report ok: false with error description');
+      assert(testConnResult.error && testConnResult.error.length > 0, 'testConnection should return error description');
+    }
+  });
+
+  test('TelegramService: notifyDailySchedule handles OPEN and CLOSE modes', async () => {
+    const tg = TelegramService.getInstance();
+    // Test that daily schedule notification methods execute safely
+    const openRes = await tg.notifyDailySchedule('OPEN', '06:00 น.');
+    assert.strictEqual(typeof openRes, 'boolean', 'notifyDailySchedule OPEN should return boolean');
+
+    const closeRes = await tg.notifyDailySchedule('CLOSE', '23:00 น.');
+    assert.strictEqual(typeof closeRes, 'boolean', 'notifyDailySchedule CLOSE should return boolean');
+  });
+
+  test('TelegramService: notifySystemStatus and notifyLoginSuccess execute cleanly', async () => {
+    const tg = TelegramService.getInstance();
+    const statusRes = await tg.notifySystemStatus('Test Title', 'Test Message', '🚀');
+    assert.strictEqual(typeof statusRes, 'boolean', 'notifySystemStatus should return boolean');
+
+    const loginRes = await tg.notifyLoginSuccess({ remainingQuota: 1500, maxQuota: 2000, usedQuota: 500 });
+    assert.strictEqual(typeof loginRes, 'boolean', 'notifyLoginSuccess should return boolean');
   });
 
   for (const t of testList) {
