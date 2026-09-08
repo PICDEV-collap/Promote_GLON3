@@ -297,7 +297,13 @@ const N3AnalyticsEngine = (function () {
 
   function renderWithFilter(containerId, filter) {
     const stats = calculateStats();
-    renderHeatmapDOM(containerId, stats, filter);
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        renderHeatmapDOM(containerId, stats, filter);
+      });
+    } else {
+      renderHeatmapDOM(containerId, stats, filter);
+    }
   }
 
   /**
