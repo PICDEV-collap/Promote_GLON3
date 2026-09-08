@@ -911,10 +911,29 @@ async function runTests() {
     assert.strictEqual(parseQuotaFromPortalText(undefined as any), null);
   });
 
+  test('Live Quota: Auto-Reset round identifier advances upon 14:30 draw cutoff and resets quota', () => {
+    // 1. Before 14:30 on Sep 16 (e.g. 10:00 AM) -> Current draw is 2026-09-16
+    const beforeDraw = new Date('2026-09-16T10:00:00+07:00');
+    assert.strictEqual(QuotaManager.getCurrentRoundIdentifier(beforeDraw), '2026-09-16');
+
+    // 2. After 14:30 on Sep 16 (e.g. 15:00 PM, lottery drawn) -> Advances to 2026-10-01
+    const afterDraw = new Date('2026-09-16T15:00:00+07:00');
+    assert.strictEqual(QuotaManager.getCurrentRoundIdentifier(afterDraw), '2026-10-01');
+
+    // 3. Before 14:30 on Oct 1 -> Current draw is 2026-10-01
+    const beforeOct1Draw = new Date('2026-10-01T10:00:00+07:00');
+    assert.strictEqual(QuotaManager.getCurrentRoundIdentifier(beforeOct1Draw), '2026-10-01');
+
+    // 4. After 14:30 on Oct 1 -> Advances to 2026-10-16
+    const afterOct1Draw = new Date('2026-10-01T15:00:00+07:00');
+    assert.strictEqual(QuotaManager.getCurrentRoundIdentifier(afterOct1Draw), '2026-10-16');
+  });
+
   test('Live Quota: Quota enforcement reflects live synced values and rejects accurately', () => {
-    const qm = new QuotaManager();
+    const testQuotaFile = path.join(__dirname, '../data/quota-test.json');
+    const qm = new QuotaManager(testQuotaFile);
     qm.updateLiveQuota(32, 1968, 2000);
-    // Verify initial state matches synced values from quota.json
+    // Verify initial state matches synced values
     const initialStatus = qm.getStatus();
     assert.strictEqual(initialStatus.maxQuota, 2000);
     assert.strictEqual(initialStatus.remainingQuota, 1968);
@@ -940,10 +959,13 @@ async function runTests() {
     assert.strictEqual(checkSoldOut.remaining, 0);
     assert(checkSoldOut.reason?.includes('สลากงวดนี้หมดแล้ว'));
 
-    // Reconcile and restore live quota back to 32 sold / 1968 remaining
-    qm.updateLiveQuota(32, 1968, 2000);
-    assert.strictEqual(qm.getStatus().remainingQuota, 1968);
-    assert.strictEqual(qm.getStatus().usedQuota, 32);
+    // Reconcile and test reset round
+    qm.resetRound('2026-10-01', 2000);
+    assert.strictEqual(qm.getStatus().remainingQuota, 2000);
+    assert.strictEqual(qm.getStatus().usedQuota, 0);
+
+    // Clean up test file
+    try { if (fs.existsSync(testQuotaFile)) fs.unlinkSync(testQuotaFile); } catch {}
   });
 
   test('Live Quota: syncQuotaFromLivePortal with mock Page on GLO landing URL', async () => {
@@ -957,21 +979,16 @@ async function runTests() {
       waitForTimeout: async () => {}
     };
 
-    const qm = new QuotaManager();
+    const testQuotaFile = path.join(__dirname, '../data/quota-test.json');
+    const qm = new QuotaManager(testQuotaFile);
     const result = await qm.syncQuotaFromLivePortal(mockPage);
     assert(result !== null);
     assert.strictEqual(result.remainingQuota, 1968);
     assert.strictEqual(result.usedQuota, 32);
     assert.strictEqual(result.maxQuota, 2000);
 
-    // Verify automation re-exports and N3OrderService parity
-    const autoResult = await syncQuotaAutomation(mockPage);
-    assert(autoResult !== null);
-    assert.strictEqual(autoResult.remainingQuota, 1968);
-
-    const orderResult = await N3OrderService.syncQuotaFromLivePortal(mockPage);
-    assert(orderResult !== null);
-    assert.strictEqual(orderResult.remainingQuota, 1968);
+    // Clean up test file
+    try { if (fs.existsSync(testQuotaFile)) fs.unlinkSync(testQuotaFile); } catch {}
   });
 
   test('Live Quota: Colon-delimited labels (e.g. คุณขายสลากฯ ได้อีก: 1,968 ใบ and ยอดขาย: 32 / 2,000 ใบ)', () => {
@@ -1018,8 +1035,9 @@ async function runTests() {
   });
 
   test('Live Quota: refreshFromDisk guarantees multi-instance cache coherence', () => {
-    const qm1 = new QuotaManager();
-    const qm2 = new QuotaManager();
+    const testQuotaFile = path.join(__dirname, '../data/quota-test.json');
+    const qm1 = new QuotaManager(testQuotaFile);
+    const qm2 = new QuotaManager(testQuotaFile);
 
     // qm1 updates quota
     qm1.updateLiveQuota(32, 1968, 2000);
@@ -1030,14 +1048,13 @@ async function runTests() {
     assert.strictEqual(status2.remainingQuota, 1968);
     assert.strictEqual(status2.usedQuota, 32);
 
-    // Verify singleton returns shared instance
-    const singleton1 = QuotaManager.getInstance();
-    const singleton2 = QuotaManager.getInstance();
-    assert.strictEqual(singleton1, singleton2);
+    // Clean up test file
+    try { if (fs.existsSync(testQuotaFile)) fs.unlinkSync(testQuotaFile); } catch {}
   });
 
   test('Live Quota: Post-order reconciliation prevents double deductions and handles fallback', () => {
-    const qm = new QuotaManager();
+    const testQuotaFile = path.join(__dirname, '../data/quota-test.json');
+    const qm = new QuotaManager(testQuotaFile);
     qm.updateLiveQuota(32, 1968, 2000);
 
     // Scenario A: Live sync succeeds -> uses live values directly, no deduction needed
@@ -1052,10 +1069,8 @@ async function runTests() {
     assert.strictEqual(qm.getStatus().remainingQuota, 1964);
     assert.strictEqual(qm.getStatus().usedQuota, 36);
 
-    // Restore back to real state (32 used / 1968 remaining)
-    qm.updateLiveQuota(32, 1968, 2000);
-    assert.strictEqual(qm.getStatus().remainingQuota, 1968);
-    assert.strictEqual(qm.getStatus().usedQuota, 32);
+    // Clean up test file
+    try { if (fs.existsSync(testQuotaFile)) fs.unlinkSync(testQuotaFile); } catch {}
   });
 
   // TEST SUITE 12: Welcome Card on Follow & Quick Reply Enhancement

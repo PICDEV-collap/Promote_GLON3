@@ -1425,6 +1425,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       // คำสั่งตรวจสอบสถานะและโควต้าคงเหลือจริง (status, quota, โควต้า, เช็คโควต้า, เช็คสถานะ)
       const isStatusQuotaCmd = /^(?:status|quota|โควต้า|เช็คโควต้า|เช็คสถานะ|ดูโควต้า|ยอดคงเหลือ)$/i.test(userText);
       if (isStatusQuotaCmd) {
+        let isLiveSynced = false;
         // หากเบราว์เซอร์เปิดอยู่และไม่ได้กำลังทำรายการ ให้ซิงค์สดจากหน้าเว็บ GLO ทันที เพื่อให้ยอดขายและโควต้าอัปเดตล่าสุดตรงกับกองสลาก 100%
         try {
           if (!orderQueue.isBusy()) {
@@ -1439,7 +1440,8 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             if (activePage && !activePage.isClosed()) {
               const u = activePage.url();
               if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login') && !u.includes('/qr/')) {
-                await quotaManager.syncQuotaFromLivePortal(activePage, false);
+                const syncRes = await quotaManager.syncQuotaFromLivePortal(activePage, true);
+                if (syncRes) isLiveSynced = true;
               }
             }
           }
@@ -1458,12 +1460,17 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
           soldLine += ` (รอชำระเงิน ${qStatus.pendingQuota.toLocaleString()} ใบ)`;
         }
 
+        const syncSourceNote = isLiveSynced
+          ? '🟢 ซิงค์สดจากระบบกองสลาก GLO สำเร็จ'
+          : '📦 ข้อมูลจากระบบบันทึก (Session เว็บยังไม่ได้ล็อกอิน)';
+
         const statusReply = `📊 สถานะโควต้าสลาก N3 (ร้านธนกิจนำโชค)\n\n` +
           `🎫 โควต้าคงเหลือ: ${qStatus.remainingQuota.toLocaleString()} / ${qStatus.maxQuota.toLocaleString()} ใบ\n` +
           `${soldLine}\n` +
           `📅 งวดประจำวันที่: ${qStatus.round}\n` +
-          `⏱️ ซิงค์ระบบจริง: ${syncTime}\n` +
-          `🏪 สถานะร้านค้า: ${salesStatus.isOpen ? '🟢 เปิดจำหน่ายตามปกติ' : '🔴 นอกเวลาทำการ'}`;
+          `⏱️ ตรวจสอบเมื่อ: ${syncTime} (${syncSourceNote})\n` +
+          `🏪 สถานะร้านค้า: ${salesStatus.isOpen ? '🟢 เปิดจำหน่ายตามปกติ' : '🔴 นอกเวลาทำการ'}\n\n` +
+          `💡 หมายเหตุ: ระบบจะเก็บค่าโควต้าล่าสุดไว้ตลอดเวลา และจะรีเซ็ตเป็น 2,000 ใบอัตโนมัติเมื่อหวยออกแล้วในแต่ละงวดครับ`;
 
         await lineHandler.reply(replyToken, [{ type: 'text', text: statusReply }]);
         continue;
@@ -1484,7 +1491,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             } else {
               await lineHandler.reply(replyToken, [{
                 type: 'text',
-                text: `⚠️ ไม่สามารถซิงค์โควต้าได้ กรุณาตรวจสอบสถานะการล็อกอินเว็บ N3 (พิมพ์ qr เพื่อล็อกอินใหม่)`
+                text: `⚠️ ไม่สามารถซิงค์โควต้าได้ กรุณาตรวจสอบสถานะการล็อกอินเว็บ N3 (พิมพ์ "qr" เพื่อล็อกอินใหม่)`
               }]);
             }
           } catch (e: any) {
@@ -1493,6 +1500,50 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
               text: `❌ เกิดข้อผิดพลาดขณะซิงค์โควต้า: ${e?.message}`
             }]);
           }
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: รีเซ็ตโควต้าสำหรับงวดใหม่ (รีเซ็ตโควต้า, reset quota, ล้างโควต้า)
+      const isResetQuotaCmd = /^(?:รีเซ็ตโควต้า|reset\s*quota|ล้างโควต้า|รีเซ็ตยอดขาย)$/i.test(userText);
+      if (isResetQuotaCmd) {
+        if (isAdmin) {
+          const currentRound = QuotaManager.getCurrentRoundIdentifier();
+          quotaManager.resetRound(currentRound, CONFIG.DEFAULT_MAX_QUOTA);
+          const qStatus = quotaManager.getStatus();
+          await lineHandler.reply(replyToken, [{
+            type: 'text',
+            text: `✅ [รีเซ็ตโควต้าสำเร็จ]\n\n• งวดประจำวันที่: ${qStatus.round}\n• โควต้าเริ่มต้นใหม่: ${qStatus.maxQuota.toLocaleString()} ใบ\n• ขายแล้ว: 0 ใบ\n• คงเหลือ: ${qStatus.remainingQuota.toLocaleString()} ใบ`
+          }]);
+        } else {
+          await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
+        }
+        continue;
+      }
+
+      // คำสั่งสำหรับแอดมิน: ปรับยอดขาย/โควต้าด้วยตัวเอง (เช่น "ตั้งยอดขาย 0", "ตั้งโควต้า 2000", "set quota 2000")
+      const setQuotaMatch = userText.match(/^(?:ตั้งยอดขาย|ตั้งโควต้า|set\s*quota|set\s*sold)\s*[:=]?\s*(\d+)$/i);
+      if (setQuotaMatch) {
+        if (isAdmin) {
+          const numVal = parseInt(setQuotaMatch[1], 10);
+          const isSettingSold = userText.startsWith('ตั้งยอดขาย') || userText.toLowerCase().startsWith('set sold');
+          let usedQ = 0;
+          let remQ = 2000;
+          if (isSettingSold) {
+            usedQ = numVal;
+            remQ = Math.max(0, CONFIG.DEFAULT_MAX_QUOTA - usedQ);
+          } else {
+            remQ = numVal;
+            usedQ = Math.max(0, CONFIG.DEFAULT_MAX_QUOTA - remQ);
+          }
+          quotaManager.updateLiveQuota(usedQ, remQ, CONFIG.DEFAULT_MAX_QUOTA);
+          const qStatus = quotaManager.getStatus();
+          await lineHandler.reply(replyToken, [{
+            type: 'text',
+            text: `✅ [ปรับปรุงโควต้าเรียบร้อย]\n\n• งวดประจำวันที่: ${qStatus.round}\n• โควต้าคงเหลือ: ${qStatus.remainingQuota.toLocaleString()} / ${qStatus.maxQuota.toLocaleString()} ใบ\n• ขายแล้ว: ${qStatus.usedQuota.toLocaleString()} ใบ`
+          }]);
         } else {
           await lineHandler.reply(replyToken, [FlexMessageBuilder.buildMainMenuMessage()]);
         }
