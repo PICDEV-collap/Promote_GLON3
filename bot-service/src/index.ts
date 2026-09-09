@@ -341,6 +341,43 @@ app.get(['/api/draw-info', '/api/draw-schedule'], async (req: Request, res: Resp
   }
 });
 
+// Admin REST API: สั่ง Logoff เซสชัน GLO N3 ทันที (ก่อน Deploy หรือเมื่อผู้ดูแลระบบสั่งการ)
+app.all('/api/admin/logoff', async (req: Request, res: Response): Promise<void> => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '';
+  const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
+
+  if (!isLocal && CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    console.log('[ADMIN API] 🔒 ได้รับคำสั่ง Logoff GLO N3 จากผู้ดูแลระบบ (Deploy / Admin API)...');
+    const activePage = PersistentBrowserManager.getActivePage();
+    const loggedOff = await N3Auth.logoffSession(activePage);
+    res.json({
+      success: true,
+      loggedOff,
+      message: 'GLO N3 session logged off and cleared successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error('[ADMIN API] Logoff failed:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Logoff failed' });
+  }
+});
+
 // Campaign REST API: สถิติแคมเปญและลูกค้า
 app.get('/api/campaign/stats', (_req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');

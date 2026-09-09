@@ -1128,6 +1128,8 @@ function showMainMenu() {
   console.log('  [9] Open Website in Browser (Open index.html)');
   console.log('  [R] Setup / Sync LINE Rich Menu (🎨 อัปเดตริชเมนู 6 ปุ่มด้านล่างหน้าจอแชท LINE)');
   console.log('  [T] Test All Scenarios (🧪 ตรวจสอบระบบครบ 6 ฉากทัศน์ก่อน Deploy)');
+  console.log('  [D] Deploy System (🚀 Auto Logoff GLO N3 + Build + Test + Git Push)');
+  console.log('  [L] Logoff GLO N3 Session (🔒 ออกจากระบบตัวแทนจำหน่าย GLO N3 ทันที)');
   console.log('  [S] Create Desktop Shortcuts (สร้างไอคอนทางลัด 3 ตัวบนหน้าจอ Desktop)');
   console.log('  [0] Exit');
   console.log('');
@@ -1138,7 +1140,7 @@ function showMainMenu() {
     output: process.stdout
   });
 
-  rl.question('Please select an option [0-9, U, B, T, or S] (or type bg / stop): ', async (choice) => {
+  rl.question('Please select an option [0-9, U, B, T, D, L, or S] (or type bg / stop): ', async (choice) => {
     rl.close();
     const c = choice.trim().toLowerCase();
     if (c === '1' || c === 'start') {
@@ -1194,6 +1196,24 @@ function showMainMenu() {
         console.error('\n\x1b[31m[ERROR] มีบางฉากทัศน์ไม่ผ่านการทดสอบ กรุณาตรวจสอบรายละเอียดด้านบน\x1b[0m');
       }
       waitForKeypress();
+    } else if (c === 'd' || c === 'deploy') {
+      console.clear();
+      console.log('Deploying System (Auto Logoff GLO N3 + Build + Test + Git Push)...');
+      try {
+        execSync('node scripts/deploy.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      } catch (e) {
+        console.error('\n\x1b[31m[ERROR] การ Deploy ไม่สำเร็จ\x1b[0m');
+      }
+      waitForKeypress();
+    } else if (c === 'l' || c === 'logoff') {
+      console.clear();
+      console.log('Logging off GLO N3 Session...');
+      try {
+        execSync('node scripts/deploy.js --logoff-only', { cwd: ROOT_DIR, stdio: 'inherit' });
+      } catch (e) {
+        console.error('\n\x1b[31m[ERROR] การ Logoff ไม่สำเร็จ\x1b[0m');
+      }
+      waitForKeypress();
     } else if (c === 's' || c === 'shortcut' || c === 'shortcuts') {
       console.clear();
       console.log('Creating Desktop Shortcuts...');
@@ -1245,6 +1265,18 @@ async function main() {
     checkStatus();
   } else if (mode === 'login') {
     openLiveBrowser();
+  } else if (mode === 'deploy') {
+    try {
+      execSync('node scripts/deploy.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+    } catch (e) {
+      process.exit(1);
+    }
+  } else if (mode === 'logoff') {
+    try {
+      execSync('node scripts/deploy.js --logoff-only', { cwd: ROOT_DIR, stdio: 'inherit' });
+    } catch (e) {
+      process.exit(1);
+    }
   } else if (mode === 'richmenu' || mode === 'menu-setup') {
     try {
       execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });

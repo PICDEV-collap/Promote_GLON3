@@ -1853,6 +1853,16 @@ async function runTests() {
     assert.strictEqual(pReActive?.status, 'active', 'User must be reactivated');
   });
 
+  // TEST SUITE 19: Deploy Automation & GLO N3 Logoff Pipeline
+  test('Admin API & Deploy: GLO N3 Logoff integration and session cleanup execute safely', async () => {
+    const logoffResult = await N3Auth.logoffSession(null);
+    assert.strictEqual(logoffResult, true, 'N3Auth.logoffSession must return true for null page');
+
+    const deploy = require('../../scripts/deploy.js');
+    assert.strictEqual(typeof deploy.logoffGloSession, 'function', 'logoffGloSession must be exported function');
+    assert.strictEqual(typeof deploy.cleanSessionFiles, 'function', 'cleanSessionFiles must be exported function');
+  });
+
   for (const t of testList) {
     total++;
     try {
