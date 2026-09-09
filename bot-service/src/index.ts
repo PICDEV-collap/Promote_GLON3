@@ -388,6 +388,95 @@ export interface StoredOrderStatus {
 export const orderStatusStore: Map<string, StoredOrderStatus> = new Map();
 
 // -------------------------------------------------------------------------
+// 0. Seamless LINE Membership Verification API (ฟรี 100% ไม่เสียโควต้าข้อความ LINE)
+// -------------------------------------------------------------------------
+app.options('/api/check-line-member', (_req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.status(204).end();
+});
+
+app.all('/api/check-line-member', async (req: Request, res: Response): Promise<void> => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+
+  const rawUserId = req.query.userId || req.body?.userId;
+  const userId = Array.isArray(rawUserId) ? rawUserId[0] : (rawUserId || '');
+
+  if (!userId || typeof userId !== 'string' || !userId.startsWith('U')) {
+    res.status(400).json({
+      success: false,
+      isMember: false,
+      error: 'รูปแบบ LINE User ID ไม่ถูกต้อง (ต้องขึ้นต้นด้วย U...)'
+    });
+    return;
+  }
+
+  try {
+    // 1. ตรวจสอบใน CustomerRegistry หากถูกบล็อกให้แจ้งเตือนทันที
+    const existing = customerRegistry.getCustomer(userId);
+    if (existing && existing.status === 'blocked') {
+      res.json({
+        success: true,
+        isMember: false,
+        reason: 'blocked',
+        message: 'ท่านได้บล็อกหรือยกเลิกการติดตาม LINE OA @586xxhlx แล้ว กรุณากดปลดบล็อก/เพิ่มเพื่อน'
+      });
+      return;
+    }
+
+    // 2. ตรวจสอบสถานะจริงแบบ Real-time กับ LINE Messaging API (ฟรี 100% ไม่เสียโควต้าข้อความ)
+    const profile = await lineHandler.getProfile(userId);
+    if (profile) {
+      // ผู้ใช้เป็นเพื่อนใน LINE แน่นอน -> บันทึกหรืออัปเดตสถานะใน CustomerRegistry
+      customerRegistry.registerOrUpdateUser(userId, profile.displayName);
+      res.json({
+        success: true,
+        isMember: true,
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl
+      });
+      return;
+    }
+
+    // 3. กรณี LINE API คืนค่า 404 หรือไม่พบโปรไฟล์ ให้ตรวจ fallback ใน CustomerRegistry
+    if (existing && existing.status === 'active') {
+      res.json({
+        success: true,
+        isMember: true,
+        userId: existing.userId,
+        displayName: existing.displayName || 'สมาชิก LINE'
+      });
+      return;
+    }
+
+    // 4. ผู้ใช้ยังไม่ได้เพิ่มเพื่อน
+    res.json({
+      success: true,
+      isMember: false,
+      reason: 'not_friend',
+      message: 'ยังไม่ได้เพิ่มเพื่อนใน LINE @586xxhlx'
+    });
+  } catch (err: any) {
+    console.error('[CHECK LINE MEMBER ERROR]:', err?.message || err);
+    res.status(500).json({
+      success: false,
+      isMember: false,
+      error: 'เกิดข้อผิดพลาดในการตรวจสอบสถานะสมาชิก'
+    });
+  }
+});
+
+// -------------------------------------------------------------------------
 // Direct Order REST API (รองรับการสั่งซื้อผ่านตารางเว็บ / LIFF โดยตรง ไม่ต้องพิมพ์ส่งซ้ำในแชท LINE)
 // -------------------------------------------------------------------------
 app.options(['/api/order-direct', '/api/order-status/:orderId'], (_req: Request, res: Response) => {

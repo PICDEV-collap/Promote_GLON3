@@ -1462,6 +1462,79 @@
     </div>
   </div>
 
+  <!-- Guard Modal: LINE Membership Verification on Order Page -->
+  <div id="modal-order-friend-guard" class="modal-overlay" style="display: none; z-index: 10003;">
+    <div class="modal-box" style="max-width: 440px; text-align: center; border: 1px solid var(--border-gold); box-shadow: 0 10px 35px rgba(0,0,0,0.8);">
+      <div style="margin-bottom: 0.65rem;">
+        <span class="badge badge-gold" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+          <i class="fas fa-certificate"></i> ร้านสลาก N3 ธนกิจนำโชค (@586xxhlx)
+        </span>
+      </div>
+
+      <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(0, 195, 0, 0.15); border: 2px solid #00c300; color: #00c300; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 0.75rem auto;">
+        <i class="fab fa-line"></i>
+      </div>
+
+      <!-- State: Not a friend -->
+      <div id="guard-state-not-friend" style="display: none;">
+        <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.35rem;">
+          เพิ่มเพื่อนใน LINE เพื่อสั่งซื้อสลาก N3
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.1rem; line-height: 1.5;">
+          ระบบจำหน่ายสลาก N3 ผูกกับบัญชี LINE ทางการ <strong style="color: var(--color-gold-light);">@586xxhlx</strong><br>
+          เพื่อส่งภาพ <strong>QR Code ชำระเงินผ่านเป๋าตัง</strong> (ใบละ 20 บ.) เข้าแชท LINE ของท่านทันที กรุณากดเพิ่มเพื่อนก่อนทำรายการ
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <a id="btn-guard-add-friend" href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="padding: 0.85rem; font-size: 1.05rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
+            <i class="fas fa-user-plus"></i> กดเพิ่มเพื่อน LINE @586xxhlx
+          </a>
+          <button type="button" id="btn-guard-recheck" class="btn btn-gold" style="padding: 0.75rem; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <i class="fas fa-sync-alt"></i> ฉันเพิ่มเพื่อนแล้ว (ตรวจสอบสิทธิ์)
+          </button>
+          <a href="./" class="btn btn-secondary" style="padding: 0.55rem; font-size: 0.85rem; text-decoration: none; color: var(--text-muted);">
+            <i class="fas fa-arrow-left"></i> กลับสู่หน้าแรก
+          </a>
+        </div>
+      </div>
+
+      <!-- State: External browser login required -->
+      <div id="guard-state-login" style="display: none;">
+        <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.35rem;">
+          🛒 สั่งซื้อสลาก N3 เฉพาะสมาชิก LINE
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.1rem; line-height: 1.5;">
+          ระบบจำเป็นต้องเชื่อมต่อบัญชี LINE ของท่านเพื่อจัดส่งภาพ QR Code ชำระเงินเป๋าตังเข้าห้องแชท กรุณายืนยันตัวตน
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <button type="button" id="btn-guard-login" class="btn btn-emerald" style="padding: 0.85rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
+            <i class="fab fa-line" style="font-size: 1.3rem;"></i> เข้าสู่ระบบด้วย LINE (1 แตะ)
+          </button>
+          <a href="https://liff.line.me/2011462211-WVsuHFk4" target="_blank" class="btn btn-gold" style="padding: 0.75rem; font-size: 0.92rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <i class="fas fa-mobile-screen"></i> เปิดในแอป LINE (เต็มจอ LIFF)
+          </a>
+          <a href="./" class="btn btn-secondary" style="padding: 0.55rem; font-size: 0.85rem; text-decoration: none; color: var(--text-muted);">
+            <i class="fas fa-arrow-left"></i> กลับสู่หน้าแรก
+          </a>
+        </div>
+      </div>
+
+      <!-- State: Checking -->
+      <div id="guard-state-checking" style="display: none; padding: 1.25rem 0;">
+        <div style="font-size: 2.2rem; color: var(--color-gold); margin-bottom: 0.65rem;">
+          <i class="fas fa-circle-notch fa-spin"></i>
+        </div>
+        <h4 style="color: #fff; font-size: 1.05rem; margin-bottom: 0.2rem;">
+          กำลังตรวจสอบสถานะสมาชิก LINE...
+        </h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem;">
+          ระบบกำลังเชื่อมต่อและยืนยันสิทธิ์สมาชิกอัตโนมัติ
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Confirmation / In-Page Realtime Processing & QR Modal -->
   <div id="modal-confirm" class="modal-overlay">
     <div class="modal-box">
@@ -2129,6 +2202,122 @@
       } catch (err) {
         console.warn('[LIFF] Initialization failed:', err);
       }
+    }
+
+    // -------------------------------------------------------------------------
+    // Double-Layer Guard: LINE Membership Verification Controller
+    // -------------------------------------------------------------------------
+    const modalOrderGuard = document.getElementById('modal-order-friend-guard');
+    const guardStateNotFriend = document.getElementById('guard-state-not-friend');
+    const guardStateLogin = document.getElementById('guard-state-login');
+    const guardStateChecking = document.getElementById('guard-state-checking');
+    const btnGuardRecheck = document.getElementById('btn-guard-recheck');
+    const btnGuardLogin = document.getElementById('btn-guard-login');
+
+    let isMemberVerified = sessionStorage.getItem('glo_line_member_status') === 'verified';
+
+    function showOrderGuard(state) {
+      if (!modalOrderGuard) return;
+      if (guardStateNotFriend) guardStateNotFriend.style.display = state === 'not-friend' ? 'block' : 'none';
+      if (guardStateLogin) guardStateLogin.style.display = state === 'login' ? 'block' : 'none';
+      if (guardStateChecking) guardStateChecking.style.display = state === 'checking' ? 'block' : 'none';
+      modalOrderGuard.style.display = 'flex';
+    }
+
+    function hideOrderGuard() {
+      if (modalOrderGuard) modalOrderGuard.style.display = 'none';
+    }
+
+    async function checkOrderMembershipOnLoad() {
+      if (isMemberVerified || sessionStorage.getItem('glo_line_member_status') === 'verified') {
+        isMemberVerified = true;
+        hideOrderGuard();
+        return;
+      }
+
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+        let userId = null;
+        try {
+          const profile = await liff.getProfile();
+          userId = profile?.userId;
+        } catch (e) {
+          try {
+            const ctx = liff.getContext();
+            userId = ctx?.userId;
+          } catch (_) {}
+        }
+
+        if (userId) {
+          try {
+            const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(userId)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.isMember) {
+                isMemberVerified = true;
+                sessionStorage.setItem('glo_line_member_status', 'verified');
+                sessionStorage.setItem('glo_line_user_id', userId);
+                if (data.displayName) sessionStorage.setItem('glo_line_display_name', data.displayName);
+                hideOrderGuard();
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('[ORDER GUARD API ERROR]:', e);
+          }
+          showOrderGuard('not-friend');
+          return;
+        }
+      }
+
+      // If in LINE app, prompt login; if outside in Chrome/Safari, prompt login/add friend
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        liff.login({ redirectUri: window.location.href });
+      } else {
+        showOrderGuard('login');
+      }
+    }
+
+    if (btnGuardLogin) {
+      btnGuardLogin.addEventListener('click', () => {
+        if (typeof liff !== 'undefined') {
+          liff.login({ redirectUri: window.location.href });
+        } else {
+          window.open('https://line.me/R/ti/p/@586xxhlx', '_blank');
+        }
+      });
+    }
+
+    if (btnGuardRecheck) {
+      btnGuardRecheck.addEventListener('click', async () => {
+        showOrderGuard('checking');
+        let userId = sessionStorage.getItem('glo_line_user_id');
+        if (!userId && typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+          try {
+            const profile = await liff.getProfile();
+            userId = profile?.userId;
+          } catch (_) {}
+        }
+
+        if (userId) {
+          try {
+            const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(userId)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.isMember) {
+                isMemberVerified = true;
+                sessionStorage.setItem('glo_line_member_status', 'verified');
+                sessionStorage.setItem('glo_line_user_id', userId);
+                hideOrderGuard();
+                showToast('✅ ยืนยันสิทธิ์สมาชิก LINE สำเร็จแล้ว!', 'success');
+                return;
+              }
+            }
+          } catch (_) {}
+        }
+
+        showOrderGuard('not-friend');
+        showToast('⚠️ ยังไม่พบสถานะการเป็นเพื่อน กรุณากดเพิ่มเพื่อน LINE @586xxhlx ก่อนนะครับ', 'warning');
+      });
     }
 
     function switchOrderMode(mode, updateHistory = true) {
@@ -2846,6 +3035,12 @@
 
       const allSubmitBtns = document.querySelectorAll('.btn-submit-order, #btn-submit-order');
 
+      // ตรวจสอบสิทธิ์การเป็นเพื่อนใน LINE ก่อนส่งคำสั่งซื้อ
+      if (!isMemberVerified && sessionStorage.getItem('glo_line_member_status') !== 'verified') {
+        showOrderGuard('not-friend');
+        return;
+      }
+
       // 1. If inside LINE LIFF Client -> Try 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
       if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
         if (!isLiffReady) {
@@ -3128,10 +3323,11 @@
     }
 
     // Start Page
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       setupMobileBackInterceptor();
       initFromParams();
-      initLiff();
+      await initLiff();
+      checkOrderMembershipOnLoad();
       updateDigitDisplay();
       requestScreenWakeLock();
     });

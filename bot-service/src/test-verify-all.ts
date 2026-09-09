@@ -1818,6 +1818,41 @@ async function runTests() {
     assert.strictEqual(typeof loginRes, 'boolean', 'notifyLoginSuccess should return boolean');
   });
 
+  // TEST SUITE 17: Seamless LINE Membership Verification & Guard
+  test('LineReplyHandler: getProfile and getClient methods are properly defined', () => {
+    const handler = new LineReplyHandler();
+    assert.strictEqual(typeof handler.getProfile, 'function', 'getProfile must be a function on LineReplyHandler');
+    assert.strictEqual(typeof handler.getClient, 'function', 'getClient must be a function on LineReplyHandler');
+  });
+
+  test('LineReplyHandler: getProfile returns null for anonymous or invalid userId without throwing', async () => {
+    const handler = new LineReplyHandler();
+    const resAnon = await handler.getProfile('anonymous');
+    assert.strictEqual(resAnon, null, 'getProfile must return null for anonymous');
+
+    const resEmpty = await handler.getProfile('');
+    assert.strictEqual(resEmpty, null, 'getProfile must return null for empty string');
+  });
+
+  test('CustomerRegistry: correctly handles active vs blocked customer statuses', () => {
+    const registry = CustomerRegistry.getInstance();
+    const testUserId = 'U_membership_unit_test_' + Date.now();
+    
+    // Register active
+    const pActive = registry.registerOrUpdateUser(testUserId, 'สมาชิกทดสอบ');
+    assert.strictEqual(pActive.status, 'active', 'User must be active upon registration');
+
+    // Mark blocked
+    registry.markBlocked(testUserId);
+    const pBlocked = registry.getCustomer(testUserId);
+    assert.strictEqual(pBlocked?.status, 'blocked', 'User must be marked blocked');
+
+    // Re-activate
+    registry.registerOrUpdateUser(testUserId);
+    const pReActive = registry.getCustomer(testUserId);
+    assert.strictEqual(pReActive?.status, 'active', 'User must be reactivated');
+  });
+
   for (const t of testList) {
     total++;
     try {
