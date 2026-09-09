@@ -2208,8 +2208,101 @@
       }
     });
 
+    // Helper to persist member data in both localStorage and sessionStorage
+    function persistMemberAuth(userId, profile = {}, data = {}) {
+      if (!userId) return;
+      isMemberVerified = true;
+      const displayName = profile?.displayName || data?.displayName || localStorage.getItem('glo_line_display_name') || 'สมาชิก LINE';
+      const pictureUrl = profile?.pictureUrl || data?.pictureUrl || localStorage.getItem('glo_line_picture_url') || '';
+
+      localStorage.setItem('glo_line_user_id', userId);
+      localStorage.setItem('glo_line_member_status', 'verified');
+      if (displayName) localStorage.setItem('glo_line_display_name', displayName);
+      if (pictureUrl) localStorage.setItem('glo_line_picture_url', pictureUrl);
+
+      sessionStorage.setItem('glo_line_user_id', userId);
+      sessionStorage.setItem('glo_line_member_status', 'verified');
+      if (displayName) sessionStorage.setItem('glo_line_display_name', displayName);
+      if (pictureUrl) sessionStorage.setItem('glo_line_picture_url', pictureUrl);
+
+      updateAuthUI('verified', { displayName, pictureUrl, userId });
+      hideOrderGuard();
+    }
+
+    function clearMemberAuth() {
+      isMemberVerified = false;
+      localStorage.removeItem('glo_line_member_status');
+      sessionStorage.removeItem('glo_line_member_status');
+    }
+
+    // Seamless Verification: Auto-detect mobile LINE app or cached returning user
+    async function checkSeamlessMobileLineAuth() {
+      // Priority 1: If opened inside LINE Client (liff.isInClient() === true), auto-authenticate seamlessly (0 clicks)
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        try {
+          if (liff.isLoggedIn()) {
+            const profile = await liff.getProfile();
+            const userId = profile?.userId;
+            if (userId && userId.startsWith('U')) {
+              const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(userId)}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.isMember) {
+                  persistMemberAuth(userId, profile, data);
+                  return true;
+                } else {
+                  clearMemberAuth();
+                  updateAuthUI('not-friend', profile);
+                  return false;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[SEAMLESS LIFF CLIENT ERROR]:', e);
+        }
+      }
+
+      // Priority 2: Persistent LocalStorage Cache (Returning mobile browser or desktop browser user)
+      const cachedUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
+      if (cachedUserId && cachedUserId.startsWith('U')) {
+        try {
+          const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(cachedUserId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.isMember) {
+              const cachedProfile = {
+                userId: cachedUserId,
+                displayName: localStorage.getItem('glo_line_display_name') || data.displayName,
+                pictureUrl: localStorage.getItem('glo_line_picture_url') || data.pictureUrl
+              };
+              persistMemberAuth(cachedUserId, cachedProfile, data);
+              return true;
+            } else {
+              clearMemberAuth();
+              updateAuthUI('not-friend', { displayName: localStorage.getItem('glo_line_display_name') });
+              return false;
+            }
+          }
+        } catch (e) {
+          console.warn('[SEAMLESS CACHE CHECK ERROR]:', e);
+        }
+      }
+
+      // Priority 3: LIFF browser session (if logged in via OAuth redirect)
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+        return await checkLineMembershipStatus(false);
+      }
+
+      updateAuthUI('unauthenticated');
+      return false;
+    }
+
     // Initialize LINE LIFF SDK
     async function initLiff() {
+      // 1. Check cached credentials immediately in background (Instant UI response)
+      checkSeamlessMobileLineAuth().catch(() => {});
+
       if (typeof liff === 'undefined' || !CONFIG.LIFF_ID) {
         console.warn('[LIFF] SDK or LIFF_ID not available');
         return;
@@ -2230,8 +2323,8 @@
           } catch (e) {}
         }
 
-        // ตรวจสอบสถานะการล็อกอิน LINE และสถานะสมาชิกอัตโนมัติ
-        await checkLineMembershipStatus(false);
+        // 2. Seamless background verification on load (0 clicks inside LINE client or for returning users)
+        await checkSeamlessMobileLineAuth();
       } catch (err) {
         console.warn('[LIFF] Initialization failed:', err);
       }
@@ -2308,20 +2401,39 @@
     }
 
     async function checkLineMembershipStatus(forceModal = false) {
-      if (typeof liff === 'undefined' || !isLiffReady) {
+      // 1. ถ้าเคยผ่านการยืนยันแล้วในหน้านี้
+      if (isMemberVerified) {
+        return true;
+      }
+
+      // 2. ตรวจสอบจาก LocalStorage Cache ก่อน (Seamless Re-verification)
+      const cachedUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
+      if (cachedUserId && cachedUserId.startsWith('U')) {
+        try {
+          const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(cachedUserId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.isMember) {
+              const cachedProfile = {
+                userId: cachedUserId,
+                displayName: localStorage.getItem('glo_line_display_name') || data.displayName,
+                pictureUrl: localStorage.getItem('glo_line_picture_url') || data.pictureUrl
+              };
+              persistMemberAuth(cachedUserId, cachedProfile, data);
+              return true;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. ตรวจสอบสถานะการล็อกอิน LIFF
+      if (typeof liff === 'undefined' || !isLiffReady || !liff.isLoggedIn()) {
         updateAuthUI('unauthenticated');
         if (forceModal) showOrderGuard('login');
         return false;
       }
 
-      // 1. ตรวจสอบว่าล็อกอิน LINE หรือยัง
-      if (!liff.isLoggedIn()) {
-        updateAuthUI('unauthenticated');
-        if (forceModal) showOrderGuard('login');
-        return false;
-      }
-
-      // 2. ดึง User ID และ Profile จาก LINE LIFF
+      // 4. ดึง User ID และ Profile จาก LINE LIFF
       let profile = null;
       let userId = null;
       try {
@@ -2340,20 +2452,13 @@
         return false;
       }
 
-      sessionStorage.setItem('glo_line_user_id', userId);
-      if (profile?.displayName) sessionStorage.setItem('glo_line_display_name', profile.displayName);
-      if (profile?.pictureUrl) sessionStorage.setItem('glo_line_picture_url', profile.pictureUrl);
-
-      // 3. ยืนยันสถานะความเป็นเพื่อนกับ Backend (/api/check-line-member) แบบ Real-time (0 Credit)
+      // 5. ยืนยันสถานะความเป็นเพื่อนกับ Backend (/api/check-line-member) แบบ Real-time (0 Credit)
       try {
         const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(userId)}`);
         if (res.ok) {
           const data = await res.json();
           if (data.isMember) {
-            isMemberVerified = true;
-            sessionStorage.setItem('glo_line_member_status', 'verified');
-            updateAuthUI('verified', profile || data);
-            hideOrderGuard();
+            persistMemberAuth(userId, profile, data);
             return true;
           }
         }
@@ -2362,8 +2467,7 @@
       }
 
       // ถ้าตรวจสอบแล้วไม่ได้เป็นเพื่อนกับ @586xxhlx
-      isMemberVerified = false;
-      sessionStorage.removeItem('glo_line_member_status');
+      clearMemberAuth();
       updateAuthUI('not-friend', profile);
       if (forceModal) {
         showOrderGuard('not-friend');
@@ -2947,7 +3051,7 @@
       }, 300);
 
       try {
-        const currentUserId = sessionStorage.getItem('glo_line_user_id');
+        const currentUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
         if (!currentUserId || !currentUserId.startsWith('U') || !isMemberVerified) {
           if (progressTimer) clearInterval(progressTimer);
           resetModalState();
@@ -3124,12 +3228,10 @@
       const allSubmitBtns = document.querySelectorAll('.btn-submit-order, #btn-submit-order');
 
       // ตรวจสอบสิทธิ์การเป็นเพื่อนใน LINE อย่างแท้จริง 100% ก่อนส่งคำสั่งซื้อ
-      if (typeof liff === 'undefined' || !isLiffReady || !liff.isLoggedIn()) {
-        showOrderGuard('login');
-        return;
-      }
-      if (!isMemberVerified) {
-        showOrderGuard('not-friend');
+      const activeUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
+      if (!isMemberVerified || !activeUserId || !activeUserId.startsWith('U')) {
+        const hasSession = (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) || (activeUserId && activeUserId.startsWith('U'));
+        showOrderGuard(hasSession ? 'not-friend' : 'login');
         return;
       }
 
