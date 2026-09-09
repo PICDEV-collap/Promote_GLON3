@@ -41,7 +41,7 @@ export class OrderHeartbeatManager {
    * เริ่มต้นการติดตามและส่งข้อความอัปเดตสถานะทุก 20 วินาที
    */
   public start(task: OrderTask, getQueuePos?: () => number): void {
-    if (!task || !task.orderId || !task.userId || task.userId === 'anonymous') {
+    if (!task || !task.orderId || !task.userId || task.userId === 'anonymous' || task.userId.startsWith('U_RICHMENU_')) {
       return;
     }
 
