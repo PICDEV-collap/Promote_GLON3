@@ -242,7 +242,7 @@ const ShareCardEngine = (function () {
     ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    drawRoundedRect(560, boxY, 380, 130, 16);
+    drawRoundedRect(ctx, 560, boxY, 380, 130, 16);
     ctx.fill();
     ctx.stroke();
 
@@ -263,7 +263,6 @@ const ShareCardEngine = (function () {
     drawRoundedRect(ctx, 100, textCardY, 880, 280, 18);
     ctx.fill();
     ctx.stroke();
-
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffd700';
