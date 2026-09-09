@@ -365,3 +365,8 @@ const ShareCardEngine = (function () {
     shareCardNative
   };
 })();
+
+// Attach to window
+if (typeof window !== 'undefined') {
+  window.ShareCardEngine = ShareCardEngine;
+}
