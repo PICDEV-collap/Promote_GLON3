@@ -9,6 +9,8 @@
     "test": "npm test --prefix bot-service",
     "test:e2e": "node scripts/test-all-scenarios.js",
     "start": "node scripts/n3-engine.js start",
+    "deploy": "node scripts/deploy.js",
+    "logoff": "node scripts/deploy.js --logoff-only",
     "richmenu": "node scripts/setup-richmenu.js",
     "shortcuts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/create-desktop-shortcuts.ps1"
   },

@@ -673,14 +673,20 @@
       top: 0;
       left: 0;
       width: 100vw;
+      width: 100dvw;
       height: 100vh;
+      height: 100dvh;
       background: rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 1rem;
+      padding: 0.75rem;
+      box-sizing: border-box;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       z-index: 9999;
     }
 
@@ -692,9 +698,16 @@
       background: #0e172a;
       border: 1px solid var(--border-gold);
       border-radius: var(--radius-lg);
-      max-width: 480px;
+      max-width: 440px;
       width: 100%;
-      padding: 1.5rem;
+      max-height: calc(100dvh - 1.5rem);
+      max-height: calc(100vh - 1.5rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      margin: auto;
+      box-sizing: border-box;
+      padding: 1.15rem 1rem;
       text-align: center;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
       animation: popIn 0.3s ease;
@@ -1520,21 +1533,21 @@
       </div>
 
       <!-- In-Page QR Code Display Container -->
-      <div id="modal-qr-area" style="display: none; margin: 0.75rem 0;">
-        <div style="background: #ffffff; padding: 12px; border-radius: 16px; display: inline-block; width: 100%; max-width: 270px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); border: 2.5px dashed #10b981; margin: 0 auto;">
+      <div id="modal-qr-area" style="display: none; margin: 0.4rem 0;">
+        <div style="background: #ffffff; padding: 8px; border-radius: 14px; display: inline-block; width: 100%; max-width: min(200px, 26vh); box-shadow: 0 8px 25px rgba(0,0,0,0.4); border: 2.5px dashed #10b981; margin: 0 auto;">
           <img id="modal-qr-img" src="" alt="Payment QR Code" style="width: 100%; height: auto; display: block; border-radius: 8px; -webkit-touch-callout: default !important; user-select: auto !important;">
         </div>
-        <div style="font-size: 0.88rem; color: #bae6fd; margin-top: 0.6rem; font-weight: 600;">
-          ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 1rem;">10:00</span> นาที
+        <div style="font-size: 0.82rem; color: #bae6fd; margin-top: 0.35rem; font-weight: 600;">
+          ⏱️ สแกนจ่ายภายใน <span id="modal-timer-text" style="color: #fde68a; font-weight: 800; font-size: 0.95rem;">10:00</span> นาที
         </div>
 
-        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 0.88rem; color: #fef08a; text-align: left; line-height: 1.6;">
+        <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 0.78rem; color: #fef08a; text-align: left; line-height: 1.4;">
           📸 <b>ขั้นตอนชำระเงิน:</b><br>
           1. แตะปุ่ม <b>"📥 บันทึกรูปภาพ QR Code"</b> ด้านล่าง หรือแคปหน้าจอ<br>
           2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR เพื่อชำระเงิน
         </div>
 
-        <button type="button" id="btn-modal-save-qr" class="btn-modal-line" style="width: 100%; margin-top: 12px; cursor: pointer; border: none; font-size: 1.02rem; padding: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 700; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);" onclick="downloadModalQr()">
+        <button type="button" id="btn-modal-save-qr" class="btn-modal-line" style="width: 100%; margin-top: 8px; cursor: pointer; border: none; font-size: 0.92rem; padding: 0.65rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 700; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);" onclick="downloadModalQr()">
           <i class="fas fa-download"></i> 📥 บันทึกรูปภาพ QR Code
         </button>
       </div>
@@ -2540,9 +2553,20 @@
       const btnModalCopyCmd = document.getElementById('btn-modal-copy-cmd');
       const btnModalClose = document.getElementById('btn-modal-close');
 
-      if (modalIcon) modalIcon.innerHTML = '<i class="fas fa-shopping-cart"></i>';
-      if (modalTitle) modalTitle.textContent = 'ยืนยันการสั่งซื้อสลาก N3';
-      if (modalDesc) modalDesc.textContent = 'ตรวจสอบรายการตัวเลขและจำนวนสลาก จากนั้นแตะปุ่ม "ยืนยันการสั่งซื้อ" เพื่อสร้าง QR Code ชำระเงินทันที';
+      if (modalIcon) {
+        modalIcon.style.display = 'flex';
+        modalIcon.innerHTML = '<i class="fas fa-shopping-cart"></i>';
+      }
+      if (modalTitle) {
+        modalTitle.textContent = 'ยืนยันการสั่งซื้อสลาก N3';
+        modalTitle.style.fontSize = '';
+        modalTitle.style.marginBottom = '';
+      }
+      if (modalDesc) {
+        modalDesc.textContent = 'ตรวจสอบรายการตัวเลขและจำนวนสลาก จากนั้นแตะปุ่ม "ยืนยันการสั่งซื้อ" เพื่อสร้าง QR Code ชำระเงินทันที';
+        modalDesc.style.fontSize = '';
+        modalDesc.style.marginBottom = '';
+      }
       if (modalOrderPreview) modalOrderPreview.style.display = 'block';
       if (modalProcessingArea) modalProcessingArea.style.display = 'none';
       if (modalQrArea) modalQrArea.style.display = 'none';
@@ -2867,10 +2891,20 @@
               if (modalQueueText) modalQueueText.textContent = '🎉 พร้อมชำระเงินเรียบร้อย';
 
               setTimeout(() => {
+                const modalIcon = document.getElementById('modal-icon');
+                if (modalIcon) modalIcon.style.display = 'none';
                 if (modalProcessingArea) modalProcessingArea.style.display = 'none';
                 if (modalQrArea) modalQrArea.style.display = 'block';
-                if (modalTitle) modalTitle.textContent = 'สร้าง QR Code ชำระเงินสำเร็จ!';
-                if (modalDesc) modalDesc.textContent = 'แคปหน้าจอหรือแตะค้างที่รูปภาพเพื่อบันทึก แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงิน';
+                if (modalTitle) {
+                  modalTitle.textContent = 'สร้าง QR Code ชำระเงินสำเร็จ!';
+                  modalTitle.style.fontSize = '1.18rem';
+                  modalTitle.style.marginBottom = '0.2rem';
+                }
+                if (modalDesc) {
+                  modalDesc.textContent = 'แคปหน้าจอหรือแตะค้างที่รูปภาพเพื่อบันทึก แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงิน';
+                  modalDesc.style.fontSize = '0.8rem';
+                  modalDesc.style.marginBottom = '0.4rem';
+                }
 
                 const qrSrc = statusData.qrDataUrl || statusData.qrImageUrl || statusData.qrUrl || statusData.downloadUrl || statusData.qrImage;
                 window.currentQrData = qrSrc;
@@ -2883,6 +2917,9 @@
                 if (btnModalOpenLine) btnModalOpenLine.style.display = 'none';
                 if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'none';
 
+                const modalActionBtns = document.getElementById('modal-action-btns');
+                if (modalActionBtns) modalActionBtns.style.marginTop = '6px';
+
                 if (btnModalClose) {
                   btnModalClose.textContent = 'เสร็จสิ้น / สั่งซื้อชุดใหม่';
                   btnModalClose.style.display = 'block';
@@ -2890,12 +2927,13 @@
                   btnModalClose.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
                   btnModalClose.style.color = '#ffffff';
                   btnModalClose.style.border = 'none';
-                  btnModalClose.style.padding = '0.9rem';
-                  btnModalClose.style.fontSize = '1rem';
+                  btnModalClose.style.padding = '0.65rem';
+                  btnModalClose.style.fontSize = '0.95rem';
                   btnModalClose.style.fontWeight = '700';
-                  btnModalClose.style.borderRadius = '12px';
+                  btnModalClose.style.borderRadius = '10px';
                   btnModalClose.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.4)';
                   btnModalClose.style.cursor = 'pointer';
+                  btnModalClose.style.marginTop = '6px';
                 }
 
                 startCountdown(600);
