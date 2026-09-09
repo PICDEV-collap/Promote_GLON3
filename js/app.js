@@ -20,18 +20,42 @@ document.addEventListener('DOMContentLoaded', function () {
   let isLiffReady = false;
 
   async function initIndexLiff() {
+    // 1. Re-verify cached credentials in background immediately (Instant 0ms UI readiness)
+    const cachedUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
+    if (cachedUserId && cachedUserId.startsWith('U')) {
+      queryBackendMembership(cachedUserId).then(checkResult => {
+        if (checkResult && checkResult.isMember) {
+          localStorage.setItem('glo_line_member_status', 'verified');
+          sessionStorage.setItem('glo_line_member_status', 'verified');
+        } else {
+          localStorage.removeItem('glo_line_member_status');
+          sessionStorage.removeItem('glo_line_member_status');
+        }
+      }).catch(() => {});
+    }
+
     if (typeof liff !== 'undefined' && LIFF_ID) {
       try {
         await liff.init({ liffId: LIFF_ID });
         isLiffReady = true;
         console.log('[LIFF index.html] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
         
-        // หากผู้ใช้เคยเข้าสู่ระบบแล้ว ให้เก็บ User ID ลงแคชเพื่อความรวดเร็ว
+        // หากเปิดใน LINE App หรือล็อกอินแล้ว ให้ดึง Profile และ Re-verify อัตโนมัติในพื้นหลัง (0 คลิก Seamless)
         if (liff.isLoggedIn()) {
           try {
             const profile = await liff.getProfile();
             if (profile && profile.userId) {
+              localStorage.setItem('glo_line_user_id', profile.userId);
               sessionStorage.setItem('glo_line_user_id', profile.userId);
+              if (profile.displayName) {
+                localStorage.setItem('glo_line_display_name', profile.displayName);
+                sessionStorage.setItem('glo_line_display_name', profile.displayName);
+              }
+              const checkResult = await queryBackendMembership(profile.userId);
+              if (checkResult && checkResult.isMember) {
+                localStorage.setItem('glo_line_member_status', 'verified');
+                sessionStorage.setItem('glo_line_member_status', 'verified');
+              }
             }
           } catch (_) {}
         }
@@ -72,6 +96,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (btnConfirmAlreadyFriend) {
     btnConfirmAlreadyFriend.addEventListener('click', () => {
+      if (typeof liff !== 'undefined' && isLiffReady && !liff.isLoggedIn()) {
+        try {
+          const targetUrl = window.location.origin + '/' + pendingTargetUrl;
+          liff.login({ redirectUri: targetUrl });
+          return;
+        } catch (e) {
+          console.warn('LIFF login error on index:', e);
+        }
+      }
       hideMemberModal();
       window.location.href = pendingTargetUrl;
     });
@@ -97,9 +130,11 @@ document.addEventListener('DOMContentLoaded', function () {
   async function checkLineMembershipAndNavigate(targetUrl, clickedBtn) {
     pendingTargetUrl = targetUrl || 'order';
 
-    // 1. Session Cache Check: หากเคยผ่านการยืนยันสมาชิกแล้วในเซสชันนี้ ให้เข้าได้ทันที 0ms (Seamless)
-    const cachedStatus = sessionStorage.getItem('glo_line_member_status');
-    if (cachedStatus === 'verified') {
+    // 1. Persistent Cache Check: หากเคยผ่านการยืนยันสมาชิกแล้ว ให้เข้าได้ทันที 0ms (Seamless)
+    const isVerified = (localStorage.getItem('glo_line_member_status') === 'verified' || sessionStorage.getItem('glo_line_member_status') === 'verified');
+    const cachedUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
+
+    if (isVerified && cachedUserId && cachedUserId.startsWith('U')) {
       window.location.href = pendingTargetUrl;
       return;
     }
@@ -130,8 +165,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // กรณี A: อยู่ใน LINE App หรือล็อกอินผ่าน LIFF ไว้แล้ว
     if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
       let userId = null;
+      let profile = null;
       try {
-        const profile = await liff.getProfile();
+        profile = await liff.getProfile();
         userId = profile?.userId || null;
       } catch (err) {
         try {
@@ -147,10 +183,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (checkResult && checkResult.isMember) {
           // เป็นเพื่อนจริง -> บันทึกลงแคชและนำทางเข้าหน้าสั่งซื้อ
+          localStorage.setItem('glo_line_member_status', 'verified');
+          localStorage.setItem('glo_line_user_id', userId);
           sessionStorage.setItem('glo_line_member_status', 'verified');
           sessionStorage.setItem('glo_line_user_id', userId);
-          if (checkResult.displayName) {
-            sessionStorage.setItem('glo_line_display_name', checkResult.displayName);
+          if (checkResult.displayName || profile?.displayName) {
+            const name = checkResult.displayName || profile.displayName;
+            localStorage.setItem('glo_line_display_name', name);
+            sessionStorage.setItem('glo_line_display_name', name);
           }
           window.location.href = pendingTargetUrl;
           return;
@@ -162,7 +202,19 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // กรณี B: ผู้ใช้เปิดผ่านเบราว์เซอร์ภายนอก (Chrome/Safari)
+    // กรณี B: มี User ID ใน Cache แต่ยังไม่ได้ re-verify
+    if (cachedUserId && cachedUserId.startsWith('U')) {
+      const checkResult = await queryBackendMembership(cachedUserId);
+      restoreBtn();
+      if (checkResult && checkResult.isMember) {
+        localStorage.setItem('glo_line_member_status', 'verified');
+        sessionStorage.setItem('glo_line_member_status', 'verified');
+        window.location.href = pendingTargetUrl;
+        return;
+      }
+    }
+
+    // กรณี C: ผู้ใช้เปิดผ่านเบราว์เซอร์ภายนอก และยังไม่เคยล็อกอิน
     restoreBtn();
     showMemberModal();
   }
