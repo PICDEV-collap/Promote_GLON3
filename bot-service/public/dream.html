@@ -34,7 +34,7 @@
   <meta name="apple-mobile-web-app-title" content="ทำนายฝัน N3">
 
   <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.2">
+  <link rel="stylesheet" href="css/style.css?v=2.3">
 
   <style>
     body {
@@ -296,7 +296,7 @@
             </div>
             
             <!-- Voice Waveform Animation Box -->
-            <div id="voice-waveform-box" class="voice-waveform-box">
+            <div id="voice-waveform-box" class="voice-waveform-box" style="display: none;">
               <div class="wave-bar"></div>
               <div class="wave-bar"></div>
               <div class="wave-bar"></div>
@@ -307,7 +307,7 @@
               </span>
             </div>
 
-            <div id="voice-status-hint" class="voice-status-hint">
+            <div id="voice-status-hint" class="voice-status-hint" style="display: none;">
               <i class="fas fa-circle" style="font-size: 0.6rem;"></i> กำลังฟังเสียงพูดความฝันของคุณ... พูดได้เลยครับ
             </div>
 
@@ -502,8 +502,9 @@
 
   <!-- Share Card Modal -->
   <div id="modal-share-card" class="modal-overlay" style="display: none;">
-    <div class="modal-card-box">
+    <div class="modal-card">
       <button class="modal-close" id="modal-share-close">&times;</button>
+
       <h3 style="color: var(--color-gold-light); margin-bottom: 0.5rem; text-align: center;">
         <i class="fas fa-share-alt"></i> การ์ดคำทำนายฝัน N3
       </h3>
@@ -530,11 +531,11 @@
   <!-- Core Scripts -->
   <script src="js/sound-effects.js"></script>
   <script src="js/particle-canvas.js"></script>
-  <script src="js/image-saver.js?v=2.2"></script>
+  <script src="js/image-saver.js?v=2.3"></script>
   <script src="js/dream-art-generator.js"></script>
   <script src="js/ai-dream-engine.js"></script>
-  <script src="js/share-card.js"></script>
-  <script src="js/voice-input.js"></script>
+  <script src="js/share-card.js?v=2.3"></script>
+  <script src="js/voice-input.js?v=2.3"></script>
   <script src="js/agent-system.js"></script>
 
   <!-- Dream Dedicated Controller -->
@@ -594,32 +595,58 @@
       });
 
       // Voice Input Setup
-      if (btnVoiceInput && typeof VoiceInputEngine !== 'undefined') {
-        VoiceInputEngine.init({
-          onStart: () => {
-            if (voiceWaveformBox) voiceWaveformBox.classList.add('active');
-            if (voiceStatusHint) voiceStatusHint.classList.add('active');
-            if (btnVoiceInput) btnVoiceInput.classList.add('recording');
-          },
-          onEnd: () => {
-            if (voiceWaveformBox) voiceWaveformBox.classList.remove('active');
-            if (voiceStatusHint) voiceStatusHint.classList.remove('active');
-            if (btnVoiceInput) btnVoiceInput.classList.remove('recording');
-          },
-          onResult: (transcript) => {
-            if (dreamInput) {
-              dreamInput.value = transcript;
-              triggerDreamPrediction();
+      if (btnVoiceInput) {
+        if (typeof VoiceInputEngine !== 'undefined' && VoiceInputEngine.isSupported) {
+          VoiceInputEngine.init({
+            onStart: () => {
+              if (voiceWaveformBox) {
+                voiceWaveformBox.style.display = 'flex';
+                voiceWaveformBox.classList.add('active');
+              }
+              if (voiceStatusHint) {
+                voiceStatusHint.style.display = 'block';
+                voiceStatusHint.classList.add('active');
+              }
+              if (btnVoiceInput) btnVoiceInput.classList.add('recording');
+            },
+            onEnd: () => {
+              if (voiceWaveformBox) {
+                voiceWaveformBox.style.display = 'none';
+                voiceWaveformBox.classList.remove('active');
+              }
+              if (voiceStatusHint) {
+                voiceStatusHint.style.display = 'none';
+                voiceStatusHint.classList.remove('active');
+              }
+              if (btnVoiceInput) btnVoiceInput.classList.remove('recording');
+            },
+            onResult: (transcript, isFinal) => {
+              if (dreamInput) {
+                dreamInput.value = transcript;
+                if (isFinal) {
+                  triggerDreamPrediction();
+                }
+              }
+            },
+            onError: (err) => {
+              console.warn('Voice input error:', err);
+              if (err === 'not-allowed') {
+                showToast('กรุณาอนุญาตการใช้งานไมโครโฟนเพื่อบันทึกเสียง หรือพิมพ์ความฝันแทนครับ', 'warning');
+              } else {
+                showToast('ระบบเสียงไม่พร้อมใช้งาน กรุณาพิมพ์ความฝันแทนครับ', 'warning');
+              }
             }
-          },
-          onError: (err) => {
-            showToast('ระบบเสียงไม่พร้อมใช้งาน กรุณาพิมพ์ความฝันแทนครับ', 'warning');
-          }
-        });
+          });
 
-        btnVoiceInput.addEventListener('click', () => {
-          VoiceInputEngine.toggleListening('dream-input');
-        });
+          btnVoiceInput.addEventListener('click', () => {
+            VoiceInputEngine.toggleListening('dream-input');
+          });
+        } else {
+          btnVoiceInput.addEventListener('click', () => {
+            showToast('เบราว์เซอร์นี้ยังไม่รองรับระบบสั่งงานด้วยเสียง กรุณาพิมพ์ความฝันในช่องข้อความครับ', 'warning');
+            if (dreamInput) dreamInput.focus();
+          });
+        }
       }
 
       // Form Submit
@@ -794,7 +821,14 @@
 
       if (btnShareCard) {
         btnShareCard.addEventListener('click', () => {
-          if (!currentPrediction || typeof ShareCardEngine === 'undefined') return;
+          if (!currentPrediction) {
+            showToast('กรุณาทำนายฝันก่อนแชร์การ์ดครับ', 'warning');
+            return;
+          }
+          if (typeof ShareCardEngine === 'undefined') {
+            showToast('ระบบสร้างการ์ดยังไม่พร้อมใช้งาน กรุณาลองใหม่อีกครั้งครับ', 'warning');
+            return;
+          }
           try { SoundEngine.playClick(); } catch (e) {}
           const agentInfo = (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo) ? AgentSystem.getAgentInfo() : null;
           const cardUrl = ShareCardEngine.renderCardCanvas(currentPrediction, agentInfo);
@@ -805,10 +839,14 @@
       }
 
       if (modalShareClose) {
-        modalShareClose.addEventListener('click', () => {
+        const closeModal = (e) => {
+          if (e) e.stopPropagation();
           if (modalShare) modalShare.style.display = 'none';
-        });
+        };
+        modalShareClose.addEventListener('click', closeModal);
+        modalShareClose.addEventListener('touchend', closeModal);
       }
+
 
       if (modalShare) {
         modalShare.addEventListener('click', (e) => {

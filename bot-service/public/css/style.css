@@ -948,7 +948,8 @@ h1, h2, h3, h4, h5, h6 {
   to { opacity: 1; }
 }
 
-.modal-card {
+.modal-card,
+.modal-card-box {
   background: #101726;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
@@ -2333,6 +2334,11 @@ footer {
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 9999px;
 }
+
+.voice-waveform-box.active {
+  display: flex !important;
+}
+
 
 .wave-bar {
   width: 4px;
