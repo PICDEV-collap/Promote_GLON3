@@ -6,6 +6,10 @@
   "buildCommand": null,
   "rewrites": [
     {
+      "source": "/line",
+      "destination": "/line.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://coupon-powered-loud-relationship.trycloudflare.com/api/:path*"
     },

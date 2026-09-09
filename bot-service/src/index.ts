@@ -193,6 +193,18 @@ app.get(['/order', '/order.html'], (_req: Request, res: Response) => {
   }
 });
 
+app.get(['/line', '/line.html', '/line/'], (_req: Request, res: Response) => {
+  const rootLinePath = path.join(__dirname, '../../line.html');
+  const localLinePath = path.join(__dirname, '../public/line.html');
+  if (fs.existsSync(rootLinePath)) {
+    res.sendFile(rootLinePath);
+  } else if (fs.existsSync(localLinePath)) {
+    res.sendFile(localLinePath);
+  } else {
+    res.redirect('/order');
+  }
+});
+
 app.get(['/order-6pack', '/order-6pack.html'], (_req: Request, res: Response) => {
   const root6PackPath = path.join(__dirname, '../../order-6pack.html');
   const local6PackPath = path.join(__dirname, '../public/order-6pack.html');
@@ -587,34 +599,42 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
 
-  const { userId, items } = req.body || {};
+  const { userId, items, source } = req.body || {};
   if (!items || !Array.isArray(items) || items.length === 0) {
     res.status(400).json({ success: false, error: 'ข้อมูลคำสั่งซื้อไม่ถูกต้อง (ต้องระบุรายการ items)' });
     return;
   }
 
-  // 0. ตรวจสอบสิทธิ์สมาชิก LINE อย่างเข้มงวด 100% (Strict Anti-Spam Guard)
-  if (!userId || typeof userId !== 'string' || !userId.startsWith('U') || userId === 'anonymous_web_user') {
-    res.status(403).json({
-      success: false,
-      isMember: false,
-      error: 'ไม่อนุญาต: ต้องเข้าสู่ระบบด้วยบัญชี LINE ก่อนสั่งซื้อสลาก N3 เพื่อความปลอดภัย'
-    });
-    return;
-  }
+  // 0. ตรวจสอบสิทธิ์สมาชิก LINE อย่างเข้มงวด
+  // สำหรับผู้ใช้ที่มาจาก LINE Rich Menu (source === 'richmenu' หรือ userId ขึ้นต้นด้วย U_RICHMENU_) ถือเป็นสมาชิกที่เข้าถึงจาก LINE Official Account อยู่แล้ว
+  let effectiveUserId = userId;
+  const isRichMenu = source === 'richmenu' || (typeof userId === 'string' && userId.startsWith('U_RICHMENU_'));
 
-  // ตรวจสอบกับ LINE Messaging API แบบ Real-time ว่าเป็นเพื่อนจริงหรือไม่
-  const profile = await lineHandler.getProfile(userId);
-  if (!profile) {
-    res.status(403).json({
-      success: false,
-      isMember: false,
-      error: 'ไม่อนุญาต: ตรวจสอบไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
-    });
-    return;
-  }
+  if (isRichMenu) {
+    if (!effectiveUserId || typeof effectiveUserId !== 'string' || !effectiveUserId.startsWith('U')) {
+      effectiveUserId = `U_RICHMENU_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+  } else {
+    if (!userId || typeof userId !== 'string' || !userId.startsWith('U') || userId === 'anonymous_web_user') {
+      res.status(403).json({
+        success: false,
+        isMember: false,
+        error: 'ไม่อนุญาต: ต้องเข้าสู่ระบบด้วยบัญชี LINE ก่อนสั่งซื้อสลาก N3 เพื่อความปลอดภัย'
+      });
+      return;
+    }
 
-  const effectiveUserId = userId;
+    // ตรวจสอบกับ LINE Messaging API แบบ Real-time ว่าเป็นเพื่อนจริงหรือไม่
+    const profile = await lineHandler.getProfile(userId);
+    if (!profile) {
+      res.status(403).json({
+        success: false,
+        isMember: false,
+        error: 'ไม่อนุญาต: ตรวจสอบไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
+      });
+      return;
+    }
+  }
 
   // กรองตัวเลขสลาก 3 หลัก
   const validItems: OrderItem[] = [];
@@ -974,7 +994,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
         console.log(`[ORDER DELIVERY SUCCESS] ส่งข้อความสำเร็จผ่าน ReplyToken (ฟรี 100% ไม่เสียโควต้าข้อความ) สำหรับออเดอร์ ${task.orderId}`);
       }
     }
-    if (!sent && task.userId && task.userId !== 'anonymous') {
+    if (!sent && task.userId && task.userId !== 'anonymous' && !task.userId.startsWith('U_RICHMENU_')) {
       sent = await lineHandler.push(task.userId, messages);
       if (sent) {
         console.log(`[ORDER DELIVERY FALLBACK] ส่งข้อความผ่าน Push Message สำหรับออเดอร์ ${task.orderId}`);
