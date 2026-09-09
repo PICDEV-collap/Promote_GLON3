@@ -85,8 +85,31 @@ const VoiceInputEngine = (function () {
     }
   }
 
+  function init(options) {
+    if (typeof options === 'function') {
+      return initRecognition.apply(this, arguments);
+    }
+    const opts = options || {};
+    return initRecognition(
+      opts.onResult,
+      function (listening) {
+        if (listening && typeof opts.onStart === 'function') opts.onStart();
+        if (!listening && typeof opts.onEnd === 'function') opts.onEnd();
+      },
+      opts.onError
+    );
+  }
+
   function startListening(targetInputId = 'dream-input') {
     currentTargetInputId = targetInputId;
+
+    if (!isSupported) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('เบราว์เซอร์นี้ยังไม่รองรับระบบสั่งงานด้วยเสียง กรุณาพิมพ์ความฝันในช่องข้อความแทนครับ', 'warning');
+      }
+      return;
+    }
+
     if (!recognition) {
       initRecognition();
     }
@@ -99,6 +122,9 @@ const VoiceInputEngine = (function () {
       }
     } catch (e) {
       console.warn('Cannot start recognition:', e);
+      if (typeof window.showToast === 'function') {
+        window.showToast('กรุณาอนุญาตการเข้าถึงไมโครโฟนเพื่อบันทึกเสียง หรือพิมพ์ความฝันแทนครับ', 'warning');
+      }
     }
   }
 
@@ -112,6 +138,13 @@ const VoiceInputEngine = (function () {
   }
 
   function toggleListening(targetInputId = 'dream-input') {
+    if (!isSupported) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('เบราว์เซอร์นี้ยังไม่รองรับระบบสั่งงานด้วยเสียง กรุณาพิมพ์ความฝันในช่องข้อความแทนครับ', 'warning');
+      }
+      return;
+    }
+
     if (isListening) {
       stopListening();
     } else {
@@ -120,26 +153,40 @@ const VoiceInputEngine = (function () {
   }
 
   function updateRecordingUI(active) {
-    const btnVoice = document.getElementById('btn-voice-record');
+    const btnVoice = document.getElementById('btn-voice-input') || document.getElementById('btn-voice-record');
     const waveEl = document.getElementById('voice-waveform-box');
+    const hintEl = document.getElementById('voice-status-hint');
 
     if (btnVoice) {
       if (active) {
-        btnVoice.classList.add('recording-active');
-        btnVoice.innerHTML = '<i class="fas fa-stop-circle pulse-dot"></i> กำลังฟังเสียง...';
+        btnVoice.classList.add('recording', 'recording-active');
+        if (btnVoice.id === 'btn-voice-record') {
+          btnVoice.innerHTML = '<i class="fas fa-stop-circle pulse-dot"></i> กำลังฟังเสียง...';
+        }
       } else {
-        btnVoice.classList.remove('recording-active');
-        btnVoice.innerHTML = '<i class="fas fa-microphone"></i> อัดเสียงเล่าฝัน';
+        btnVoice.classList.remove('recording', 'recording-active');
+        if (btnVoice.id === 'btn-voice-record') {
+          btnVoice.innerHTML = '<i class="fas fa-microphone"></i> อัดเสียงเล่าฝัน';
+        }
       }
     }
 
     if (waveEl) {
       waveEl.style.display = active ? 'flex' : 'none';
+      if (active) waveEl.classList.add('active');
+      else waveEl.classList.remove('active');
+    }
+
+    if (hintEl) {
+      hintEl.style.display = active ? 'block' : 'none';
+      if (active) hintEl.classList.add('active');
+      else hintEl.classList.remove('active');
     }
   }
 
   return {
     isSupported,
+    init,
     initRecognition,
     startListening,
     stopListening,
@@ -152,3 +199,4 @@ const VoiceInputEngine = (function () {
 if (typeof window !== 'undefined') {
   window.VoiceInputEngine = VoiceInputEngine;
 }
+

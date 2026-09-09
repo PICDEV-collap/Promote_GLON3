@@ -35,6 +35,23 @@ const ShareCardEngine = (function () {
   }
 
   /**
+   * Cross-platform rounded rectangle drawing helper (supports older mobile webviews)
+   */
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, y, width, height, radius);
+      return;
+    }
+    const r = typeof radius === 'number' ? radius : 10;
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + width, y, r);
+    ctx.closePath();
+  }
+
+  /**
    * Generates a high-res 1080x1350 PNG Data URL using HTML5 Canvas
    */
   function renderCardCanvas(pred, shopInfo = {}) {
@@ -145,7 +162,7 @@ const ShareCardEngine = (function () {
     ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(340, 295, 400, 50, 25);
+    drawRoundedRect(ctx, 340, 295, 400, 50, 25);
     ctx.fill();
     ctx.stroke();
 
@@ -208,7 +225,7 @@ const ShareCardEngine = (function () {
     ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(140, boxY, 380, 130, 16);
+    drawRoundedRect(ctx, 140, boxY, 380, 130, 16);
     ctx.fill();
     ctx.stroke();
 
@@ -225,7 +242,7 @@ const ShareCardEngine = (function () {
     ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(560, boxY, 380, 130, 16);
+    drawRoundedRect(560, boxY, 380, 130, 16);
     ctx.fill();
     ctx.stroke();
 
@@ -243,9 +260,10 @@ const ShareCardEngine = (function () {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(100, textCardY, 880, 280, 18);
+    drawRoundedRect(ctx, 100, textCardY, 880, 280, 18);
     ctx.fill();
     ctx.stroke();
+
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffd700';
