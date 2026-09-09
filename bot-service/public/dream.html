@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <script>
+    (function() {
+      try {
+        var href = window.location.href;
+        var ua = navigator.userAgent || '';
+        // If opened inside LINE In-App Browser without openExternalBrowser=1, automatically redirect to native external browser
+        if (/Line\//i.test(ua) && window.location.search.indexOf('openExternalBrowser=1') === -1) {
+          var sep = href.indexOf('?') !== -1 ? '&' : '?';
+          window.location.replace(href + sep + 'openExternalBrowser=1');
+          return;
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="AI ทำนายฝัน ถอดรหัสนิมิตคำนวณเลขเด็ด N3 สลากกินแบ่งรัฐบาล 3 ตัวตรง 3 ตัวโต๊ด 2 ตัวท้าย พร้อมสร้างภาพนิมิตฝันและสั่งซื้อสลากใบละ 20 บาทผ่านเป๋าตัง">
+  <title>AI ทำนายฝัน ถอดรหัสเลข N3 | ร้านสลาก N3 ธนกิจนำโชค</title>
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- PWA Manifest & Mobile App Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffd700">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ทำนายฝัน N3">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css?v=2.2">
+
+  <style>
+    body {
+      background-color: #0b1120;
+      color: #f8fafc;
+      font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding-bottom: 75px;
+    }
+
+    .dream-header-bar {
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0.75rem 1rem;
+    }
+
+    .header-container {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      text-decoration: none;
+    }
+
+    .logo-badge {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #d4af37 0%, #aa7c11 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0b1120;
+      font-weight: 900;
+      font-size: 1.15rem;
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.35);
+    }
+
+    .vip-member-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.75rem;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 9999px;
+      color: #34d399;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .pulse-green-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: dotPulse 1.8s infinite;
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .nav-btn-order {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 10px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn-normal {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3);
+    }
+
+    .nav-btn-6pack {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      color: #ffffff;
+      box-shadow: 0 3px 10px rgba(217, 119, 6, 0.3);
+    }
+
+    .dream-hero-card {
+      background: radial-gradient(circle at top, rgba(76, 29, 149, 0.45) 0%, rgba(15, 23, 42, 0.85) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 20px;
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+      margin: 1.25rem auto 1.5rem auto;
+      max-width: 900px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .dream-hero-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #fef08a;
+      text-shadow: 0 2px 10px rgba(254, 240, 138, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .dream-hero-sub {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+      line-height: 1.5;
+    }
+
+    .trust-pills-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.85rem;
+    }
+
+    .trust-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.78rem;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .quick-nav-bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(11, 17, 32, 0.96);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      z-index: 999;
+      padding: 0 0.5rem;
+    }
+
+    .bottom-bar-link {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #94a3b8;
+      padding: 6px 0;
+      transition: all 0.2s;
+    }
+
+    .bottom-bar-link.active {
+      color: #fef08a;
+    }
+
+    .bottom-bar-link i {
+      font-size: 1.15rem;
+      margin-bottom: 3px;
+    }
+
+    .bottom-bar-link.active i {
+      color: #fbbf24;
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Particle Canvas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Top Navigation Bar -->
+  <header class="dream-header-bar">
+    <div class="header-container">
+      <a href="./" class="brand-group">
+        <div class="logo-badge">N3</div>
+        <div>
+          <div style="font-weight: 800; font-size: 1.05rem; color: #fff; line-height: 1.1;">ธนกิจนำโชค</div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">ร้านสลาก N3 ถูกต้องตามกฎหมาย</div>
+        </div>
+      </a>
+
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <div class="vip-member-badge">
+          <span class="pulse-green-dot"></span>
+          <span>สมาชิก LINE ✅</span>
+        </div>
+        <a href="line?openExternalBrowser=1" class="nav-btn-order nav-btn-normal" title="เปิดตารางสั่งซื้อ">
+          <i class="fas fa-cart-shopping"></i> <span>ตารางสั่งซื้อ</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container" style="max-width: 960px; padding: 0 1rem; flex: 1;">
+
+    <!-- Dream Hero Card -->
+    <section class="dream-hero-card">
+      <div class="dream-hero-title">
+        <span>🔮 AI ทำนายฝัน ถอดรหัสเลข N3</span>
+      </div>
+      <div class="dream-hero-sub">
+        พิมพ์เรื่องราวความฝัน หรือกดไมโครโฟนเพื่อพูดเล่าความฝัน ระบบ AI จะวิเคราะห์ถอดรหัสนิมิต ดึงชุดตัวเลข 3 ตัวตรง 3 ตัวโต๊ด และ 2 ตัวตรงมงคลประจำวันให้ทันที
+      </div>
+      <div class="trust-pills-row">
+        <div class="trust-pill"><i class="fas fa-shield-halved" style="color: #10b981;"></i> สลากดิจิทัลแท้ ใบละ 20 บาท</div>
+        <div class="trust-pill"><i class="fas fa-bolt" style="color: #fbbf24;"></i> ถอดรหัสไวใน 2 วินาที</div>
+        <div class="trust-pill"><i class="fas fa-palette" style="color: #c084fc;"></i> จำลองภาพนิมิตฝัน AI 2.0</div>
+        <div class="trust-pill"><i class="fas fa-mobile-screen" style="color: #38bdf8;"></i> จ่ายเงินแอปเป๋าตัง 100%</div>
+      </div>
+    </section>
+
+    <!-- AI Dream Interpreter Section -->
+    <section id="ai-dream" class="ai-dream-section" style="margin-top: 0; padding-top: 0;">
+      <div class="dream-box-wrapper">
+        
+        <!-- Input Form State -->
+        <div id="dream-box-content">
+          <form id="dream-form">
+            <div class="dream-input-container">
+              <textarea id="dream-input" class="dream-textarea" placeholder="พิมพ์หรือกดปุ่มไมโครโฟนเพื่อพูดความฝัน เช่น ฝันเห็นงูใหญ่สีทองเลื้อยผ่านหน้าบ้าน, ฝันว่าได้จับปลาตัวใหญ่, ฝันเห็นพระพุทธรูปองค์ใหญ่ ฯลฯ" autofocus></textarea>
+              <button type="button" id="btn-voice-input" class="btn-voice-input" title="กดเพื่อพูดความฝันด้วยเสียง (ภาษาไทย)">
+                <i class="fas fa-microphone"></i>
+              </button>
+            </div>
+            
+            <!-- Voice Waveform Animation Box -->
+            <div id="voice-waveform-box" class="voice-waveform-box">
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <span style="font-size: 0.85rem; color: #fecaca; font-weight: 700; margin-left: 0.5rem;">
+                <i class="fas fa-circle pulse-dot"></i> กำลังบันทึกเสียงเล่าความฝัน... กรุณาพูดได้เลยครับ
+              </span>
+            </div>
+
+            <div id="voice-status-hint" class="voice-status-hint">
+              <i class="fas fa-circle" style="font-size: 0.6rem;"></i> กำลังฟังเสียงพูดความฝันของคุณ... พูดได้เลยครับ
+            </div>
+
+            <div class="quick-tags-label"><i class="fas fa-fire" style="color: var(--color-gold);"></i> เลือกความฝันยอดนิยมอย่างรวดเร็ว:</div>
+            <div class="quick-tags">
+              <button type="button" class="tag-btn" data-tag="งู">🐍 ฝันเห็นงู / พญานาค</button>
+              <button type="button" class="tag-btn" data-tag="พระ">☸️ ฝันเห็นพระ / โบสถ์</button>
+              <button type="button" class="tag-btn" data-tag="ปลา">🐟 ฝันว่าจับปลา</button>
+              <button type="button" class="tag-btn" data-tag="เต่า">🐢 ฝันเห็นเต่า</button>
+              <button type="button" class="tag-btn" data-tag="ฟันหัก">🦷 ฝันว่าฟันหัก</button>
+              <button type="button" class="tag-btn" data-tag="น้ำท่วม">🌊 ฝันเห็นน้ำท่วม / ทะเล</button>
+              <button type="button" class="tag-btn" data-tag="ไฟไหม้">🔥 ฝันเห็นไฟไหม้</button>
+              <button type="button" class="tag-btn" data-tag="ศพ">⚰️ ฝันเห็นคนตาย / ศพ</button>
+              <button type="button" class="tag-btn" data-tag="คลอดลูก">👶 ฝันว่าคลอดลูก / ตั้งครรภ์</button>
+              <button type="button" class="tag-btn" data-tag="รถยนต์">🚗 ฝันเห็นรถ / ทะเบียนรถ</button>
+              <button type="button" class="tag-btn" data-tag="เงิน">💰 ฝันว่าได้เงิน / ทอง</button>
+              <button type="button" class="tag-btn" data-tag="จระเข้">🐊 ฝันเห็นจระเข้</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 1.25rem;">
+              <button type="submit" class="btn btn-gold" style="padding: 1rem 2.5rem; font-size: 1.15rem; font-weight: 800; border-radius: 14px; box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);">
+                <i class="fas fa-atom"></i> เริ่มการทำนายฝัน & ถอดรหัสเลข N3
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Scanning Progress State -->
+        <div id="scanning-overlay" class="ai-scanning-overlay">
+          <div class="ai-scanner-orb">
+            <i class="fas fa-microchip" style="font-size: 2.5rem; color: #000;"></i>
+          </div>
+          <div id="scan-step-text" class="scan-step-text">กำลังสแกนสัญลักษณ์และถอดรหัสนิมิต...</div>
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">ระบบ AI กำลังประมวลผลศาสตร์ตัวเลขสถิติสลาก N3 ร่วมกับดวงชะตาประจำวัน</p>
+        </div>
+
+        <!-- AI Dream Result State -->
+        <div id="result-container" class="ai-result-container">
+          <div class="result-card">
+            <div class="result-header">
+              <div>
+                <span class="badge badge-emerald"><i class="fas fa-check-circle"></i> ถอดรหัสความฝันสำเร็จ</span>
+                <h3 id="res-dream-title" style="font-size: 1.5rem; margin-top: 0.5rem; color: var(--color-gold-light);">"ฝันเห็นงู"</h3>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.85rem; color: var(--text-muted);">พลังงานธาตุประจำเป็น</div>
+                <div id="res-element" style="font-weight: 700; color: var(--color-emerald-light);">ธาตุน้ำ / ดาวเกตุ (๙)</div>
+              </div>
+            </div>
+
+            <div class="prediction-highlight">
+              <div class="pred-box featured">
+                <div class="pred-title"><i class="fas fa-star" style="color: var(--color-gold);"></i> เลขเด็ด 3 ตัวตรง N3</div>
+                <div id="res-n3-direct" class="pred-number text-gradient-gold">789</div>
+                <div style="font-size: 0.8rem; color: var(--text-gold);">ตรงตามหลักกำลังวัน</div>
+              </div>
+
+              <div class="pred-box">
+                <div class="pred-title">เลขเด็ด 3 ตัวโต๊ด (สลับหลัก)</div>
+                <div id="res-n3-tod" class="pred-number" style="color: var(--color-cyan);">798, 879</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">โอกาสถูกรางวัลสูง</div>
+              </div>
+
+              <div class="pred-box">
+                <div class="pred-title">เลขเด็ด 2 ตัวตรง N3</div>
+                <div id="res-n2-digit" class="pred-number" style="color: var(--color-emerald-light);">89</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">ดึงจากท้าย 2 หลัก</div>
+              </div>
+            </div>
+
+            <div class="dream-analysis-text">
+              <h4 style="color: var(--color-gold); margin-bottom: 0.5rem;"><i class="fas fa-scroll"></i> คำทำนายฝันเชิงลึก & เคล็ดลับรับโชค:</h4>
+              <p id="res-meaning" style="color: var(--text-primary); margin-bottom: 0.75rem;">
+                ฝันเห็นงูถือเป็นนิมิตมงคลยิ่งใหญ่ สื่อถึงโชคลาภก้อนโตที่จะเข้ามารวดเร็วฉับพลัน
+              </p>
+              <div style="font-size: 0.95rem; color: var(--color-emerald-light); margin-bottom: 0.75rem;">
+                <i class="fas fa-hands-praying"></i> <strong>ข้อแนะนำเสริมดวง:</strong> <span id="res-blessing">แนะนำตักบาตรเช้าหรือบริจาคทานน้ำดื่ม</span>
+              </div>
+              <div id="res-poem-box" style="padding: 0.85rem; background: rgba(255, 215, 0, 0.06); border: 1px dashed var(--border-gold); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--color-gold-light); font-style: italic; white-space: pre-line; text-align: center;">
+                นิมิตฝันแห่งโชคลาภพาพบสุข / สิ่งศักดิ์สิทธิ์ปลดเปลื้องทุกข์ดับตัณหา
+                เลขมงคล 789 เด่นในสายตา / รับทรัพย์ใหญ่สลาก N3 สมดั่งใจ
+              </div>
+            </div>
+
+            <!-- Generative Dream Art 2.0 Preview Card -->
+            <div class="dream-art-card">
+              <div style="font-size: 0.92rem; color: var(--color-gold-light); font-weight: 700; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: center; gap: 0.45rem;">
+                <i class="fas fa-palette"></i> <span>ภาพจำลองนิมิตฝัน AI (Generative Dream Art 2.0)</span>
+              </div>
+              <div class="dream-art-canvas-wrapper" id="dream-art-wrapper">
+                <img id="dream-art-preview" src="" alt="AI Dream Art" />
+              </div>
+              <div style="display: flex; justify-content: center; gap: 0.6rem; margin-top: 0.75rem; flex-wrap: wrap;">
+                <button type="button" id="btn-save-dream-art" class="btn btn-gold" style="font-size: 0.88rem; padding: 0.6rem 1.25rem;">
+                  <i class="fas fa-download"></i> 📥 บันทึกภาพนิมิตฝันลงเครื่อง
+                </button>
+              </div>
+            </div>
+
+            <!-- Lucky Packages Quick Presets -->
+            <div class="dream-packages-section">
+              <div class="packages-header">
+                <i class="fas fa-bolt" style="color: var(--color-gold);"></i> <strong>เลือกแพ็กเกจสั่งซื้อด่วน:</strong>
+              </div>
+              <div class="packages-grid">
+                <button type="button" class="pkg-card" id="pkg-btn-direct" data-type="direct">
+                  <div class="pkg-badge">3 ตัวตรง</div>
+                  <div class="pkg-title">🎯 ซื้อ 3 ตัวตรง</div>
+                  <div class="pkg-desc" id="pkg-desc-direct">เลข <span class="num-highlight">789</span> (1 ใบ)</div>
+                  <div class="pkg-price">20 บาท</div>
+                </button>
+                <button type="button" class="pkg-card featured" id="pkg-btn-combo" data-type="combo">
+                  <div class="pkg-badge badge-gold">🔥 โอกาสถูกสูง</div>
+                  <div class="pkg-title">🔄 3 ตรง + ทุกโต๊ด</div>
+                  <div class="pkg-desc" id="pkg-desc-combo">ตรง 1 + โต๊ด <span class="num-highlight">...</span></div>
+                  <div class="pkg-price" id="pkg-price-combo">60 บาท</div>
+                </button>
+                <button type="button" class="pkg-card" id="pkg-btn-two" data-type="two">
+                  <div class="pkg-badge">ลุ้น 2 ตัวท้าย</div>
+                  <div class="pkg-title">✌️ ลุ้น 2 ตัวท้าย</div>
+                  <div class="pkg-desc" id="pkg-desc-two">สลากท้าย <span class="num-highlight">89</span> (1 ใบ)</div>
+                  <div class="pkg-price">20 บาท</div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Paotang Minimal Guide -->
+            <div class="paotang-mini-guide" style="margin-top: 1.25rem;">
+              <div class="guide-title"><i class="fas fa-wallet" style="color: #38bdf8;"></i> ชำระเงินผ่านแอป "เป๋าตัง" เท่านั้น (ใบละ 20 บาท):</div>
+              <div class="guide-steps">
+                <div class="guide-step">
+                  <span class="step-num">1</span>
+                  <span>แตะปุ่มสั่งซื้อ นำเลขเข้าตาราง VIP ทันที</span>
+                </div>
+                <div class="guide-step">
+                  <span class="step-num">2</span>
+                  <span>สร้าง QR Code และบันทึกรูปลงเครื่อง</span>
+                </div>
+                <div class="guide-step">
+                  <span class="step-num">3</span>
+                  <span>เปิดแอปเป๋าตัง สแกนรูปภาพเพื่อจ่ายเงิน</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result Actions (100% Direct Links to /line VIP Track) -->
+            <div class="result-actions" style="margin-top: 1.5rem;">
+              <!-- 1-Click Direct Table Order -->
+              <a href="line?openExternalBrowser=1" id="btn-order-dream-table" class="btn btn-emerald" style="flex: 1 1 100%; padding: 0.95rem; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 0.55rem; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4); text-decoration: none;">
+                <i class="fas fa-table-list"></i> <span>🛒 สั่งซื้อเลขนี้ในตารางเว็บทันที (20 บ.)</span>
+              </a>
+
+              <!-- 1-Click 6-Pack Combo Order -->
+              <a href="line?mode=6pack&openExternalBrowser=1" id="btn-order-dream-6pack" class="btn btn-gold" style="flex: 1 1 100%; padding: 0.9rem; font-size: 1rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 0.55rem; box-shadow: 0 4px 18px rgba(250, 204, 21, 0.35); text-decoration: none;">
+                <i class="fas fa-dice"></i> <span>🎲 สั่งซื้อสูตรชุด 6 กลับ (120 บ.)</span>
+              </a>
+
+              <!-- Secondary Actions -->
+              <button id="btn-share-card" class="btn btn-outline" style="flex: 1;">
+                <i class="fas fa-share-alt"></i> แชร์การ์ดคำทำนาย
+              </button>
+              <button id="btn-reset-dream" class="btn btn-outline" style="flex: 1;">
+                <i class="fas fa-redo"></i> ทำนายความฝันใหม่
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav class="quick-nav-bottom-bar">
+    <a href="line?openExternalBrowser=1" class="bottom-bar-link">
+      <i class="fas fa-table-list"></i>
+      <span>ตารางสั่งซื้อ</span>
+    </a>
+    <a href="line?mode=6pack&openExternalBrowser=1" class="bottom-bar-link">
+      <i class="fas fa-dice"></i>
+      <span>ชุด 6 กลับ</span>
+    </a>
+    <a href="dream?openExternalBrowser=1" class="bottom-bar-link active">
+      <i class="fas fa-brain"></i>
+      <span>ทำนายฝัน AI</span>
+    </a>
+  </nav>
+
+  <!-- Share Card Modal -->
+  <div id="modal-share-card" class="modal-overlay" style="display: none;">
+    <div class="modal-card-box">
+      <button class="modal-close" id="modal-share-close">&times;</button>
+      <h3 style="color: var(--color-gold-light); margin-bottom: 0.5rem; text-align: center;">
+        <i class="fas fa-share-alt"></i> การ์ดคำทำนายฝัน N3
+      </h3>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-bottom: 1rem;">
+        แตะค้างที่รูปภาพเพื่อบันทึก หรือกดปุ่มบันทึกรูปลงแกลเลอรี
+      </p>
+      <div class="share-card-preview-wrapper" style="text-align: center;">
+        <img id="share-card-preview-img" src="" alt="Dream Card Preview" style="width: 100%; max-width: 360px; height: auto; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.5); display: inline-block;">
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+        <button id="btn-download-card-png" class="btn btn-gold" style="flex: 1;">
+          <i class="fas fa-download"></i> 📥 บันทึกรูปภาพ
+        </button>
+        <button id="btn-native-share-card" class="btn btn-outline" style="flex: 1;">
+          <i class="fas fa-share-nodes"></i> แชร์ต่อ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Core Scripts -->
+  <script src="js/sound-effects.js"></script>
+  <script src="js/particle-canvas.js"></script>
+  <script src="js/image-saver.js?v=2.2"></script>
+  <script src="js/dream-art-generator.js"></script>
+  <script src="js/ai-dream-engine.js"></script>
+  <script src="js/share-card.js"></script>
+  <script src="js/voice-input.js"></script>
+  <script src="js/agent-system.js"></script>
+
+  <!-- Dream Dedicated Controller -->
+  <script>
+    (function() {
+      // Toast notification helper
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => {
+            if (container.contains(toast)) container.removeChild(toast);
+          }, 300);
+        }, 3000);
+      }
+      window.showToast = showToast;
+
+      // Scan step labels
+      const scanSteps = [
+        'กำลังสแกนสัญลักษณ์และถอดรหัสนิมิต...',
+        'กำลังคำนวณเลขศาสตร์และดาวเกตุ (๙)...',
+        'กำลังเทียบสถิติสลาก N3 งวดปัจจุบัน...',
+        'กำลังสร้างภาพจำลองนิมิตฝัน Generative Dream Art...',
+        'ถอดรหัสเลขเด็ด 3 ตัวตรง 3 ตัวโต๊ด สำเร็จ!'
+      ];
+
+      const dreamForm = document.getElementById('dream-form');
+      const dreamInput = document.getElementById('dream-input');
+      const dreamBoxWrapper = document.getElementById('dream-box-content');
+      const scanningOverlay = document.getElementById('scanning-overlay');
+      const resultContainer = document.getElementById('result-container');
+      const scanStepText = document.getElementById('scan-step-text');
+      const progressBarFill = document.getElementById('progress-bar-fill');
+      const tagButtons = document.querySelectorAll('.tag-btn');
+      const btnVoiceInput = document.getElementById('btn-voice-input');
+      const voiceWaveformBox = document.getElementById('voice-waveform-box');
+      const voiceStatusHint = document.getElementById('voice-status-hint');
+
+      let currentPrediction = null;
+
+      // Tag Button Selection
+      tagButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          try { SoundEngine.playClick(); } catch (e) {}
+          const tag = btn.getAttribute('data-tag');
+          if (dreamInput) {
+            dreamInput.value = `ฝันเห็น${tag}`;
+            triggerDreamPrediction();
+          }
+        });
+      });
+
+      // Voice Input Setup
+      if (btnVoiceInput && typeof VoiceInputEngine !== 'undefined') {
+        VoiceInputEngine.init({
+          onStart: () => {
+            if (voiceWaveformBox) voiceWaveformBox.classList.add('active');
+            if (voiceStatusHint) voiceStatusHint.classList.add('active');
+            if (btnVoiceInput) btnVoiceInput.classList.add('recording');
+          },
+          onEnd: () => {
+            if (voiceWaveformBox) voiceWaveformBox.classList.remove('active');
+            if (voiceStatusHint) voiceStatusHint.classList.remove('active');
+            if (btnVoiceInput) btnVoiceInput.classList.remove('recording');
+          },
+          onResult: (transcript) => {
+            if (dreamInput) {
+              dreamInput.value = transcript;
+              triggerDreamPrediction();
+            }
+          },
+          onError: (err) => {
+            showToast('ระบบเสียงไม่พร้อมใช้งาน กรุณาพิมพ์ความฝันแทนครับ', 'warning');
+          }
+        });
+
+        btnVoiceInput.addEventListener('click', () => {
+          VoiceInputEngine.toggleListening('dream-input');
+        });
+      }
+
+      // Form Submit
+      if (dreamForm) {
+        dreamForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          triggerDreamPrediction();
+        });
+      }
+
+      function triggerDreamPrediction() {
+        if (!dreamInput) return;
+        const val = dreamInput.value.trim();
+        if (!val) {
+          showToast('กรุณากรอกความฝันของคุณ หรือเลือกหัวข้อด้านล่างครับ', 'warning');
+          dreamInput.focus();
+          return;
+        }
+
+        try { SoundEngine.playSweep(); } catch (e) {}
+
+        if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'none';
+        if (resultContainer) resultContainer.style.display = 'none';
+        if (scanningOverlay) scanningOverlay.style.display = 'block';
+
+        let step = 0;
+        if (progressBarFill) progressBarFill.style.width = '0%';
+
+        const timer = setInterval(() => {
+          step++;
+          if (step < scanSteps.length) {
+            if (scanStepText) scanStepText.innerText = scanSteps[step];
+            if (progressBarFill) progressBarFill.style.width = `${(step / scanSteps.length) * 100}%`;
+            try { SoundEngine.playScanChime(); } catch (e) {}
+          } else {
+            clearInterval(timer);
+            if (progressBarFill) progressBarFill.style.width = '100%';
+            try {
+              currentPrediction = AIDreamEngine.generatePrediction(val);
+              displayPrediction(currentPrediction);
+            } catch (err) {
+              console.error('Prediction error:', err);
+              if (scanningOverlay) scanningOverlay.style.display = 'none';
+              if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'block';
+              showToast('เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง', 'error');
+            }
+          }
+        }, 400);
+      }
+      window.triggerDreamPrediction = triggerDreamPrediction;
+
+      function displayPrediction(pred) {
+        if (!pred) return;
+        if (scanningOverlay) scanningOverlay.style.display = 'none';
+        if (resultContainer) resultContainer.style.display = 'block';
+
+        document.getElementById('res-dream-title').innerText = `"${pred.dreamText}"`;
+        document.getElementById('res-element').innerText = pred.element;
+        document.getElementById('res-n3-direct').innerText = pred.n3Direct;
+        document.getElementById('res-n3-tod').innerText = pred.n3Tod;
+        document.getElementById('res-n2-digit').innerText = pred.n2Digit;
+        document.getElementById('res-meaning').innerText = pred.meaning;
+        document.getElementById('res-blessing').innerText = pred.blessing;
+        if (pred.poem) document.getElementById('res-poem-box').innerText = pred.poem;
+
+        // Render Dream Art 2.0
+        const dreamArtImg = document.getElementById('dream-art-preview');
+        if (dreamArtImg && typeof DreamArtGenerator !== 'undefined') {
+          try {
+            const artUrl = DreamArtGenerator.generateDreamArtDataUrl(pred);
+            dreamArtImg.src = artUrl;
+            window.currentDreamArtDataUrl = artUrl;
+          } catch (e) {
+            console.warn('Dream art error:', e);
+          }
+        }
+
+        // Save Dream Art Button
+        const btnSaveArt = document.getElementById('btn-save-dream-art');
+        if (btnSaveArt) {
+          btnSaveArt.onclick = async () => {
+            const artUrl = window.currentDreamArtDataUrl || (dreamArtImg ? dreamArtImg.src : '');
+            if (artUrl && typeof ImageSaver !== 'undefined') {
+              await ImageSaver.saveImage({
+                dataUrl: artUrl,
+                filename: `GLO-N3-DreamArt-${pred.n3Direct || 'Lucky'}.png`,
+                title: `ภาพนิมิตฝันเลขเด็ด ${pred.n3Direct || ''}`,
+                text: `ภาพจำลองนิมิตฝัน AI เลขเด็ด 3 ตัวตรง: ${pred.n3Direct || ''}`
+              });
+            }
+          };
+        }
+
+        // Setup 100% Direct Order Links to VIP /line track
+        const btnTable = document.getElementById('btn-order-dream-table');
+        if (btnTable) {
+          btnTable.href = `line?numbers=${pred.n3Direct}&openExternalBrowser=1`;
+        }
+
+        const btn6Pack = document.getElementById('btn-order-dream-6pack');
+        if (btn6Pack) {
+          btn6Pack.href = `line?mode=6pack&numbers=${pred.n3Direct}&openExternalBrowser=1`;
+        }
+
+        // Setup Package Buttons
+        const pkgDescDirect = document.getElementById('pkg-desc-direct');
+        const pkgDescCombo = document.getElementById('pkg-desc-combo');
+        const pkgPriceCombo = document.getElementById('pkg-price-combo');
+        const pkgDescTwo = document.getElementById('pkg-desc-two');
+
+        if (pkgDescDirect) pkgDescDirect.innerHTML = `เลข <span class="num-highlight">${pred.n3Direct}</span> (1 ใบ)`;
+        const todsList = pred.allTods || (pred.n3Tod && pred.n3Tod !== 'ไม่มี (เลขตอง)' ? pred.n3Tod.split(',').map(s => s.trim()) : []);
+        const comboPrice = (1 + todsList.length) * 20;
+
+        if (pkgDescCombo) {
+          if (todsList.length > 0) {
+            pkgDescCombo.innerHTML = `ตรง 1 ใบ + โต๊ด <span class="num-highlight">${todsList.slice(0, 2).join(', ')}${todsList.length > 2 ? '...' : ''}</span> (${todsList.length} ใบ)`;
+          } else {
+            pkgDescCombo.innerHTML = `ตรง <span class="num-highlight">${pred.n3Direct}</span> (เลขตองไม่มีโต๊ด)`;
+          }
+        }
+        if (pkgPriceCombo) pkgPriceCombo.innerText = `${comboPrice} บาท`;
+        if (pkgDescTwo) pkgDescTwo.innerHTML = `สลากท้าย <span class="num-highlight">${pred.n2Digit}</span> (1 ใบ)`;
+
+        const pkgBtnDirect = document.getElementById('pkg-btn-direct');
+        if (pkgBtnDirect) {
+          pkgBtnDirect.onclick = () => {
+            window.location.href = `line?numbers=${pred.n3Direct}&openExternalBrowser=1`;
+          };
+        }
+
+        const pkgBtnCombo = document.getElementById('pkg-btn-combo');
+        if (pkgBtnCombo) {
+          pkgBtnCombo.onclick = () => {
+            const allNums = [pred.n3Direct, ...todsList].join(',');
+            window.location.href = `line?numbers=${allNums}&openExternalBrowser=1`;
+          };
+        }
+
+        const pkgBtnTwo = document.getElementById('pkg-btn-two');
+        if (pkgBtnTwo) {
+          pkgBtnTwo.onclick = () => {
+            window.location.href = `line?numbers=${pred.n2Digit}&openExternalBrowser=1`;
+          };
+        }
+
+        try { SoundEngine.playRevealFanfare(); } catch (e) {}
+        showToast('ถอดรหัสนิมิตฝันและคำนวณเลขเด็ด N3 สำเร็จแล้ว!', 'success');
+      }
+
+      // Reset Dream Button
+      const btnReset = document.getElementById('btn-reset-dream');
+      if (btnReset) {
+        btnReset.addEventListener('click', () => {
+          try { SoundEngine.playClick(); } catch (e) {}
+          if (resultContainer) resultContainer.style.display = 'none';
+          if (dreamBoxWrapper) dreamBoxWrapper.style.display = 'block';
+          if (dreamInput) {
+            dreamInput.value = '';
+            dreamInput.focus();
+          }
+        });
+      }
+
+      // Social Share Card Modal Setup
+      const btnShareCard = document.getElementById('btn-share-card');
+      const modalShare = document.getElementById('modal-share-card');
+      const modalShareClose = document.getElementById('modal-share-close');
+      const sharePreviewImg = document.getElementById('share-card-preview-img');
+      const btnDownloadCard = document.getElementById('btn-download-card-png');
+      const btnNativeShare = document.getElementById('btn-native-share-card');
+
+      if (btnShareCard) {
+        btnShareCard.addEventListener('click', () => {
+          if (!currentPrediction || typeof ShareCardEngine === 'undefined') return;
+          try { SoundEngine.playClick(); } catch (e) {}
+          const agentInfo = (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo) ? AgentSystem.getAgentInfo() : null;
+          const cardUrl = ShareCardEngine.renderCardCanvas(currentPrediction, agentInfo);
+          if (sharePreviewImg) sharePreviewImg.src = cardUrl;
+          window.currentShareCardUrl = cardUrl;
+          if (modalShare) modalShare.style.display = 'flex';
+        });
+      }
+
+      if (modalShareClose) {
+        modalShareClose.addEventListener('click', () => {
+          if (modalShare) modalShare.style.display = 'none';
+        });
+      }
+
+      if (modalShare) {
+        modalShare.addEventListener('click', (e) => {
+          if (e.target === modalShare) modalShare.style.display = 'none';
+        });
+      }
+
+      if (btnDownloadCard) {
+        btnDownloadCard.addEventListener('click', async () => {
+          const url = window.currentShareCardUrl;
+          if (url && typeof ImageSaver !== 'undefined') {
+            await ImageSaver.saveImage({
+              dataUrl: url,
+              filename: `GLO-N3-DreamCard-${currentPrediction?.n3Direct || 'Lucky'}.png`,
+              title: `การ์ดทำนายฝัน N3 เลข ${currentPrediction?.n3Direct || ''}`,
+              text: `ทำนายฝัน "${currentPrediction?.dreamText}" ได้เลขเด็ด N3: ${currentPrediction?.n3Direct}`
+            });
+          }
+        });
+      }
+
+      if (btnNativeShare) {
+        btnNativeShare.addEventListener('click', async () => {
+          const url = window.currentShareCardUrl;
+          if (url && typeof ImageSaver !== 'undefined') {
+            await ImageSaver.saveImage({
+              dataUrl: url,
+              filename: `GLO-N3-DreamCard-${currentPrediction?.n3Direct || 'Lucky'}.png`,
+              title: `การ์ดทำนายฝัน N3 เลข ${currentPrediction?.n3Direct || ''}`,
+              text: `ทำนายฝัน "${currentPrediction?.dreamText}" ได้เลขเด็ด N3: ${currentPrediction?.n3Direct}`
+            });
+          }
+        });
+      }
+
+      // Read query parameters if any (e.g. ?dream=งู)
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const dreamParam = urlParams.get('dream');
+        if (dreamParam && dreamInput) {
+          dreamInput.value = decodeURIComponent(dreamParam);
+          setTimeout(() => triggerDreamPrediction(), 300);
+        }
+      } catch (e) {}
+
+    })();
+  </script>
+</body>
+</html>
