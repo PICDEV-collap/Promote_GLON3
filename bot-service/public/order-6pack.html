@@ -1464,7 +1464,9 @@
 
   <!-- Guard Modal: LINE Membership Verification on Order Page -->
   <div id="modal-order-friend-guard" class="modal-overlay" style="display: none; z-index: 10003;">
-    <div class="modal-box" style="max-width: 440px; text-align: center; border: 1px solid var(--border-gold); box-shadow: 0 10px 35px rgba(0,0,0,0.8);">
+    <div class="modal-box" style="position: relative; max-width: 440px; text-align: center; border: 1px solid var(--border-gold); box-shadow: 0 10px 35px rgba(0,0,0,0.8);">
+      <button id="modal-order-guard-close" class="modal-close" style="position: absolute; top: 12px; right: 14px; background: transparent; border: none; font-size: 1.5rem; color: #fff; cursor: pointer;" aria-label="ปิดหน้าต่าง">&times;</button>
+      
       <div style="margin-bottom: 0.65rem;">
         <span class="badge badge-gold" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
           <i class="fas fa-certificate"></i> ร้านสลาก N3 ธนกิจนำโชค (@586xxhlx)
@@ -1478,7 +1480,7 @@
       <!-- State: Not a friend -->
       <div id="guard-state-not-friend" style="display: none;">
         <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.35rem;">
-          เพิ่มเพื่อนใน LINE เพื่อสั่งซื้อสลาก N3
+          เพิ่มเพื่อนใน LINE เพื่อรับ QR สั่งซื้อ N3
         </h3>
         <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.1rem; line-height: 1.5;">
           ระบบจำหน่ายสลาก N3 ผูกกับบัญชี LINE ทางการ <strong style="color: var(--color-gold-light);">@586xxhlx</strong><br>
@@ -1489,8 +1491,8 @@
           <a id="btn-guard-add-friend" href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="padding: 0.85rem; font-size: 1.05rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
             <i class="fas fa-user-plus"></i> กดเพิ่มเพื่อน LINE @586xxhlx
           </a>
-          <button type="button" id="btn-guard-recheck" class="btn btn-gold" style="padding: 0.75rem; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-            <i class="fas fa-sync-alt"></i> ฉันเพิ่มเพื่อนแล้ว (ตรวจสอบสิทธิ์)
+          <button type="button" id="btn-guard-continue-not-friend" class="btn btn-gold" style="padding: 0.75rem; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <i class="fas fa-check-circle"></i> ฉันเพิ่มเพื่อนแล้ว (สั่งซื้อต่อ)
           </button>
           <a href="./" class="btn btn-secondary" style="padding: 0.55rem; font-size: 0.85rem; text-decoration: none; color: var(--text-muted);">
             <i class="fas fa-arrow-left"></i> กลับสู่หน้าแรก
@@ -1498,25 +1500,26 @@
         </div>
       </div>
 
-      <!-- State: External browser login required -->
+      <!-- State: External browser login / friend confirmation -->
       <div id="guard-state-login" style="display: none;">
         <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.35rem;">
-          🛒 สั่งซื้อสลาก N3 เฉพาะสมาชิก LINE
+          🛒 สั่งซื้อสลาก N3 ผ่านระบบ LINE
         </h3>
         <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.1rem; line-height: 1.5;">
-          ระบบจำเป็นต้องเชื่อมต่อบัญชี LINE ของท่านเพื่อจัดส่งภาพ QR Code ชำระเงินเป๋าตังเข้าห้องแชท กรุณายืนยันตัวตน
+          ระบบจัดส่งภาพ QR Code ชำระเงินเป๋าตังเข้าห้องแชท LINE @586xxhlx อัตโนมัติ<br>
+          หากท่านเป็นเพื่อนแล้วสามารถสั่งซื้อต่อได้ทันที
         </p>
 
         <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-          <button type="button" id="btn-guard-login" class="btn btn-emerald" style="padding: 0.85rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
-            <i class="fab fa-line" style="font-size: 1.3rem;"></i> เข้าสู่ระบบด้วย LINE (1 แตะ)
+          <button type="button" id="btn-guard-continue-login" class="btn btn-emerald" style="padding: 0.85rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
+            <i class="fas fa-check-circle"></i> ✅ ฉันเป็นเพื่อนใน LINE แล้ว (สั่งซื้อต่อ)
           </button>
-          <a href="https://liff.line.me/2011462211-WVsuHFk4" target="_blank" class="btn btn-gold" style="padding: 0.75rem; font-size: 0.92rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-            <i class="fas fa-mobile-screen"></i> เปิดในแอป LINE (เต็มจอ LIFF)
+          <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-gold" style="padding: 0.75rem; font-size: 0.92rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <i class="fab fa-line" style="font-size: 1.2rem;"></i> ➕ เพิ่มเพื่อน LINE @586xxhlx
           </a>
-          <a href="./" class="btn btn-secondary" style="padding: 0.55rem; font-size: 0.85rem; text-decoration: none; color: var(--text-muted);">
-            <i class="fas fa-arrow-left"></i> กลับสู่หน้าแรก
-          </a>
+          <button type="button" id="btn-guard-close-bottom" class="btn btn-secondary" style="padding: 0.55rem; font-size: 0.85rem; text-decoration: none; color: var(--text-muted);">
+            <i class="fas fa-times"></i> ปิดหน้าต่าง / ดูตารางสั่งซื้อ
+          </button>
         </div>
       </div>
 
@@ -2208,11 +2211,14 @@
     // Double-Layer Guard: LINE Membership Verification Controller
     // -------------------------------------------------------------------------
     const modalOrderGuard = document.getElementById('modal-order-friend-guard');
+    const modalOrderGuardClose = document.getElementById('modal-order-guard-close');
     const guardStateNotFriend = document.getElementById('guard-state-not-friend');
     const guardStateLogin = document.getElementById('guard-state-login');
     const guardStateChecking = document.getElementById('guard-state-checking');
     const btnGuardRecheck = document.getElementById('btn-guard-recheck');
-    const btnGuardLogin = document.getElementById('btn-guard-login');
+    const btnGuardContinueNotFriend = document.getElementById('btn-guard-continue-not-friend');
+    const btnGuardContinueLogin = document.getElementById('btn-guard-continue-login');
+    const btnGuardCloseBottom = document.getElementById('btn-guard-close-bottom');
 
     let isMemberVerified = sessionStorage.getItem('glo_line_member_status') === 'verified';
 
@@ -2228,6 +2234,22 @@
       if (modalOrderGuard) modalOrderGuard.style.display = 'none';
     }
 
+    const markVerifiedAndDismiss = () => {
+      isMemberVerified = true;
+      sessionStorage.setItem('glo_line_member_status', 'verified');
+      hideOrderGuard();
+    };
+
+    if (modalOrderGuardClose) modalOrderGuardClose.addEventListener('click', hideOrderGuard);
+    if (btnGuardContinueNotFriend) btnGuardContinueNotFriend.addEventListener('click', markVerifiedAndDismiss);
+    if (btnGuardContinueLogin) btnGuardContinueLogin.addEventListener('click', markVerifiedAndDismiss);
+    if (btnGuardCloseBottom) btnGuardCloseBottom.addEventListener('click', markVerifiedAndDismiss);
+    if (modalOrderGuard) {
+      modalOrderGuard.addEventListener('click', (e) => {
+        if (e.target === modalOrderGuard) hideOrderGuard();
+      });
+    }
+
     async function checkOrderMembershipOnLoad() {
       if (isMemberVerified || sessionStorage.getItem('glo_line_member_status') === 'verified') {
         isMemberVerified = true;
@@ -2235,7 +2257,8 @@
         return;
       }
 
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+      // ทำการตรวจสอบในพื้นหลังอย่างเงียบๆ เฉพาะกรณีที่เปิดใน LINE Client
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient() && liff.isLoggedIn()) {
         let userId = null;
         try {
           const profile = await liff.getProfile();
@@ -2264,27 +2287,9 @@
           } catch (e) {
             console.warn('[ORDER GUARD API ERROR]:', e);
           }
-          showOrderGuard('not-friend');
-          return;
         }
       }
-
-      // If in LINE app, prompt login; if outside in Chrome/Safari, prompt login/add friend
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-        liff.login({ redirectUri: window.location.href });
-      } else {
-        showOrderGuard('login');
-      }
-    }
-
-    if (btnGuardLogin) {
-      btnGuardLogin.addEventListener('click', () => {
-        if (typeof liff !== 'undefined') {
-          liff.login({ redirectUri: window.location.href });
-        } else {
-          window.open('https://line.me/R/ti/p/@586xxhlx', '_blank');
-        }
-      });
+      // ไม่บล็อกหน้าจออัตโนมัติ ให้ลูกค้าเลือกตัวเลขและใช้งานหน้าสั่งซื้อได้ทันที
     }
 
     if (btnGuardRecheck) {
@@ -2304,10 +2309,7 @@
             if (res.ok) {
               const data = await res.json();
               if (data.isMember) {
-                isMemberVerified = true;
-                sessionStorage.setItem('glo_line_member_status', 'verified');
-                sessionStorage.setItem('glo_line_user_id', userId);
-                hideOrderGuard();
+                markVerifiedAndDismiss();
                 showToast('✅ ยืนยันสิทธิ์สมาชิก LINE สำเร็จแล้ว!', 'success');
                 return;
               }
@@ -2315,8 +2317,9 @@
           } catch (_) {}
         }
 
-        showOrderGuard('not-friend');
-        showToast('⚠️ ยังไม่พบสถานะการเป็นเพื่อน กรุณากดเพิ่มเพื่อน LINE @586xxhlx ก่อนนะครับ', 'warning');
+        // หากผู้ใช้กดยืนยันแล้วในเบราว์เซอร์ ให้ดำเนินการต่อได้
+        markVerifiedAndDismiss();
+        showToast('✅ บันทึกสิทธิ์สมาชิกเรียบร้อย สามารถสั่งซื้อได้ทันที', 'success');
       });
     }
 

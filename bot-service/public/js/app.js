@@ -47,19 +47,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // -------------------------------------------------------------------------
   const modalLineMemberCheck = document.getElementById('modal-line-member-check');
   const modalLineMemberClose = document.getElementById('modal-line-member-close');
-  const memberStateNotFriend = document.getElementById('member-state-not-friend');
-  const memberStateLoginRequired = document.getElementById('member-state-login-required');
-  const memberStateChecking = document.getElementById('member-state-checking');
-  const btnRecheckLineMembership = document.getElementById('btn-recheck-line-membership');
-  const btnLiffLoginAction = document.getElementById('btn-liff-login-action');
+  const btnConfirmAlreadyFriend = document.getElementById('btn-confirm-already-friend');
+  const btnLineAddFriendNow = document.getElementById('btn-line-add-friend-now');
 
   let pendingTargetUrl = 'order';
 
-  function showMemberModal(state) {
+  function showMemberModal() {
     if (!modalLineMemberCheck) return;
-    if (memberStateNotFriend) memberStateNotFriend.style.display = state === 'not-friend' ? 'block' : 'none';
-    if (memberStateLoginRequired) memberStateLoginRequired.style.display = state === 'login-required' ? 'block' : 'none';
-    if (memberStateChecking) memberStateChecking.style.display = state === 'checking' ? 'block' : 'none';
     modalLineMemberCheck.style.display = 'flex';
   }
 
@@ -76,14 +70,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  if (btnLiffLoginAction) {
-    btnLiffLoginAction.addEventListener('click', () => {
-      if (typeof liff !== 'undefined') {
-        const dest = new URL(pendingTargetUrl, window.location.origin).href;
-        liff.login({ redirectUri: dest });
-      } else {
-        window.open('https://line.me/R/ti/p/@586xxhlx', '_blank');
-      }
+  if (btnConfirmAlreadyFriend) {
+    btnConfirmAlreadyFriend.addEventListener('click', () => {
+      sessionStorage.setItem('glo_line_member_status', 'verified');
+      hideMemberModal();
+      window.location.href = pendingTargetUrl;
     });
   }
 
@@ -107,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
   async function checkLineMembershipAndNavigate(targetUrl, clickedBtn) {
     pendingTargetUrl = targetUrl || 'order';
 
-    // 1. Session Cache Check: หากเคยผ่านการตรวจสอบสมาชิกแล้วในเซสชันนี้ ให้เข้าได้ทันที 0ms (Seamless)
+    // 1. Session Cache Check: หากเคยผ่านการยืนยันสมาชิกแล้วในเซสชันนี้ ให้เข้าได้ทันที 0ms (Seamless)
     const cachedStatus = sessionStorage.getItem('glo_line_member_status');
     if (cachedStatus === 'verified') {
       window.location.href = pendingTargetUrl;
@@ -122,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function () {
       clickedBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> ตรวจสอบสิทธิ์...';
     }
 
-    // ตรวจสอบความพร้อมของ LIFF SDK
+    // ตรวจสอบความพร้อมของ LIFF SDK (ถ้ามี)
     if (typeof liff !== 'undefined' && !isLiffReady) {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -137,7 +128,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     };
 
-    // กรณี A: ล็อกอินผ่าน LINE LIFF อยู่แล้ว (อยู่ใน LINE App หรือล็อกอินผ่านเบราว์เซอร์ไว้แล้ว)
+    // กรณี A: อยู่ใน LINE App หรือล็อกอินผ่าน LIFF ไว้แล้ว
     if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
       let userId = null;
       try {
@@ -165,58 +156,16 @@ document.addEventListener('DOMContentLoaded', function () {
           window.location.href = pendingTargetUrl;
           return;
         } else {
-          // ยังไม่ได้เพิ่มเพื่อน หรือบล็อก -> แสดงหน้าต่างให้กดเพิ่มเพื่อน
-          showMemberModal('not-friend');
+          // ยังไม่ได้เพิ่มเพื่อน หรือบล็อก -> เปิดหน้าต่างให้กดเพิ่มเพื่อน
+          showMemberModal();
           return;
         }
       }
     }
 
-    // กรณี B: ยังไม่ได้เข้าสู่ระบบ
+    // กรณี B: ผู้ใช้เปิดผ่านเบราว์เซอร์ภายนอก (Chrome/Safari)
     restoreBtn();
-    if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-      // อยู่ใน LINE App -> สั่ง login เพื่อดึงโปรไฟล์อัตโนมัติ
-      liff.login({ redirectUri: new URL(pendingTargetUrl, window.location.origin).href });
-    } else {
-      // อยู่นอก LINE App (Chrome/Safari) -> แสดงหน้าต่างแนะนำให้เข้าสู่ระบบหรือเพิ่มเพื่อน
-      showMemberModal('login-required');
-    }
-  }
-
-  if (btnRecheckLineMembership) {
-    btnRecheckLineMembership.addEventListener('click', async () => {
-      showMemberModal('checking');
-      let userId = sessionStorage.getItem('glo_line_user_id');
-
-      if (!userId && typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
-        try {
-          const profile = await liff.getProfile();
-          userId = profile?.userId;
-        } catch (_) {}
-      }
-
-      if (userId) {
-        const checkResult = await queryBackendMembership(userId);
-        if (checkResult && checkResult.isMember) {
-          sessionStorage.setItem('glo_line_member_status', 'verified');
-          sessionStorage.setItem('glo_line_user_id', userId);
-          hideMemberModal();
-          if (typeof showToast === 'function') {
-            showToast('✅ ยืนยันสิทธิ์สมาชิก LINE สำเร็จ! กำลังเข้าสู่หน้าสั่งซื้อ...', 'success');
-          }
-          setTimeout(() => {
-            window.location.href = pendingTargetUrl;
-          }, 350);
-          return;
-        }
-      }
-
-      // หากยังตรวจไม่พบ
-      showMemberModal('not-friend');
-      if (typeof showToast === 'function') {
-        showToast('⚠️ ยังไม่พบสถานะการเป็นเพื่อน กรุณากดเพิ่มเพื่อน LINE @586xxhlx ก่อนนะครับ', 'warning');
-      }
-    });
+    showMemberModal();
   }
 
   // ดักจับการคลิกปุ่มสั่งซื้อทั้งหมดในหน้าแรกเพื่อตรวจสอบสิทธิ์ Seamless
