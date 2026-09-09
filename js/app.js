@@ -72,7 +72,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (btnConfirmAlreadyFriend) {
     btnConfirmAlreadyFriend.addEventListener('click', () => {
-      sessionStorage.setItem('glo_line_member_status', 'verified');
       hideMemberModal();
       window.location.href = pendingTargetUrl;
     });

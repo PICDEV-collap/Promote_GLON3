@@ -479,11 +479,64 @@ app.all('/api/check-line-member', async (req: Request, res: Response): Promise<v
 // -------------------------------------------------------------------------
 // Direct Order REST API (รองรับการสั่งซื้อผ่านตารางเว็บ / LIFF โดยตรง ไม่ต้องพิมพ์ส่งซ้ำในแชท LINE)
 // -------------------------------------------------------------------------
-app.options(['/api/order-direct', '/api/order-status/:orderId'], (_req: Request, res: Response) => {
+app.options(['/api/order-direct', '/api/order-status/:orderId', '/api/check-line-member'], (_req: Request, res: Response) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
   res.status(204).end();
+});
+
+// ตรวจสอบสถานะสมาชิก LINE Official Account (@586xxhlx) แบบ Real-time (0 Credit - ฟรี 100%)
+app.all('/api/check-line-member', async (req: Request, res: Response): Promise<void> => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+
+  const rawUserId = req.query.userId || (req.body && req.body.userId);
+  const userId = Array.isArray(rawUserId) ? rawUserId[0] : (rawUserId || '');
+
+  if (!userId || typeof userId !== 'string' || !userId.startsWith('U')) {
+    res.status(400).json({
+      success: false,
+      isMember: false,
+      error: 'รูปแบบ LINE User ID ไม่ถูกต้อง (ต้องขึ้นต้นด้วย U...)'
+    });
+    return;
+  }
+
+  try {
+    const profile = await lineHandler.getProfile(userId);
+    if (profile) {
+      customerRegistry.registerOrUpdateUser(userId);
+      res.json({
+        success: true,
+        isMember: true,
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl
+      });
+    } else {
+      res.json({
+        success: true,
+        isMember: false,
+        reason: 'not_friend',
+        message: 'ยังไม่ได้เพิ่มเพื่อนใน LINE @586xxhlx'
+      });
+    }
+  } catch (err: any) {
+    console.error('[API CHECK MEMBER ERROR]:', err);
+    res.status(500).json({
+      success: false,
+      isMember: false,
+      error: 'เกิดข้อผิดพลาดในการตรวจสอบสถานะสมาชิก'
+    });
+  }
 });
 
 // ล้างคำสั่งซื้อเก่าเกิน 30 นาทีออกจากหน่วยความจำอัตโนมัติ
@@ -540,7 +593,28 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  const effectiveUserId = userId || 'anonymous_web_user';
+  // 0. ตรวจสอบสิทธิ์สมาชิก LINE อย่างเข้มงวด 100% (Strict Anti-Spam Guard)
+  if (!userId || typeof userId !== 'string' || !userId.startsWith('U') || userId === 'anonymous_web_user') {
+    res.status(403).json({
+      success: false,
+      isMember: false,
+      error: 'ไม่อนุญาต: ต้องเข้าสู่ระบบด้วยบัญชี LINE ก่อนสั่งซื้อสลาก N3 เพื่อความปลอดภัย'
+    });
+    return;
+  }
+
+  // ตรวจสอบกับ LINE Messaging API แบบ Real-time ว่าเป็นเพื่อนจริงหรือไม่
+  const profile = await lineHandler.getProfile(userId);
+  if (!profile) {
+    res.status(403).json({
+      success: false,
+      isMember: false,
+      error: 'ไม่อนุญาต: ตรวจสอบไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
+    });
+    return;
+  }
+
+  const effectiveUserId = userId;
 
   // กรองตัวเลขสลาก 3 หลัก
   const validItems: OrderItem[] = [];
