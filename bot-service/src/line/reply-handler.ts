@@ -338,4 +338,28 @@ export class LineReplyHandler {
       return false;
     }
   }
+
+  /**
+   * ดึงข้อมูลโปรไฟล์ผู้ใช้เพื่อตรวจสอบสถานะการเป็นเพื่อนใน LINE (@586xxhlx)
+   * ฟังก์ชันทางการของ LINE Messaging API: ฟรี 100% ไม่คิดโควต้าข้อความ Push (0 เครดิต)
+   * หากผู้ใช้เป็นเพื่อนและไม่บล็อก จะคืนค่า UserProfileResponse
+   * หากผู้ใช้ไม่ได้เป็นเพื่อนหรือบล็อก จะคืนค่า null
+   */
+  public async getProfile(userId: string): Promise<messagingApi.UserProfileResponse | null> {
+    if (!this.client || !userId || userId === 'anonymous') {
+      return null;
+    }
+
+    try {
+      const profile = await this.client.getProfile(userId);
+      return profile;
+    } catch (error: any) {
+      // 404 หมายถึง Not Found (ผู้ใช้ไม่ได้ติดตาม LINE OA หรือบล็อก)
+      return null;
+    }
+  }
+
+  public getClient(): messagingApi.MessagingApiClient | null {
+    return this.client;
+  }
 }

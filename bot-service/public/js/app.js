@@ -21,20 +21,218 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function initIndexLiff() {
     if (typeof liff !== 'undefined' && LIFF_ID) {
-      const isLineUa = /Line/i.test(navigator.userAgent || '');
-      const hasLiffParam = window.location.search.includes('liff');
-      if (isLineUa || hasLiffParam) {
-        try {
-          await liff.init({ liffId: LIFF_ID });
-          isLiffReady = true;
-          console.log('[LIFF index.html] Initialized. InClient:', liff.isInClient());
-        } catch (err) {
-          console.warn('[LIFF index.html] Init skipped (web mode):', err);
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        isLiffReady = true;
+        console.log('[LIFF index.html] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
+        
+        // หากผู้ใช้เคยเข้าสู่ระบบแล้ว ให้เก็บ User ID ลงแคชเพื่อความรวดเร็ว
+        if (liff.isLoggedIn()) {
+          try {
+            const profile = await liff.getProfile();
+            if (profile && profile.userId) {
+              sessionStorage.setItem('glo_line_user_id', profile.userId);
+            }
+          } catch (_) {}
         }
+      } catch (err) {
+        console.warn('[LIFF index.html] Init warning:', err);
       }
     }
   }
   initIndexLiff();
+
+  // -------------------------------------------------------------------------
+  // 0.1 Seamless LINE Membership Verification & Navigation Guard
+  // -------------------------------------------------------------------------
+  const modalLineMemberCheck = document.getElementById('modal-line-member-check');
+  const modalLineMemberClose = document.getElementById('modal-line-member-close');
+  const memberStateNotFriend = document.getElementById('member-state-not-friend');
+  const memberStateLoginRequired = document.getElementById('member-state-login-required');
+  const memberStateChecking = document.getElementById('member-state-checking');
+  const btnRecheckLineMembership = document.getElementById('btn-recheck-line-membership');
+  const btnLiffLoginAction = document.getElementById('btn-liff-login-action');
+
+  let pendingTargetUrl = 'order';
+
+  function showMemberModal(state) {
+    if (!modalLineMemberCheck) return;
+    if (memberStateNotFriend) memberStateNotFriend.style.display = state === 'not-friend' ? 'block' : 'none';
+    if (memberStateLoginRequired) memberStateLoginRequired.style.display = state === 'login-required' ? 'block' : 'none';
+    if (memberStateChecking) memberStateChecking.style.display = state === 'checking' ? 'block' : 'none';
+    modalLineMemberCheck.style.display = 'flex';
+  }
+
+  function hideMemberModal() {
+    if (modalLineMemberCheck) modalLineMemberCheck.style.display = 'none';
+  }
+
+  if (modalLineMemberClose) {
+    modalLineMemberClose.addEventListener('click', hideMemberModal);
+  }
+  if (modalLineMemberCheck) {
+    modalLineMemberCheck.addEventListener('click', (e) => {
+      if (e.target === modalLineMemberCheck) hideMemberModal();
+    });
+  }
+
+  if (btnLiffLoginAction) {
+    btnLiffLoginAction.addEventListener('click', () => {
+      if (typeof liff !== 'undefined') {
+        const dest = new URL(pendingTargetUrl, window.location.origin).href;
+        liff.login({ redirectUri: dest });
+      } else {
+        window.open('https://line.me/R/ti/p/@586xxhlx', '_blank');
+      }
+    });
+  }
+
+  async function queryBackendMembership(userId) {
+    try {
+      const endpoint = window.location.origin + '/api/check-line-member?userId=' + encodeURIComponent(userId);
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (e) {
+      console.warn('[CHECK MEMBER API] Fetch error:', e);
+    }
+    return { success: false, isMember: false };
+  }
+
+  async function checkLineMembershipAndNavigate(targetUrl, clickedBtn) {
+    pendingTargetUrl = targetUrl || 'order';
+
+    // 1. Session Cache Check: หากเคยผ่านการตรวจสอบสมาชิกแล้วในเซสชันนี้ ให้เข้าได้ทันที 0ms (Seamless)
+    const cachedStatus = sessionStorage.getItem('glo_line_member_status');
+    if (cachedStatus === 'verified') {
+      window.location.href = pendingTargetUrl;
+      return;
+    }
+
+    // Micro-interaction spinner บนปุ่มที่กด เพื่อให้ผู้ใช้รู้สึกว่าระบบกำลังประมวลผลอย่างรวดเร็ว
+    let originalBtnHtml = '';
+    if (clickedBtn) {
+      originalBtnHtml = clickedBtn.innerHTML;
+      clickedBtn.disabled = true;
+      clickedBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> ตรวจสอบสิทธิ์...';
+    }
+
+    // ตรวจสอบความพร้อมของ LIFF SDK
+    if (typeof liff !== 'undefined' && !isLiffReady) {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        isLiffReady = true;
+      } catch (_) {}
+    }
+
+    const restoreBtn = () => {
+      if (clickedBtn) {
+        clickedBtn.disabled = false;
+        clickedBtn.innerHTML = originalBtnHtml;
+      }
+    };
+
+    // กรณี A: ล็อกอินผ่าน LINE LIFF อยู่แล้ว (อยู่ใน LINE App หรือล็อกอินผ่านเบราว์เซอร์ไว้แล้ว)
+    if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+      let userId = null;
+      try {
+        const profile = await liff.getProfile();
+        userId = profile?.userId || null;
+      } catch (err) {
+        try {
+          const ctx = liff.getContext();
+          userId = ctx?.userId || null;
+        } catch (_) {}
+      }
+
+      if (userId) {
+        // เช็คกับ Backend API แบบ Seamless ทันที
+        const checkResult = await queryBackendMembership(userId);
+        restoreBtn();
+
+        if (checkResult && checkResult.isMember) {
+          // เป็นเพื่อนจริง -> บันทึกลงแคชและนำทางเข้าหน้าสั่งซื้อ
+          sessionStorage.setItem('glo_line_member_status', 'verified');
+          sessionStorage.setItem('glo_line_user_id', userId);
+          if (checkResult.displayName) {
+            sessionStorage.setItem('glo_line_display_name', checkResult.displayName);
+          }
+          window.location.href = pendingTargetUrl;
+          return;
+        } else {
+          // ยังไม่ได้เพิ่มเพื่อน หรือบล็อก -> แสดงหน้าต่างให้กดเพิ่มเพื่อน
+          showMemberModal('not-friend');
+          return;
+        }
+      }
+    }
+
+    // กรณี B: ยังไม่ได้เข้าสู่ระบบ
+    restoreBtn();
+    if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+      // อยู่ใน LINE App -> สั่ง login เพื่อดึงโปรไฟล์อัตโนมัติ
+      liff.login({ redirectUri: new URL(pendingTargetUrl, window.location.origin).href });
+    } else {
+      // อยู่นอก LINE App (Chrome/Safari) -> แสดงหน้าต่างแนะนำให้เข้าสู่ระบบหรือเพิ่มเพื่อน
+      showMemberModal('login-required');
+    }
+  }
+
+  if (btnRecheckLineMembership) {
+    btnRecheckLineMembership.addEventListener('click', async () => {
+      showMemberModal('checking');
+      let userId = sessionStorage.getItem('glo_line_user_id');
+
+      if (!userId && typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+        try {
+          const profile = await liff.getProfile();
+          userId = profile?.userId;
+        } catch (_) {}
+      }
+
+      if (userId) {
+        const checkResult = await queryBackendMembership(userId);
+        if (checkResult && checkResult.isMember) {
+          sessionStorage.setItem('glo_line_member_status', 'verified');
+          sessionStorage.setItem('glo_line_user_id', userId);
+          hideMemberModal();
+          if (typeof showToast === 'function') {
+            showToast('✅ ยืนยันสิทธิ์สมาชิก LINE สำเร็จ! กำลังเข้าสู่หน้าสั่งซื้อ...', 'success');
+          }
+          setTimeout(() => {
+            window.location.href = pendingTargetUrl;
+          }, 350);
+          return;
+        }
+      }
+
+      // หากยังตรวจไม่พบ
+      showMemberModal('not-friend');
+      if (typeof showToast === 'function') {
+        showToast('⚠️ ยังไม่พบสถานะการเป็นเพื่อน กรุณากดเพิ่มเพื่อน LINE @586xxhlx ก่อนนะครับ', 'warning');
+      }
+    });
+  }
+
+  // ดักจับการคลิกปุ่มสั่งซื้อทั้งหมดในหน้าแรกเพื่อตรวจสอบสิทธิ์ Seamless
+  document.addEventListener('click', (e) => {
+    const orderLink = e.target && e.target.closest ? e.target.closest('a[href*="order"]') : null;
+    if (orderLink) {
+      const href = orderLink.getAttribute('href');
+      // หากเป็นลิงก์สั่งซื้อภายในระบบ
+      if (href && (href.startsWith('order') || href.startsWith('/order') || href.startsWith('order-6pack') || href.startsWith('/order-6pack'))) {
+        e.preventDefault();
+        checkLineMembershipAndNavigate(href, orderLink);
+      }
+    }
+  });
+
+  window.checkLineMembershipAndNavigate = checkLineMembershipAndNavigate;
 
   function getLineDeepLink(lineId, message) {
     const rawLine = (lineId || '@586xxhlx').trim();
