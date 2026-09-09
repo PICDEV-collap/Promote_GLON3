@@ -1439,6 +1439,8 @@
         </div>
       </form>
     </div>
+  </div>
+
   <!-- Modal: Seamless LINE Membership Check & Add-Friend Prompt -->
   <div id="modal-line-member-check" class="modal-overlay" style="display: none; z-index: 10002;">
     <div class="modal-card" style="max-width: 440px; text-align: center; border: 1px solid var(--border-gold); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);">
@@ -1452,69 +1454,39 @@
       </div>
 
       <!-- Icon Header -->
-      <div id="member-check-icon-box" style="width: 58px; height: 58px; border-radius: 50%; background: rgba(0, 195, 0, 0.15); border: 2px solid #00c300; color: #00c300; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 0.85rem auto;">
+      <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(0, 195, 0, 0.15); border: 2px solid #00c300; color: #00c300; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 0.85rem auto;">
         <i class="fab fa-line"></i>
       </div>
 
-      <!-- Dynamic Content State 1: User is not a friend (ยังไม่ได้เป็นเพื่อน หรือบล็อก) -->
-      <div id="member-state-not-friend" style="display: none;">
-        <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.4rem;">
-          เพิ่มเพื่อนใน LINE เพื่อสั่งซื้อสลาก N3
-        </h3>
-        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
-          ท่านยังไม่ได้เพิ่มเพื่อนบัญชีทางการ <strong style="color: var(--color-gold-light);">@586xxhlx</strong><br>
-          กรุณากดเพิ่มเพื่อนเพื่อให้ระบบส่งภาพ <strong>QR Code ชำระเงินเป๋าตัง</strong> (ใบละ 20 บ.) เข้าแชท LINE ของท่านทันที
-        </p>
+      <!-- Main Content -->
+      <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.4rem;">
+        🛒 สั่งซื้อสลาก N3 ผ่านระบบ LINE
+      </h3>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.15rem; line-height: 1.5;">
+        ร้านสลาก N3 ธนกิจนำโชค จัดส่งภาพ <strong>QR Code ชำระเงินเป๋าตัง (20 บ./ใบ)</strong> ตรงเข้าห้องแชท LINE ของท่านทันทีเมื่อสั่งซื้อ
+      </p>
 
-        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-          <a id="btn-line-add-friend-now" href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-emerald" style="padding: 0.85rem 1rem; font-size: 1.05rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
-            <i class="fas fa-user-plus"></i> กดเพิ่มเพื่อน LINE @586xxhlx
-          </a>
-          <button type="button" id="btn-recheck-line-membership" class="btn btn-gold" style="padding: 0.75rem 1rem; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-            <i class="fas fa-sync-alt"></i> ฉันเพิ่มเพื่อนแล้ว (ตรวจสอบอีกครั้ง)
-          </button>
-        </div>
-      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+        <!-- Option 1: Already a friend -> Enter order page -->
+        <button type="button" id="btn-confirm-already-friend" class="btn btn-emerald" style="padding: 0.85rem 1rem; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
+          <i class="fas fa-check-circle"></i> ✅ ฉันเป็นเพื่อนใน LINE แล้ว (เข้าหน้าสั่งซื้อ)
+        </button>
 
-      <!-- Dynamic Content State 2: External Browser Login Required (เปิดใน Chrome/Safari ครั้งแรก) -->
-      <div id="member-state-login-required" style="display: none;">
-        <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 0.4rem;">
-          🛒 สั่งซื้อสลาก N3 เฉพาะสมาชิก LINE
-        </h3>
-        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
-          ระบบจัดส่งสลากกินแบ่งรัฐบาล N3 และภาพ QR Code จ่ายเป๋าตังตรงเข้าแชท LINE กรุณายืนยันตัวตนด้วย LINE เพื่อรับสิทธิ์
-        </p>
+        <!-- Option 2: Not a friend yet -> Add friend in LINE -->
+        <a id="btn-line-add-friend-now" href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-gold" style="padding: 0.8rem 1rem; font-size: 0.95rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 14px rgba(212, 175, 55, 0.3);">
+          <i class="fas fa-user-plus"></i> ➕ ยังไม่ได้เป็นเพื่อน? กดเพิ่มเพื่อน LINE ทันที
+        </a>
 
-        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-          <button type="button" id="btn-liff-login-action" class="btn btn-emerald" style="padding: 0.85rem 1rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 16px rgba(0, 195, 0, 0.35);">
-            <i class="fab fa-line" style="font-size: 1.3rem;"></i> เข้าสู่ระบบด้วย LINE (1 แตะ)
-          </button>
-          <a href="https://liff.line.me/2011462211-WVsuHFk4" target="_blank" class="btn btn-gold" style="padding: 0.75rem 1rem; font-size: 0.92rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-            <i class="fas fa-mobile-screen"></i> เปิดสั่งซื้อในแอป LINE (เต็มจอ)
-          </a>
-          <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-outline" style="padding: 0.65rem 1rem; font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; border-color: rgba(255, 255, 255, 0.15);">
-            <i class="fas fa-user-plus"></i> เพิ่มเพื่อน LINE @586xxhlx ก่อน
-          </a>
-        </div>
-      </div>
-
-      <!-- Dynamic Content State 3: Checking spinner -->
-      <div id="member-state-checking" style="display: none; padding: 1.5rem 0;">
-        <div style="font-size: 2.2rem; color: var(--color-gold); margin-bottom: 0.8rem;">
-          <i class="fas fa-circle-notch fa-spin"></i>
-        </div>
-        <h4 style="color: #fff; font-size: 1.05rem; margin-bottom: 0.25rem;">
-          กำลังตรวจสอบสถานะสมาชิก LINE...
-        </h4>
-        <p style="color: var(--text-secondary); font-size: 0.82rem;">
-          ระบบกำลังเชื่อมต่อและยืนยันสิทธิ์อัตโนมัติ กรุณารอสักครู่
-        </p>
+        <!-- Option 3: Chat order directly in LINE -->
+        <a href="https://line.me/R/ti/p/@586xxhlx" target="_blank" class="btn btn-outline" style="padding: 0.65rem 1rem; font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; border-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+          <i class="fab fa-line"></i> แชทสั่งซื้อผ่าน LINE โดยตรง
+        </a>
       </div>
 
       <!-- Trust note -->
       <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
         <i class="fas fa-shield-alt" style="color: var(--color-emerald-light);"></i>
-        <span>ตรวจสอบสิทธิ์ฟรี 100% ไม่เสียโควต้าข้อความ ชำระเงินผ่านเป๋าตังใบละ 20 บาท</span>
+        <span>สลากกินแบ่งรัฐบาล N3 ใบละ 20 บาท ปลอดภัย สแกนจ่ายผ่านแอปเป๋าตัง 100%</span>
       </div>
     </div>
   </div>
