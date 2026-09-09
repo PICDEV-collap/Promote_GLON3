@@ -17,7 +17,7 @@ const ROW_H = Math.round(HEIGHT / 2); // 843
 const RICH_MENU_SPEC = {
   size: { width: WIDTH, height: HEIGHT },
   selected: true,
-  name: 'N3_Thanakit_MainMenu_v5',
+  name: 'N3_Thanakit_MainMenu_v6',
   chatBarText: '🏠 เมนูหลัก',
   areas: [
     {
@@ -38,7 +38,7 @@ const RICH_MENU_SPEC = {
     },
     {
       bounds: { x: 833, y: ROW_H, width: 834, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/?openExternalBrowser=1' }
+      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/dream?openExternalBrowser=1' }
     },
     {
       bounds: { x: 1667, y: ROW_H, width: 833, height: ROW_H },

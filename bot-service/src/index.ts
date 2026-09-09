@@ -205,6 +205,18 @@ app.get(['/line', '/line.html', '/line/'], (_req: Request, res: Response) => {
   }
 });
 
+app.get(['/dream', '/dream.html', '/dream/'], (_req: Request, res: Response) => {
+  const rootDreamPath = path.join(__dirname, '../../dream.html');
+  const localDreamPath = path.join(__dirname, '../public/dream.html');
+  if (fs.existsSync(rootDreamPath)) {
+    res.sendFile(rootDreamPath);
+  } else if (fs.existsSync(localDreamPath)) {
+    res.sendFile(localDreamPath);
+  } else {
+    res.redirect('/#ai-dream');
+  }
+});
+
 app.get(['/order-6pack', '/order-6pack.html'], (_req: Request, res: Response) => {
   const root6PackPath = path.join(__dirname, '../../order-6pack.html');
   const local6PackPath = path.join(__dirname, '../public/order-6pack.html');
