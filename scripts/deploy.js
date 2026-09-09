@@ -115,7 +115,7 @@ async function main() {
     process.exit(0);
   }
 
-  // Step 2: Sync HTML files to bot-service/public
+  // Step 2: Sync HTML, JS, and CSS files to bot-service/public
   console.log('\n[DEPLOY] 📁 2. ซิงค์ไฟล์หน้าเว็บไปยัง bot-service/public...');
   const filesToSync = ['order.html', 'order-6pack.html', 'line.html', 'dream.html', 'index.html'];
   for (const file of filesToSync) {
@@ -125,7 +125,15 @@ async function main() {
       fs.copyFileSync(src, dest);
     }
   }
-  console.log('\x1b[32m[DEPLOY SUCCESS] ซิงค์ไฟล์หน้าเว็บเรียบร้อย\x1b[0m');
+  const dirsToSync = ['js', 'css'];
+  for (const dir of dirsToSync) {
+    const srcDir = path.join(ROOT_DIR, dir);
+    const destDir = path.join(BOT_DIR, 'public', dir);
+    if (fs.existsSync(srcDir)) {
+      fs.cpSync(srcDir, destDir, { recursive: true });
+    }
+  }
+  console.log('\x1b[32m[DEPLOY SUCCESS] ซิงค์ไฟล์หน้าเว็บและ assets เรียบร้อย\x1b[0m');
 
   // Step 3: Compile TypeScript
   console.log('\n[DEPLOY] ⚙️ 3. คอมไพล์โปรเจกต์ TypeScript (npm run build:bot)...');
@@ -139,7 +147,7 @@ async function main() {
 
   // Step 4: Run Tests
   if (!skipTests) {
-    console.log('\n[DEPLOY] 🧪 4. รันชุดทดสอบระบบ 109 ข้อ (npm test)...');
+    console.log('\n[DEPLOY] 🧪 4. รันชุดทดสอบระบบ 110 ข้อ (npm test)...');
     try {
       execSync('npm test', { cwd: ROOT_DIR, stdio: 'inherit' });
       console.log('\x1b[32m[DEPLOY SUCCESS] ผ่านการทดสอบทั้งหมด 100%\x1b[0m');
