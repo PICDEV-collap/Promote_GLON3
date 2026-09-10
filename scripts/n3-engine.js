@@ -1127,9 +1127,8 @@ function showMainMenu() {
   console.log('  [8] Open QR Codes Folder (Open public/qrcodes in Explorer)');
   console.log('  [9] Open Website in Browser (Open index.html)');
   console.log('  [R] Setup / Sync LINE Rich Menu (🎨 อัปเดตริชเมนู 6 ปุ่มด้านล่างหน้าจอแชท LINE)');
-  console.log('  [T] Test All Scenarios (🧪 ตรวจสอบระบบครบ 6 ฉากทัศน์ก่อน Deploy)');
-  console.log('  [D] Deploy System (🚀 Auto Logoff GLO N3 + Build + Test + Git Push)');
-  console.log('  [L] Logoff GLO N3 Session (🔒 ออกจากระบบตัวแทนจำหน่าย GLO N3 ทันที)');
+  console.log('  [D] Deploy System (🚀 Build + Test + Git Push โดยคงเซสชันร้านค้าไว้ 100%)');
+  console.log('  [L] Session Watchdog (🛡️ ตรวจสอบ Session GLO N3 ทุก 500ms + แจ้งเตือน Telegram เมื่อหลุด)');
   console.log('  [S] Create Desktop Shortcuts (สร้างไอคอนทางลัด 3 ตัวบนหน้าจอ Desktop)');
   console.log('  [0] Exit');
   console.log('');
@@ -1205,13 +1204,13 @@ function showMainMenu() {
         console.error('\n\x1b[31m[ERROR] การ Deploy ไม่สำเร็จ\x1b[0m');
       }
       waitForKeypress();
-    } else if (c === 'l' || c === 'logoff') {
+    } else if (c === 'l' || c === 'logoff' || c === 'watch' || c === 'session') {
       console.clear();
-      console.log('Logging off GLO N3 Session...');
+      console.log('Starting Real-Time GLO N3 Session Watchdog (500 ms + Telegram Alert)...');
       try {
-        execSync('node scripts/deploy.js --logoff-only', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit' });
       } catch (e) {
-        console.error('\n\x1b[31m[ERROR] การ Logoff ไม่สำเร็จ\x1b[0m');
+        // User exit with Ctrl+C
       }
       waitForKeypress();
     } else if (c === 's' || c === 'shortcut' || c === 'shortcuts') {
@@ -1271,11 +1270,11 @@ async function main() {
     } catch (e) {
       process.exit(1);
     }
-  } else if (mode === 'logoff') {
+  } else if (mode === 'logoff' || mode === 'watch-session' || mode === 'session-watch') {
     try {
-      execSync('node scripts/deploy.js --logoff-only', { cwd: ROOT_DIR, stdio: 'inherit' });
+      execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit' });
     } catch (e) {
-      process.exit(1);
+      process.exit(0);
     }
   } else if (mode === 'richmenu' || mode === 'menu-setup') {
     try {

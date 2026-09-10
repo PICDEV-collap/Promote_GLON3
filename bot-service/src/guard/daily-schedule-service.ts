@@ -100,19 +100,14 @@ export class DailyScheduleService {
         }
       }
 
-      // ดำเนินการ Logoff ออกจากเซสชัน GLO
-      try {
-        const activePage = PersistentBrowserManager.getActivePage();
-        await N3Auth.logoffSession(activePage);
-      } catch (logoffErr) {
-        console.warn('[DAILY SCHEDULE] คำสั่ง Logoff พบข้อผิดพลาดเล็กน้อย:', logoffErr);
-      }
+      // รักษาเซสชัน GLO N3 ไว้ ไม่สั่ง Logoff อีกต่อไป เพื่อให้ร้านค้าไม่ต้องสแกนเป๋าตังใหม่ทุกเช้า
+      console.log('[DAILY SCHEDULE] 🔒 ปิดระบบรับออเดอร์ชั่วคราวประจำวัน (รักษาเซสชันร้านค้าไว้ต่อเนื่อง ไม่ Logoff)');
 
       // ส่งข้อความแจ้งเตือนแอดมินทาง LINE
       try {
         const timeStr = getThaiTime(now);
         await this.lineHandler.notifyNightlyLogoff(timeStr);
-        console.log('[DAILY SCHEDULE] ✅ ส่งข้อความแจ้งเตือน 23:00 Logoff ให้แอดมินสำเร็จ');
+        console.log('[DAILY SCHEDULE] ✅ ส่งข้อความแจ้งเตือน 23:00 ปิดร้านประจำวันให้แอดมินสำเร็จ');
       } catch (notifyErr) {
         console.error('[DAILY SCHEDULE NOTIFY ERROR] ไม่สามารถส่งแจ้งเตือน 23:00 ได้:', notifyErr);
       }

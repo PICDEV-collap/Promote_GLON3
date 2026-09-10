@@ -105,13 +105,19 @@ function cleanSessionFiles() {
  * กระบวนการหลักของ Deploy
  */
 async function main() {
-  printBanner('🚀 GLO N3 DEPLOYMENT PIPELINE (WITH AUTO-LOGOFF)');
+  printBanner('🚀 GLO N3 DEPLOYMENT PIPELINE (PRESERVE ACTIVE GLO SESSION)');
 
-  // Step 1: Logoff GLO N3
-  await logoffGloSession();
+  // Step 1: รักษาเซสชันร้านค้า GLO N3 ไว้ ไม่ Logoff เพื่อให้ร้านค้าไม่ต้องสแกนเป๋าตังใหม่
+  console.log('[DEPLOY] 🛡️ 1. ตรวจสอบสถานะและรักษาเซสชันร้านค้า GLO N3 (ข้ามการ Logoff เพื่อความต่อเนื่อง)...');
 
   if (isLogoffOnly) {
-    console.log('\n\x1b[32m[DONE] ดำเนินการ Logoff GLO N3 เรียบร้อยแล้ว (Logoff-only mode)\x1b[0m\n');
+    console.log('\n\x1b[36m[NOTICE] คำสั่ง Logoff เดิมถูกปรับปรุงเป็นระบบตรวจสอบ Session Watchdog เรียบร้อยแล้ว\x1b[0m');
+    console.log('🛡️ ระบบจะทำการเฝ้าระวังเซสชันทุก 500 ms และส่งแจ้งเตือน Telegram ทันทีเมื่อเซสชันหลุด\n');
+    try {
+      execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+    } catch {
+      process.exit(0);
+    }
     process.exit(0);
   }
 
@@ -181,7 +187,7 @@ async function main() {
   }
 
   printBanner('🎉 DEPLOYMENT FINISHED SUCCESSFULLY!');
-  console.log('✅ เซสชัน GLO N3 ถูก Logoff เรียบร้อย');
+  console.log('✅ รักษาเซสชันร้านค้า GLO N3 ต่อเนื่อง (พร้อมระบบ Watchdog 500 ms)');
   console.log('✅ โค้ดได้รับการตรวจสอบและทดสอบ 100%');
   console.log('✅ ระบบพร้อมให้บริการที่ https://promote-glon-3.vercel.app/\n');
 }

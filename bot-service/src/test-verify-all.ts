@@ -790,19 +790,25 @@ async function runTests() {
     // 1. Check disabled x-powered-by
     assert(indexContent.includes("app.disable('x-powered-by')"), 'index.ts must disable x-powered-by');
 
-    // 2. Check security headers
-    assert(indexContent.includes('X-Content-Type-Options') && indexContent.includes('nosniff'), 'index.ts must set X-Content-Type-Options: nosniff');
-    assert(indexContent.includes('X-Frame-Options') && indexContent.includes('SAMEORIGIN'), 'index.ts must set X-Frame-Options: SAMEORIGIN');
-    assert(indexContent.includes('Referrer-Policy'), 'index.ts must set Referrer-Policy');
+    // 2. Check security headers (in index.ts or via CyberGuard middleware)
+    const guardPath = fs.existsSync(path.resolve(__dirname, 'guard/cyber-guard.ts'))
+      ? path.resolve(__dirname, 'guard/cyber-guard.ts')
+      : path.resolve(__dirname, '../src/guard/cyber-guard.ts');
+    const guardContent = fs.existsSync(guardPath) ? fs.readFileSync(guardPath, 'utf-8') : '';
+    const allSecurityContent = indexContent + '\n' + guardContent;
+
+    assert(allSecurityContent.includes('X-Content-Type-Options') && allSecurityContent.includes('nosniff'), 'System must set X-Content-Type-Options: nosniff');
+    assert(allSecurityContent.includes('X-Frame-Options') && allSecurityContent.includes('SAMEORIGIN'), 'System must set X-Frame-Options: SAMEORIGIN');
+    assert(allSecurityContent.includes('Referrer-Policy'), 'System must set Referrer-Policy');
 
     // 3. Check rate limiter
-    assert(indexContent.includes('InMemoryRateLimiter'), 'index.ts must implement rate limiting');
-    assert(indexContent.includes('rateLimiter.check'), 'index.ts must check rate limiter on endpoints');
+    assert(allSecurityContent.includes('InMemoryRateLimiter') || allSecurityContent.includes('MultiTierRateLimiter'), 'System must implement rate limiting');
+    assert(allSecurityContent.includes('rateLimiter.check'), 'System must check rate limiter on endpoints');
 
     // 4. Check sensitive path blocking
-    assert(indexContent.includes('SECURITY BLOCKED'), 'index.ts must log security blocked events');
-    assert(indexContent.includes('browser_profile'), 'index.ts must block browser_profile path');
-    assert(indexContent.includes('.env'), 'index.ts must block .env path');
+    assert(allSecurityContent.includes('SECURITY BLOCKED'), 'System must log security blocked events');
+    assert(allSecurityContent.includes('browser_profile'), 'System must block browser_profile path');
+    assert(allSecurityContent.includes('.env'), 'System must block .env path');
 
     // 5. Check root directory is NOT exposed
     assert(!indexContent.includes("app.use(express.static(path.join(__dirname, '../../')));"), 'index.ts must NOT expose root directory');
@@ -1861,6 +1867,269 @@ async function runTests() {
     const deploy = require('../../scripts/deploy.js');
     assert.strictEqual(typeof deploy.logoffGloSession, 'function', 'logoffGloSession must be exported function');
     assert.strictEqual(typeof deploy.cleanSessionFiles, 'function', 'cleanSessionFiles must be exported function');
+  });
+
+  // TEST SUITE 20: GLO N3 500ms Real-Time Session Watchdog & Telegram Alert Pipeline
+  test('GloSessionWatchdog: singleton initialization, 500ms interval, and checkNow state transitions', async () => {
+    const { GloSessionWatchdog } = await import('./guard/session-watchdog');
+    const { TelegramService } = await import('./notify/telegram-service');
+    
+    const tg = TelegramService.getInstance();
+    const watchdog = GloSessionWatchdog.getInstance(tg);
+    watchdog.resetTrackingForTest();
+
+    // 1. Initial State
+    let state = watchdog.getStatus();
+    assert.strictEqual(state.status, 'INITIALIZING');
+    assert.strictEqual(state.hasAlerted, false);
+    assert.strictEqual(state.intervalMs, 500);
+
+    // 2. Test Detection of Disconnected Session via Mock Page with /login URL
+    const mockLoginPage: any = {
+      isClosed: () => false,
+      url: () => 'https://n3.glolotteryshop.com/login/',
+      evaluate: async () => false
+    };
+
+    const statusLogin = await watchdog.checkNow(mockLoginPage);
+    assert.strictEqual(statusLogin, 'DISCONNECTED', 'Must transition to DISCONNECTED when page is /login/');
+    state = watchdog.getStatus();
+    assert.strictEqual(state.status, 'DISCONNECTED');
+    assert.strictEqual(state.hasAlerted, true, 'Must set hasAlerted = true on first drop');
+    assert(state.lastDropReason?.includes('Login'));
+
+    // 3. Anti-Spam Latch: Second check on same disconnected page must NOT duplicate alert
+    const statusLogin2 = await watchdog.checkNow(mockLoginPage);
+    assert.strictEqual(statusLogin2, 'DISCONNECTED');
+    assert.strictEqual(watchdog.getStatus().hasAlerted, true);
+
+    // 4. Test Detection of Session Expired Modal
+    watchdog.resetTrackingForTest();
+    const mockModalPage: any = {
+      isClosed: () => false,
+      url: () => 'https://n3.glolotteryshop.com/lotto-search/?position=1',
+      evaluate: async () => true
+    };
+
+    const statusModal = await watchdog.checkNow(mockModalPage);
+    assert.strictEqual(statusModal, 'DISCONNECTED', 'Must transition to DISCONNECTED when kick modal detected');
+    assert(watchdog.getStatus().lastDropReason?.includes('ป๊อปอัป'));
+
+    // 5. Test Recovery: Session restored to healthy landing page
+    watchdog.setHasAlertedForTest(true);
+    const mockHealthyPage: any = {
+      isClosed: () => false,
+      url: () => 'https://n3.glolotteryshop.com/landing/',
+      evaluate: async () => false
+    };
+
+    const statusHealthy = await watchdog.checkNow(mockHealthyPage);
+    assert.strictEqual(statusHealthy, 'LOGGED_IN', 'Must recover to LOGGED_IN on healthy landing page');
+    assert.strictEqual(watchdog.getStatus().hasAlerted, false, 'hasAlerted must be reset to false upon recovery');
+
+    // 6. Test start() and stop()
+    watchdog.start(500);
+    watchdog.stop();
+    assert.strictEqual(watchdog.getStatus().status, 'STOPPED');
+    watchdog.resetTrackingForTest();
+  });
+
+  test('TelegramService: notifySessionDropped and notifySessionRestored format valid payloads without throwing', async () => {
+    const { TelegramService } = await import('./notify/telegram-service');
+    const tg = TelegramService.getInstance();
+
+    const dropRes = await tg.notifySessionDropped({
+      reason: 'ตรวจพบป๊อปอัปเซสชันหมดอายุ',
+      detectedUrl: 'https://n3.glolotteryshop.com/login/',
+      timestamp: '06:45:00 น.'
+    });
+    assert.strictEqual(typeof dropRes, 'boolean');
+
+    const restoreRes = await tg.notifySessionRestored('06:46:00 น.');
+    assert.strictEqual(typeof restoreRes, 'boolean');
+  });
+
+  // TEST SUITE 21: Enterprise Cybersecurity, Anti-DDoS, Auto-Jail, and Hardening Controls
+  test('MultiTierRateLimiter: enforces sliding window limits, detail inspections, and memory cleanup', async () => {
+    const { MultiTierRateLimiter } = await import('./guard/cyber-guard');
+    const limiter = new MultiTierRateLimiter();
+
+    const testKey = 'test-client-1';
+    // Limit: 3 requests per 10,000 ms
+    assert.strictEqual(limiter.check(testKey, 3, 10000), true, 'Request 1 should be allowed');
+    assert.strictEqual(limiter.check(testKey, 3, 10000), true, 'Request 2 should be allowed');
+    assert.strictEqual(limiter.check(testKey, 3, 10000), true, 'Request 3 should be allowed');
+    assert.strictEqual(limiter.check(testKey, 3, 10000), false, 'Request 4 must be blocked (429)');
+
+    // Detailed check
+    const detailed = limiter.checkDetailed(testKey, 3, 10000);
+    assert.strictEqual(detailed.allowed, false, 'Detailed check must show not allowed');
+    assert.strictEqual(detailed.count, 3, 'Detailed check must show 3 requests in window');
+
+    // Reset
+    limiter.resetForTest();
+    assert.strictEqual(limiter.check(testKey, 3, 10000), true, 'Request after reset must be allowed');
+  });
+
+  test('CyberJailManager: strike accumulation, auto-jail trigger, localhost protection, and unjail', async () => {
+    const { CyberJailManager } = await import('./guard/cyber-guard');
+    const jail = CyberJailManager.getInstance();
+    jail.resetForTest();
+
+    // 1. Localhost immunity (Localhost must never be jailed)
+    jail.jailIp('127.0.0.1', 'Localhost test', 15);
+    assert.strictEqual(jail.isJailed('127.0.0.1'), false, '127.0.0.1 must be immune from jailing');
+
+    jail.recordStrike('127.0.0.1', 'Localhost strike', 1, 15);
+    assert.strictEqual(jail.isJailed('127.0.0.1'), false, 'Localhost strikes must not jail');
+
+    // 2. External Attacker IP Strike Accumulation
+    const attackerIp = '198.51.100.24'; // RFC 5737 TEST-NET-2 IP
+    assert.strictEqual(jail.isJailed(attackerIp), false, 'Initially not jailed');
+
+    // Strike 1
+    const s1 = jail.recordStrike(attackerIp, 'Probe /.env', 3, 15);
+    assert.strictEqual(s1, false, 'Strike 1 should not trigger auto-jail');
+    assert.strictEqual(jail.isJailed(attackerIp), false);
+
+    // Strike 2
+    const s2 = jail.recordStrike(attackerIp, 'Probe /.git', 3, 15);
+    assert.strictEqual(s2, false, 'Strike 2 should not trigger auto-jail');
+    assert.strictEqual(jail.isJailed(attackerIp), false);
+
+    // Strike 3 -> Auto-Jail!
+    const s3 = jail.recordStrike(attackerIp, 'Probe /etc/passwd', 3, 15);
+    assert.strictEqual(s3, true, 'Strike 3 must trigger auto-jail');
+    assert.strictEqual(jail.isJailed(attackerIp), true, 'Attacker IP must now be jailed');
+
+    const remainingSec = jail.getRemainingSeconds(attackerIp);
+    assert(remainingSec > 800 && remainingSec <= 900, 'Remaining time should be ~15 minutes (900s)');
+
+    const jailedList = jail.getJailedList();
+    assert(jailedList.some(j => j.ip === attackerIp), 'Attacker must be present in jailed list');
+
+    // 3. Unjail
+    jail.unjail(attackerIp);
+    assert.strictEqual(jail.isJailed(attackerIp), false, 'Attacker must be unjailed');
+    jail.resetForTest();
+  });
+
+  test('createCyberGuardMiddleware: blocks jailed IPs, blocks malicious paths, and sets security headers', async () => {
+    const { CyberJailManager, MultiTierRateLimiter, createCyberGuardMiddleware } = await import('./guard/cyber-guard');
+    const jail = CyberJailManager.getInstance();
+    const limiter = new MultiTierRateLimiter();
+    jail.resetForTest();
+    limiter.resetForTest();
+
+    const middleware = createCyberGuardMiddleware(jail, limiter);
+
+    // Test 1: Malicious sensitive path -> 403 Forbidden
+    const headersMap: Record<string, string> = {};
+    let statusCode: number = 200;
+    let sentData: any = null;
+    let nextCalled = false;
+
+    const mockReqMalicious: any = {
+      headers: { 'x-real-ip': '203.0.113.50' },
+      url: '/.env',
+      path: '/.env',
+      method: 'GET'
+    };
+    const mockResMalicious: any = {
+      setHeader: (k: string, v: string) => { headersMap[k] = v; },
+      status: (c: number) => { statusCode = c; return mockResMalicious; },
+      send: (d: any) => { sentData = d; },
+      json: (d: any) => { sentData = d; }
+    };
+
+    middleware(mockReqMalicious, mockResMalicious, () => { nextCalled = true; });
+    assert.strictEqual(statusCode, 403, 'Must return 403 Forbidden for /.env');
+    assert.strictEqual(nextCalled, false, 'next() must NOT be called for blocked path');
+    assert.strictEqual(headersMap['X-Security-Action'], 'PATH_BLOCKED');
+
+    // Test 2: Normal request -> sets enterprise security headers and calls next()
+    const normalHeaders: Record<string, string> = {};
+    let normalStatus = 200;
+    let normalNextCalled = false;
+
+    const mockReqNormal: any = {
+      headers: { 'x-real-ip': '203.0.113.99' },
+      url: '/health',
+      path: '/health',
+      method: 'GET'
+    };
+    const mockResNormal: any = {
+      setHeader: (k: string, v: string) => { normalHeaders[k] = v; },
+      status: (c: number) => { normalStatus = c; return mockResNormal; },
+      send: () => {},
+      json: () => {}
+    };
+
+    middleware(mockReqNormal, mockResNormal, () => { normalNextCalled = true; });
+    assert.strictEqual(normalNextCalled, true, 'next() must be called for valid request');
+    assert.strictEqual(normalHeaders['X-Content-Type-Options'], 'nosniff');
+    assert.strictEqual(normalHeaders['X-Frame-Options'], 'SAMEORIGIN');
+    assert.strictEqual(normalHeaders['Referrer-Policy'], 'strict-origin-when-cross-origin');
+    assert.strictEqual(normalHeaders['Cross-Origin-Resource-Policy'], 'cross-origin');
+
+    // Test 3: Jailed IP request -> immediate 403
+    jail.jailIp('203.0.113.88', 'Manual test jail', 15);
+    let jailedStatus = 200;
+    let jailedNextCalled = false;
+    let jailedHeaders: Record<string, string> = {};
+
+    const mockReqJailed: any = {
+      headers: { 'x-real-ip': '203.0.113.88' },
+      url: '/health',
+      path: '/health',
+      method: 'GET'
+    };
+    const mockResJailed: any = {
+      setHeader: (k: string, v: string) => { jailedHeaders[k] = v; },
+      status: (c: number) => { jailedStatus = c; return mockResJailed; },
+      send: () => {},
+      json: () => {}
+    };
+
+    middleware(mockReqJailed, mockResJailed, () => { jailedNextCalled = true; });
+    assert.strictEqual(jailedStatus, 403, 'Jailed IP must receive 403 Forbidden');
+    assert.strictEqual(jailedNextCalled, false, 'next() must NOT be called for jailed IP');
+    assert.strictEqual(jailedHeaders['X-Security-Action'], 'IP_JAILED');
+
+    jail.resetForTest();
+    limiter.resetForTest();
+  });
+
+  test('TelegramService: notifySecurityThreat formats alert and executes safely', async () => {
+    const { TelegramService } = await import('./notify/telegram-service');
+    const tg = TelegramService.getInstance();
+
+    const res = await tg.notifySecurityThreat({
+      event: 'ตรวจพบการโจมตี DDoS / Flooding',
+      ip: '198.51.100.99',
+      reason: 'ยิงคำขอเกิน 200 ครั้ง/นาที',
+      durationMinutes: 15,
+      path: '/webhook'
+    });
+    assert.strictEqual(typeof res, 'boolean', 'notifySecurityThreat must return boolean');
+  });
+
+  test('HTTP Hardening & Slowloris Shield: Verify timeouts, body limits, and admin status API in index.ts', () => {
+    const indexPath = path.resolve(__dirname, 'index.ts');
+    assert(fs.existsSync(indexPath), 'bot-service/src/index.ts must exist');
+    const content = fs.readFileSync(indexPath, 'utf-8');
+
+    // Slowloris timeouts
+    assert(content.includes('headersTimeout = 8000'), 'Must set headersTimeout = 8000');
+    assert(content.includes('requestTimeout = 15000'), 'Must set requestTimeout = 15000');
+    assert(content.includes('keepAliveTimeout = 5000'), 'Must set keepAliveTimeout = 5000');
+
+    // Body payload memory protection
+    assert(content.includes("limit: '256kb'"), 'Must limit body parser to 256kb');
+
+    // Admin endpoints
+    assert(content.includes('/api/admin/security/status'), 'Must have security status API');
+    assert(content.includes('/api/admin/security/unjail'), 'Must have security unjail API');
   });
 
   for (const t of testList) {
