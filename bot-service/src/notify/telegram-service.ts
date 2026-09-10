@@ -252,9 +252,66 @@ export class TelegramService {
     } else {
       text = `🌙 [แจ้งเตือนปิดร้าน N3 ประจำวัน] (${timeStr})\n\n` +
         `🔒 ถึงเวลาปิดระบบจำหน่ายสลากประจำวัน (23:00 น.)\n` +
-        `บอทได้ทำการ Logoff และรีเซ็ตเซสชันเพื่อความปลอดภัยเรียบร้อยแล้วครับ`;
+        `บอทได้ทำการปิดระบบรับออเดอร์ประจำวันชั่วคราว (คงสถานะล็อกอินร้านค้าไว้) เรียบร้อยแล้วครับ`;
     }
     return this.sendText(text);
+  }
+
+  /**
+   * ส่งแจ้งเตือนด่วนระดับฉุกเฉินเมื่อเซสชัน GLO N3 หลุดการเชื่อมต่อ
+   */
+  public async notifySessionDropped(details: { reason: string; detectedUrl?: string; timestamp?: string }): Promise<boolean> {
+    const timeStr = details.timestamp || new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.';
+    const urlLine = details.detectedUrl ? `\n🌐 URL ที่ตรวจพบ: ${details.detectedUrl}` : '';
+
+    const alertText = `🚨 <b>[แจ้งเตือนด่วน] เซสชัน GLO N3 หลุด!</b>\n\n` +
+      `⚠️ <b>สถานะ:</b> ตรวจพบเซสชันตัวแทนจำหน่าย GLO N3 หลุดการเชื่อมต่อ\n` +
+      `🔍 <b>สาเหตุ:</b> ${details.reason}${urlLine}\n` +
+      `⏱️ <b>เวลาที่ตรวจพบ:</b> ${timeStr}\n` +
+      `🔄 <b>รอบการตรวจ:</b> ทุก 500 ms (Real-time Watchdog)\n\n` +
+      `📲 <b>คำแนะนำ:</b> กรุณาเปิดแอปเป๋าตังเพื่อสแกน QR ล็อกอินใหม่ โดยพิมพ์คำว่า "qr" ในแชท LINE ร้านค้าครับ`;
+
+    return this.sendText(alertText, { parseMode: 'HTML' });
+  }
+
+  /**
+   * ส่งแจ้งเตือนเมื่อเซสชัน GLO N3 กลับมาออนไลน์พร้อมให้บริการ
+   */
+  public async notifySessionRestored(timeStr?: string): Promise<boolean> {
+    const time = timeStr || new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.';
+
+    const restoreText = `🟢 <b>[แจ้งเตือน] เซสชัน GLO N3 กลับมาออนไลน์แล้ว!</b>\n\n` +
+      `✅ ร้านสลาก N3 ธนกิจนำโชค เข้าสู่ระบบสำเร็จพร้อมรับออเดอร์ตามปกติ\n` +
+      `⏱️ <b>เวลา:</b> ${time}\n` +
+      `🛡️ ระบบเฝ้าระวังเซสชันทำงานต่อเนื่อง (ทุก 500 ms)`;
+
+    return this.sendText(restoreText, { parseMode: 'HTML' });
+  }
+
+  /**
+   * ส่งแจ้งเตือนภัยคุกคามทางไซเบอร์ (DDoS, Flooding, Path Traversal, Auto-Jail IP)
+   */
+  public async notifySecurityThreat(details: {
+    event: string;
+    ip: string;
+    reason: string;
+    durationMinutes?: number;
+    path?: string;
+  }): Promise<boolean> {
+    const time = new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.';
+    const pathLine = details.path ? `\n🎯 <b>Path ที่โจมตี:</b> <code>${details.path}</code>` : '';
+    const jailLine = details.durationMinutes
+      ? `\n🛑 <b>มาตรการตอบสนอง:</b> บล็อกและแบน IP ชั่วคราว (Auto-Jail ${details.durationMinutes} นาที)`
+      : `\n🛑 <b>มาตรการตอบสนอง:</b> ปฏิเสธคำขอและบันทึกเฝ้าระวัง`;
+
+    const alertText = `🛡️ <b>[แจ้งเตือนความปลอดภัย] ตรวจพบและสกัดกั้นภัยคุกคาม!</b>\n\n` +
+      `⚠️ <b>เหตุการณ์:</b> ${details.event}\n` +
+      `🌐 <b>IP ผู้กระทำ:</b> <code>${details.ip}</code>\n` +
+      `🔍 <b>สาเหตุ:</b> ${details.reason}${pathLine}${jailLine}\n` +
+      `⏱️ <b>เวลา:</b> ${time}\n\n` +
+      `💡 ระบบตัดการเชื่อมต่อที่ขอบประตูเพื่อรักษาเสถียรภาพของบอทและโควต้าสลาก`;
+
+    return this.sendText(alertText, { parseMode: 'HTML' });
   }
 
   /**

@@ -20,7 +20,9 @@ import { CustomerRegistry } from './storage/customer-registry';
 import { CampaignService } from './automation/campaign-service';
 import { LuckyDistributor } from './dream/lucky-distributor';
 import { DailyScheduleService } from './guard/daily-schedule-service';
+import { GloSessionWatchdog } from './guard/session-watchdog';
 import { TelegramService } from './notify/telegram-service';
+import { CyberJailManager, MultiTierRateLimiter, createCyberGuardMiddleware } from './guard/cyber-guard';
 
 const app = express();
 
@@ -28,77 +30,22 @@ const app = express();
 app.disable('x-powered-by');
 
 // -------------------------------------------------------------------------
-// 0. ระบบความปลอดภัย (Security Controls & Hardening)
+// 0. ระบบความปลอดภัย Enterprise Cybersecurity (DDoS, Multi-Tier Rate Limiting, Auto-Jail)
 // -------------------------------------------------------------------------
+export const cyberJailManager = CyberJailManager.getInstance();
+export const rateLimiter = new MultiTierRateLimiter();
 
-// In-Memory Sliding-Window Rate Limiter
-class InMemoryRateLimiter {
-  private requests: Map<string, number[]> = new Map();
+// ติดตั้ง CyberGuard Middleware ดักหน้าสุดของระบบ (ตรวจ IP Jailed, กรอง Sensitive Path, Multi-Tier Limits, Headers)
+app.use(createCyberGuardMiddleware(cyberJailManager, rateLimiter));
 
-  public check(key: string, limit: number, windowMs: number): boolean {
-    const now = Date.now();
-    const timestamps = this.requests.get(key) || [];
-    const valid = timestamps.filter(t => now - t < windowMs);
-    if (valid.length >= limit) {
-      return false; // เกินอัตราคำขอ
-    }
-    valid.push(now);
-    this.requests.set(key, valid);
-
-    // เคลียร์ความจำเมื่อมีคีย์มากเกินไป
-    if (this.requests.size > 2000) {
-      for (const [k, v] of this.requests.entries()) {
-        if (v.length === 0 || now - v[v.length - 1] > windowMs * 2) {
-          this.requests.delete(k);
-        }
-      }
-    }
-    return true;
-  }
-}
-
-const rateLimiter = new InMemoryRateLimiter();
-
-// Security Headers Middleware (ป้องกัน Clickjacking, MIME Sniffing, XSS)
-app.use((_req: Request, res: Response, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
-
-// Sensitive Path & Traversal Blocker (ป้องกันการเข้าถึง .env, .git, .log, data/, browser_profile)
-app.use((req: Request, res: Response, next) => {
-  const rawUrl = req.url || '';
-  const decodedUrl = decodeURIComponent(rawUrl).toLowerCase();
-
-  if (
-    decodedUrl.includes('..') ||
-    decodedUrl.includes('/.env') ||
-    decodedUrl.includes('/.git') ||
-    decodedUrl.includes('browser_profile') ||
-    decodedUrl.includes('storagestate') ||
-    decodedUrl.includes('quota.json') ||
-    decodedUrl.includes('bot.pid') ||
-    decodedUrl.includes('.log') ||
-    decodedUrl.includes('webhook-url') ||
-    decodedUrl.includes('/node_modules') ||
-    decodedUrl.includes('/package.json') ||
-    decodedUrl.includes('/tsconfig.json')
-  ) {
-    console.warn(`[SECURITY BLOCKED] ปฏิเสธคำขอเข้าถึง Sensitive Path: ${req.method} ${rawUrl}`);
-    res.status(403).send('Forbidden');
-    return;
-  }
-  next();
-});
-
-// ดักจับ rawBody สำหรับตรวจสอบ LINE Webhook Signature
+// ดักจับ rawBody สำหรับตรวจสอบ LINE Webhook Signature พร้อมจำกัด Payload Size 256KB ป้องกัน Memory Flooding (Slowloris/Body-Bomb)
 app.use(express.json({
+  limit: '256kb',
   verify: (req: any, _res, buf) => {
     req.rawBody = buf;
   }
 }));
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
 // -------------------------------------------------------------------------
 // QR Memory Cache (In-Memory Buffer Cache)
@@ -341,7 +288,7 @@ app.get(['/api/draw-info', '/api/draw-schedule'], async (req: Request, res: Resp
   }
 });
 
-// Admin REST API: สั่ง Logoff เซสชัน GLO N3 ทันที (ก่อน Deploy หรือเมื่อผู้ดูแลระบบสั่งการ)
+// Admin REST API: คำสั่ง Logoff (ปรับปรุงเพื่อรักษาเซสชันร้านค้า ไม่ตัดการเชื่อมต่อ เว้นแต่จะระบุ force=true)
 app.all('/api/admin/logoff', async (req: Request, res: Response): Promise<void> => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -362,20 +309,101 @@ app.all('/api/admin/logoff', async (req: Request, res: Response): Promise<void> 
     return;
   }
 
+  const isForce = req.query.force === 'true' || (req.body && req.body.force === true);
+
   try {
-    console.log('[ADMIN API] 🔒 ได้รับคำสั่ง Logoff GLO N3 จากผู้ดูแลระบบ (Deploy / Admin API)...');
-    const activePage = PersistentBrowserManager.getActivePage();
-    const loggedOff = await N3Auth.logoffSession(activePage);
-    res.json({
-      success: true,
-      loggedOff,
-      message: 'GLO N3 session logged off and cleared successfully',
-      timestamp: new Date().toISOString()
-    });
+    const watchdogStatus = GloSessionWatchdog.getInstance().getStatus();
+
+    if (isForce) {
+      console.log('[ADMIN API] ⚠️ ได้รับคำสั่งบังคับ Logoff GLO N3 (force=true)...');
+      const activePage = PersistentBrowserManager.getActivePage();
+      const loggedOff = await N3Auth.logoffSession(activePage);
+      res.json({
+        success: true,
+        loggedOff,
+        forced: true,
+        message: 'GLO N3 session forcibly logged off',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.log('[ADMIN API] 🛡️ ได้รับคำสั่ง Logoff -> ทำการรักษาเซสชันร้านค้าไว้ต่อเนื่อง (Logoff Disabled by Policy)');
+      res.json({
+        success: true,
+        loggedOff: false,
+        sessionPreserved: true,
+        watchdog: watchdogStatus,
+        message: 'GLO N3 session preserved to maintain active dealer state. 500ms watchdog active.',
+        timestamp: new Date().toISOString()
+      });
+    }
   } catch (err: any) {
-    console.error('[ADMIN API] Logoff failed:', err);
-    res.status(500).json({ success: false, error: err?.message || 'Logoff failed' });
+    console.error('[ADMIN API] Logoff endpoint error:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error processing request' });
   }
+});
+
+// Admin REST API: ตรวจสอบสถานะระบบเฝ้าระวังเซสชัน (500 ms Watchdog)
+app.get('/api/admin/session/status', (_req: Request, res: Response): void => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const watchdog = GloSessionWatchdog.getInstance();
+  res.json({
+    success: true,
+    data: watchdog.getStatus(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Admin REST API: ตรวจสอบสถานะความปลอดภัย Cyber Security & Anti-DDoS
+app.get('/api/admin/security/status', (req: Request, res: Response): void => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '';
+  const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
+
+  if (!isLocal && CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
+  res.json({
+    success: true,
+    status: 'active',
+    jailedIps: cyberJailManager.getJailedList(),
+    metrics: cyberJailManager.getMetrics(),
+    rateLimiterMetrics: rateLimiter.getMetrics(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Admin REST API: ปลดแบน IP (Unjail)
+app.post('/api/admin/security/unjail', (req: Request, res: Response): void => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '';
+  const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
+
+  if (!isLocal && CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
+  const targetIp = (req.body?.ip || req.query.ip) as string;
+  if (!targetIp) {
+    res.status(400).json({ success: false, error: 'Target IP is required' });
+    return;
+  }
+
+  cyberJailManager.unjail(targetIp);
+  res.json({
+    success: true,
+    message: `IP ${targetIp} unjailed successfully`,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Campaign REST API: สถิติแคมเปญและลูกค้า
@@ -2128,6 +2156,11 @@ export function setupLifecycleHandlers(): void {
 function startServerWithPort(targetPort: number) {
   const server = http.createServer(app);
 
+  // Slowloris & Slow HTTP Attack Protection (ตัดการเชื่อมต่อแฝงที่ส่ง header หรือ request ช้าผิดปกติ)
+  server.headersTimeout = 8000;   // สูงสุด 8 วินาทีในการส่ง HTTP Headers
+  server.requestTimeout = 15000;  // สูงสุด 15 วินาทีต่อ 1 Request
+  server.keepAliveTimeout = 5000; // 5 วินาทีสำหรับ Idle Keep-Alive Socket
+
   server.listen(targetPort, async () => {
     console.log(`====================================================`);
     console.log(`[SERVICE] N3 Order Bot is RUNNING at: http://localhost:${targetPort}`);
@@ -2171,9 +2204,13 @@ function startServerWithPort(targetPort: number) {
     // เริ่มต้นระบบตั้งเวลาส่งเลขมงคลกระจายและส่งผลรางวัลอัตโนมัติ (Campaign Auto Scheduler)
     campaignService.startAutoScheduler();
 
-    // เริ่มต้นระบบตั้งเวลา Logoff ประจำวัน (23:00 น.) และแจ้งเตือนเปิดร้าน (06:00 น.)
+    // เริ่มต้นระบบตั้งเวลาปิดร้านประจำวัน (23:00 น.) และแจ้งเตือนเปิดร้าน (06:00 น.) โดยไม่ Logoff
     const dailyScheduleService = DailyScheduleService.getInstance(lineHandler, orderQueue);
     dailyScheduleService.start();
+
+    // เริ่มต้นระบบเฝ้าระวังเซสชัน GLO N3 แบบเรียลไทม์ทุก 500 ms (แจ้งเตือน Telegram ทันทีเมื่อเซสชันหลุด)
+    const sessionWatchdog = GloSessionWatchdog.getInstance(TelegramService.getInstance(), orderQueue);
+    sessionWatchdog.start(500);
 
     // ส่งแจ้งเตือน Admin เมื่อเปิดบอท (หากไม่ได้เปิดผ่าน n3-engine ที่แจ้งเตือนพร้อม URL Tunnel แล้ว)
     if (process.env.ENGINE_NOTIFIES_START !== 'true') {
