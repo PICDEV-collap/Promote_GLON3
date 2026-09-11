@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>สลาก N3 ร้านธนกิจนำโชค - TikTok Promo</title>
+    <!-- Google Fonts: Kanit & Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,600;0,800;0,900;1,700&family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <!-- GSAP CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: #060a17;
+        color: #ffffff;
+        font-family: 'Kanit', sans-serif;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 20%, #1e265c 0%, #0a0f24 50%, #04060e 100%);
+      }
+
+      /* Ambient Glow & Floating Orbs */
+      .ambient-orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+        pointer-events: none;
+      }
+      .orb-gold {
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(255, 204, 0, 0.25) 0%, rgba(255, 170, 0, 0) 70%);
+        top: -100px;
+        left: 240px;
+      }
+      .orb-purple {
+        width: 700px;
+        height: 700px;
+        background: radial-gradient(circle, rgba(147, 51, 234, 0.22) 0%, rgba(147, 51, 234, 0) 70%);
+        bottom: 100px;
+        left: -150px;
+      }
+      .orb-cyan {
+        width: 500px;
+        height: 500px;
+        background: radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0) 70%);
+        top: 600px;
+        right: -100px;
+      }
+
+      /* Base Scene Clip */
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1080px;
+        height: 1920px;
+        padding: 100px 60px 120px 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* Top Brand Bar */
+      .brand-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 215, 0, 0.4);
+        padding: 14px 32px;
+        border-radius: 999px;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      }
+      .brand-logo-badge {
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(135deg, #ffd700 0%, #ff8800 100%);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+        font-size: 24px;
+        color: #0b0f19;
+        box-shadow: 0 4px 15px rgba(255, 170, 0, 0.5);
+      }
+      .brand-text {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #ffffff;
+      }
+      .brand-badge-official {
+        background: #047835;
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 6px;
+      }
+
+      /* Typography Utilities */
+      .text-gold {
+        background: linear-gradient(135deg, #fff3a8 0%, #ffd700 50%, #ff9900 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 10px 30px rgba(255, 170, 0, 0.3);
+      }
+      .text-cyan {
+        background: linear-gradient(135deg, #e0f7fa 0%, #00e5ff 50%, #00b0ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      /* 3D Ball Container */
+      .balls-row {
+        display: flex;
+        gap: 32px;
+        justify-content: center;
+        margin: 40px 0;
+      }
+      .lotto-ball {
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #ffffff 0%, #ffd54f 25%, #ff8f00 65%, #c43e00 100%);
+        display: grid;
+        place-items: center;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), inset -6px -10px 18px rgba(0, 0, 0, 0.4), inset 6px 10px 18px rgba(255, 255, 255, 0.8);
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        position: relative;
+      }
+      .lotto-ball-cyan {
+        background: radial-gradient(circle at 35% 30%, #ffffff 0%, #80deea 25%, #00acc1 65%, #006064 100%);
+      }
+      .lotto-ball-pink {
+        background: radial-gradient(circle at 35% 30%, #ffffff 0%, #f48fb1 25%, #d81b60 65%, #880e4f 100%);
+      }
+      .ball-number {
+        font-size: 88px;
+        font-weight: 900;
+        color: #1a1a1a;
+        font-family: 'Prompt', sans-serif;
+        text-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
+      }
+
+      /* Hook Banner */
+      .hero-title {
+        font-size: 82px;
+        font-weight: 900;
+        line-height: 1.15;
+        text-align: center;
+        margin: 0;
+      }
+      .hero-subtitle {
+        font-size: 38px;
+        font-weight: 600;
+        text-align: center;
+        color: #d1d5db;
+        line-height: 1.4;
+        margin: 16px 0 0 0;
+      }
+
+      .price-pill {
+        display: inline-block;
+        background: linear-gradient(135deg, #ffd700 0%, #ff6d00 100%);
+        color: #0b0f19;
+        font-size: 42px;
+        font-weight: 900;
+        padding: 12px 36px;
+        border-radius: 999px;
+        box-shadow: 0 10px 30px rgba(255, 109, 0, 0.5);
+        margin-top: 20px;
+      }
+
+      /* Scene 2: 4 Prize Cards */
+      .prize-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        width: 100%;
+        margin-top: 30px;
+      }
+      .prize-card {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1.5px solid rgba(255, 215, 0, 0.3);
+        border-radius: 28px;
+        padding: 36px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      }
+      .prize-card.card-jackpot {
+        grid-column: span 2;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 109, 0, 0.1) 100%);
+        border: 2px solid #ffd700;
+        box-shadow: 0 20px 50px rgba(255, 170, 0, 0.25);
+      }
+      .prize-icon {
+        font-size: 64px;
+        margin-bottom: 12px;
+      }
+      .prize-title {
+        font-size: 38px;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 0;
+      }
+      .prize-desc {
+        font-size: 26px;
+        color: #cbd5e1;
+        margin: 8px 0 0 0;
+        font-weight: 400;
+      }
+
+      /* Scene 3: Steps & CTA */
+      .steps-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 100%;
+      }
+      .step-item {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 24px 30px;
+        border-radius: 24px;
+        backdrop-filter: blur(15px);
+      }
+      .step-num {
+        width: 60px;
+        height: 60px;
+        background: #004bbf;
+        border: 2px solid #80bfff;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 32px;
+        font-weight: 900;
+        color: #ffffff;
+        flex-shrink: 0;
+      }
+      .step-text-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0;
+      }
+      .step-text-desc {
+        font-size: 24px;
+        color: #94a3b8;
+        margin: 4px 0 0 0;
+      }
+
+      /* CTA Box */
+      .cta-box {
+        width: 100%;
+        background: linear-gradient(135deg, rgba(30, 41, 89, 0.9) 0%, rgba(13, 20, 50, 0.95) 100%);
+        border: 2px solid #ffd700;
+        border-radius: 36px;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 50px rgba(255, 215, 0, 0.2);
+        margin-top: 30px;
+      }
+      .cta-qr-wrapper {
+        width: 240px;
+        height: 240px;
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 16px;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+        margin: 20px 0;
+      }
+      .cta-qr-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .cta-line-btn {
+        background: #00732e;
+        color: #ffffff;
+        font-size: 40px;
+        font-weight: 800;
+        padding: 18px 50px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 12px 35px rgba(0, 115, 46, 0.45);
+        margin-top: 10px;
+      }
+
+      /* Progress Bar at Bottom */
+      .progress-container {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #ffd700, #ff6d00, #00e5ff);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-width="1080"
+      data-height="1920"
+      data-duration="12"
+    >
+      <!-- Background Ambient Orbs -->
+      <div class="ambient-orb orb-gold" id="orb-1"></div>
+      <div class="ambient-orb orb-purple" id="orb-2"></div>
+      <div class="ambient-orb orb-cyan" id="orb-3"></div>
+
+      <!-- ===================================================================
+           SCENE 1: HOOK & INTRO (0s - 3.8s)
+           =================================================================== -->
+      <section id="scene-1" class="scene clip" data-start="0" data-duration="3.8">
+        <div class="brand-header" id="s1-brand">
+          <div class="brand-logo-badge">N3</div>
+          <div class="brand-text">ร้านสลาก N3 ธนกิจนำโชค</div>
+          <div class="brand-badge-official">ตัวแทนทางการ</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+          <h1 class="hero-title" id="s1-headline">
+            หวยแบบใหม่มาแล้ว!<br />
+            <span class="text-gold">สลากดิจิทัล N3</span>
+          </h1>
+          <p class="hero-subtitle" id="s1-sub">
+            เลือกเลข 3 ตัวที่ชอบด้วยตัวเอง 🎯
+          </p>
+
+          <div class="balls-row" id="s1-balls" data-layout-allow-overlap="true">
+            <div class="lotto-ball" id="ball-1">
+              <span class="ball-number">3</span>
+            </div>
+            <div class="lotto-ball lotto-ball-cyan" id="ball-2">
+              <span class="ball-number">3</span>
+            </div>
+            <div class="lotto-ball lotto-ball-pink" id="ball-3">
+              <span class="ball-number">4</span>
+            </div>
+          </div>
+
+          <div class="price-pill" id="s1-price">
+            ใบละ 20 บาท เท่านั้น! 💰
+          </div>
+        </div>
+
+        <div style="text-align: center; color: #94a3b8; font-size: 26px;" id="s1-footer">
+          ถูกสลากแท้ 100% จากสำนักงานสลากกินแบ่งรัฐบาล
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCENE 2: 4 PRIZE CATEGORIES (3.8s - 7.8s)
+           =================================================================== -->
+      <section id="scene-2" class="scene clip" data-start="3.8" data-duration="4.0">
+        <div class="brand-header" id="s2-brand">
+          <div class="brand-logo-badge">N3</div>
+          <div class="brand-text">ตรวจรางวัลได้ถึง 4 รูปแบบ</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+          <h2 class="hero-title" style="font-size: 68px;" id="s2-title">
+            ซื้อ 1 ใบ <span class="text-gold">ลุ้นได้ 4 รางวัล!</span>
+          </h2>
+
+          <div class="prize-grid">
+            <div class="prize-card" id="card-1">
+              <div class="prize-icon">🎯</div>
+              <h3 class="prize-title text-gold">3 ตัวตรง</h3>
+              <p class="prize-desc">ตรงทั้งเลขและหลัก</p>
+            </div>
+            <div class="prize-card" id="card-2">
+              <div class="prize-icon">🔀</div>
+              <h3 class="prize-title text-cyan">3 ตัวสลับหลัก</h3>
+              <p class="prize-desc">โต๊ดสลับได้ทุกตำแหน่ง</p>
+            </div>
+            <div class="prize-card" id="card-3">
+              <div class="prize-icon">✌️</div>
+              <h3 class="prize-title">2 ตัวตรง</h3>
+              <p class="prize-desc">เลขท้าย 2 ตัวตรงๆ</p>
+            </div>
+            <div class="prize-card card-jackpot" id="card-4">
+              <div class="prize-icon">💎</div>
+              <h3 class="prize-title text-gold" style="font-size: 46px;">รางวัลพิเศษ (แจ็กพอต)</h3>
+              <p class="prize-desc" style="font-size: 28px; color: #fff3a8;">
+                สุ่มจากผู้ถูก 3 ตัวตรง สะสมเงินรางวัลข้ามงวด! 🚀
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="price-pill" style="font-size: 34px; padding: 10px 30px;" id="s2-footer">
+          ออกรางวัลทุกวันที่ 1 และ 16 ของเดือน 📅
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCENE 3: HOW TO ORDER & CALL TO ACTION (7.8s - 12s)
+           =================================================================== -->
+      <section id="scene-3" class="scene clip" data-start="7.8" data-duration="4.2">
+        <div class="brand-header" id="s3-brand">
+          <div class="brand-logo-badge">N3</div>
+          <div class="brand-text">ซื้อง่ายใน 3 ขั้นตอน</div>
+        </div>
+
+        <div class="steps-container" id="s3-steps">
+          <div class="step-item" id="step-1">
+            <div class="step-num">1</div>
+            <div>
+              <p class="step-text-title">เลือกเลขที่ต้องการบนตารางเว็บ</p>
+              <p class="step-text-desc">ใส่เลข 3 ตัวและจำนวนใบที่ชอบ</p>
+            </div>
+          </div>
+          <div class="step-item" id="step-2">
+            <div class="step-num">2</div>
+            <div>
+              <p class="step-text-title">รับ QR Code ทันทีใน LINE</p>
+              <p class="step-text-desc">ระบบออก QR ให้ในไม่กี่วินาที</p>
+            </div>
+          </div>
+          <div class="step-item" id="step-3">
+            <div class="step-num">3</div>
+            <div>
+              <p class="step-text-title">เปิดแอป "เป๋าตัง" สแกนจ่าย 20 บ.</p>
+              <p class="step-text-desc">ได้สลากดิจิทัลแท้เข้าเป๋าตังทันที</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA Box -->
+        <div class="cta-box" id="s3-cta">
+          <div style="font-size: 34px; font-weight: 800; color: #ffffff;">
+            สั่งซื้อสลาก N3 ได้ที่ LINE แอดเลย! 👇
+          </div>
+          <div class="cta-line-btn" id="s3-btn">
+            <span>💬 LINE:</span>
+            <span style="color: #ffffff; font-weight: 900; text-decoration: underline;">@586xxhlx</span>
+          </div>
+          <div style="font-size: 24px; color: #cbd5e1; margin-top: 14px;">
+            หรือคลิกลิงก์ที่หน้าโปรไฟล์ TikTok ได้ทันที!
+          </div>
+        </div>
+      </section>
+
+      <!-- Progress Fill Bar -->
+      <div class="progress-container">
+        <div class="progress-fill" id="progress"></div>
+      </div>
+    </div>
+
+    <!-- GSAP Seekable Timeline Script -->
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      // Ambient Orbs Floating
+      tl.to("#orb-1", { x: 80, y: 120, duration: 6, ease: "sine.inOut" }, 0);
+      tl.to("#orb-2", { x: -60, y: -80, duration: 6, ease: "sine.inOut" }, 0);
+      tl.to("#orb-3", { x: -50, y: 60, duration: 6, ease: "sine.inOut" }, 0);
+
+      // Bottom Progress Bar (0s to 12s)
+      tl.fromTo("#progress", { width: "0%" }, { width: "100%", duration: 12, ease: "none" }, 0);
+
+      // =======================================================================
+      // SCENE 1 ANIMATIONS (0s - 3.8s)
+      // =======================================================================
+      tl.fromTo("#s1-brand", { y: -60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.2);
+      tl.fromTo("#s1-headline", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.7, ease: "back.out(1.7)" }, 0.4);
+      tl.fromTo("#s1-sub", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 0.8);
+
+      // 3D Lotto Balls Bouncing In
+      tl.fromTo("#ball-1", { y: -250, opacity: 0, rotate: -45 }, { y: 0, opacity: 1, rotate: 0, duration: 0.8, ease: "bounce.out" }, 1.0);
+      tl.fromTo("#ball-2", { y: -250, opacity: 0, rotate: 30 }, { y: 0, opacity: 1, rotate: 0, duration: 0.8, ease: "bounce.out" }, 1.2);
+      tl.fromTo("#ball-3", { y: -250, opacity: 0, rotate: -20 }, { y: 0, opacity: 1, rotate: 0, duration: 0.8, ease: "bounce.out" }, 1.4);
+
+      tl.fromTo("#s1-price", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(2)" }, 1.8);
+      tl.fromTo("#s1-footer", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 2.2);
+
+      // =======================================================================
+      // SCENE 2 ANIMATIONS (3.8s - 7.8s)
+      // =======================================================================
+      tl.fromTo("#s2-brand", { y: -40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 3.8);
+      tl.fromTo("#s2-title", { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.5)" }, 4.0);
+
+      tl.fromTo("#card-1", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 4.3);
+      tl.fromTo("#card-2", { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 4.5);
+      tl.fromTo("#card-3", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 4.7);
+      tl.fromTo("#card-4", { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.7, ease: "back.out(1.8)" }, 4.9);
+      tl.fromTo("#s2-footer", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 5.4);
+
+      // =======================================================================
+      // SCENE 3 ANIMATIONS (7.8s - 12s)
+      // =======================================================================
+      tl.fromTo("#s3-brand", { y: -40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 7.8);
+      tl.fromTo("#step-1", { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 8.0);
+      tl.fromTo("#step-2", { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 8.3);
+      tl.fromTo("#step-3", { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 8.6);
+
+      tl.fromTo("#s3-cta", { scale: 0.8, opacity: 0, y: 50 }, { scale: 1, opacity: 1, y: 0, duration: 0.7, ease: "back.out(1.6)" }, 9.0);
+      tl.fromTo("#s3-btn", { scale: 0.9 }, { scale: 1.05, duration: 0.5, yoyo: true, repeat: 3, ease: "power1.inOut" }, 9.5);
+
+      // Register timeline into HyperFrames runtime registry
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

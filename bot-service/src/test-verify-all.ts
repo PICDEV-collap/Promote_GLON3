@@ -1878,28 +1878,51 @@ async function runTests() {
     const watchdog = GloSessionWatchdog.getInstance(tg);
     watchdog.resetTrackingForTest();
 
-    // 1. Initial State
+    // 1. Initial State & Sales Hours Timing logic
     let state = watchdog.getStatus();
     assert.strictEqual(state.status, 'INITIALIZING');
     assert.strictEqual(state.hasAlerted, false);
     assert.strictEqual(state.intervalMs, 500);
+    assert.strictEqual(typeof state.isSalesHours, 'boolean');
+    assert.strictEqual(state.salesHoursText, '06:00 - 23:00 น.');
 
-    // 2. Test Detection of Disconnected Session via Mock Page with /login URL
+    // 1.1 Test isWithinSalesHours across multiple time boundaries (06:00 - 23:00 BKK)
+    const timeMorningEarly = new Date('2026-09-11T05:59:59+07:00');
+    const timeMorningOpen = new Date('2026-09-11T06:00:00+07:00');
+    const timeNoon = new Date('2026-09-11T12:00:00+07:00');
+    const timeNightLate = new Date('2026-09-11T22:59:59+07:00');
+    const timeNightClose = new Date('2026-09-11T23:00:00+07:00');
+    const timeMidnight = new Date('2026-09-11T02:30:00+07:00');
+
+    assert.strictEqual(watchdog.isWithinSalesHours(timeMorningEarly), false, '05:59:59 must be outside sales hours');
+    assert.strictEqual(watchdog.isWithinSalesHours(timeMorningOpen), true, '06:00:00 must be within sales hours');
+    assert.strictEqual(watchdog.isWithinSalesHours(timeNoon), true, '12:00:00 must be within sales hours');
+    assert.strictEqual(watchdog.isWithinSalesHours(timeNightLate), true, '22:59:59 must be within sales hours');
+    assert.strictEqual(watchdog.isWithinSalesHours(timeNightClose), false, '23:00:00 must be outside sales hours (Night Close)');
+    assert.strictEqual(watchdog.isWithinSalesHours(timeMidnight), false, '02:30:00 must be outside sales hours');
+
+    // 1.2 Test Standby Transition during off-hours (23:00 - 06:00 น.) - Must NOT send drop alerts
     const mockLoginPage: any = {
       isClosed: () => false,
       url: () => 'https://n3.glolotteryshop.com/login/',
       evaluate: async () => false
     };
 
-    const statusLogin = await watchdog.checkNow(mockLoginPage);
-    assert.strictEqual(statusLogin, 'DISCONNECTED', 'Must transition to DISCONNECTED when page is /login/');
+    const statusOffHours = await watchdog.checkNow(mockLoginPage, timeMidnight);
+    assert.strictEqual(statusOffHours, 'STANDBY', 'Must transition to STANDBY during off-hours');
+    assert.strictEqual(watchdog.getStatus().hasAlerted, false, 'Must NOT trigger drop alert during off-hours');
+    assert(watchdog.getStatus().lastDropReason?.includes('นอกเวลาจำหน่าย'));
+
+    // 2. Test Detection of Disconnected Session during Sales Hours (06:00 - 23:00)
+    const statusLogin = await watchdog.checkNow(mockLoginPage, timeMorningOpen, true);
+    assert.strictEqual(statusLogin, 'DISCONNECTED', 'Must transition to DISCONNECTED when page is /login/ during sales hours');
     state = watchdog.getStatus();
     assert.strictEqual(state.status, 'DISCONNECTED');
-    assert.strictEqual(state.hasAlerted, true, 'Must set hasAlerted = true on first drop');
+    assert.strictEqual(state.hasAlerted, true, 'Must set hasAlerted = true on first drop during sales hours');
     assert(state.lastDropReason?.includes('Login'));
 
     // 3. Anti-Spam Latch: Second check on same disconnected page must NOT duplicate alert
-    const statusLogin2 = await watchdog.checkNow(mockLoginPage);
+    const statusLogin2 = await watchdog.checkNow(mockLoginPage, timeMorningOpen, true);
     assert.strictEqual(statusLogin2, 'DISCONNECTED');
     assert.strictEqual(watchdog.getStatus().hasAlerted, true);
 
@@ -1911,7 +1934,7 @@ async function runTests() {
       evaluate: async () => true
     };
 
-    const statusModal = await watchdog.checkNow(mockModalPage);
+    const statusModal = await watchdog.checkNow(mockModalPage, timeNoon, true);
     assert.strictEqual(statusModal, 'DISCONNECTED', 'Must transition to DISCONNECTED when kick modal detected');
     assert(watchdog.getStatus().lastDropReason?.includes('ป๊อปอัป'));
 
@@ -1923,7 +1946,7 @@ async function runTests() {
       evaluate: async () => false
     };
 
-    const statusHealthy = await watchdog.checkNow(mockHealthyPage);
+    const statusHealthy = await watchdog.checkNow(mockHealthyPage, timeNoon, true);
     assert.strictEqual(statusHealthy, 'LOGGED_IN', 'Must recover to LOGGED_IN on healthy landing page');
     assert.strictEqual(watchdog.getStatus().hasAlerted, false, 'hasAlerted must be reset to false upon recovery');
 

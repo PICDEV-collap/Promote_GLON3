@@ -2,6 +2,7 @@ import { LineReplyHandler, getThaiTime } from '../line/reply-handler';
 import { N3Auth } from '../automation/n3-auth';
 import { PersistentBrowserManager } from '../automation/browser-context';
 import { OrderQueue } from '../queue/order-queue';
+import { GloSessionWatchdog } from './session-watchdog';
 import { Page } from 'playwright';
 
 export class DailyScheduleService {
@@ -126,6 +127,13 @@ export class DailyScheduleService {
       } catch (notifyErr) {
         console.error('[DAILY SCHEDULE NOTIFY ERROR] ไม่สามารถส่งแจ้งเตือน 06:00 ได้:', notifyErr);
       }
+
+      // สั่งตรวจสอบเซสชันรอบแรกของวันทันทีที่เข้าสู่ช่วงเวลาจำหน่าย 06:00 น.
+      try {
+        GloSessionWatchdog.getInstance().checkNow().catch(err => {
+          console.warn('[DAILY SCHEDULE] ตรวจสอบเซสชันรอบเปิดร้าน 06:00 น. ล่าช้า:', err?.message);
+        });
+      } catch {}
     }
 
     return { triggeredLogoff, triggeredMorningAlert };
