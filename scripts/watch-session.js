@@ -168,6 +168,14 @@ function queryCdpStatus() {
   });
 }
 
+// ตรวจสอบช่วงเวลาจำหน่ายสลาก 06:00 - 23:00 น. ตามเวลาประเทศไทย
+function isSalesHours(dateObj) {
+  const now = dateObj || new Date();
+  const bkkTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+  const hours = bkkTime.getHours();
+  return hours >= 6 && hours < 23;
+}
+
 // State Machine
 let isRunning = true;
 let checkCount = 0;
@@ -184,6 +192,7 @@ async function runWatchdogLoop() {
   console.log('               (Thanagit Namchok - N3 Digital Lottery Agent)');
   console.log('===============================================================================');
   console.log(`  ความถี่การตรวจสอบ:  \x1b[36mทุก 500 ms (Real-time)\x1b[0m`);
+  console.log(`  ช่วงเวลาเฝ้าระวัง:  \x1b[33m06:00 - 23:00 น. (เวลาจำหน่ายสลาก)\x1b[0m`);
   console.log(`  ระบบแจ้งเตือน Telegram: ${tgConfig.enabled ? `\x1b[32m● เปิดใช้งาน (Chat ID: ${tgConfig.chatId})\x1b[0m` : '\x1b[31m✕ ยังไม่ได้ตั้งค่า Token/Chat ID\x1b[0m'}`);
   console.log(`  กด Ctrl+C เพื่อออกจากโปรแกรม`);
   console.log('===============================================================================\n');
@@ -196,6 +205,19 @@ async function runWatchdogLoop() {
 
     checkCount++;
     const nowStr = new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.';
+
+    // ตรวจสอบว่าอยู่ในช่วงเวลาจำหน่ายสลาก 06:00 - 23:00 น. หรือไม่
+    const inSalesHours = isSalesHours();
+    if (!inSalesHours) {
+      hasAlerted = false; // รีเซ็ตตัวล็อกเพื่อให้พร้อมยิงแจ้งเตือนทันทีเมื่อเข้าสู่ 06:00 น.
+      lastStatus = 'STANDBY';
+      const standbyBadge = '\x1b[35m🌙 STANDBY (นอกเวลาจำหน่าย 23:00 - 06:00 น.)\x1b[0m';
+      process.stdout.write(
+        `\r[รอบตรวจ: ${checkCount}] สถานะ: ${standbyBadge} | เวลา: ${nowStr} (งดแจ้งเตือน Telegram ชั่วคราว)   `
+      );
+      return;
+    }
+
     let isHealthy = false;
     let currentReason = '';
     let currentUrl = '';

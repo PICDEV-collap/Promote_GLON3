@@ -4,7 +4,7 @@ import { TelegramService } from '../notify/telegram-service';
 import { OrderQueue } from '../queue/order-queue';
 import { CONFIG } from '../config';
 
-export type SessionHealthStatus = 'INITIALIZING' | 'LOGGED_IN' | 'DISCONNECTED' | 'STOPPED';
+export type SessionHealthStatus = 'INITIALIZING' | 'LOGGED_IN' | 'DISCONNECTED' | 'STOPPED' | 'STANDBY';
 
 export interface SessionWatchdogState {
   status: SessionHealthStatus;
@@ -14,6 +14,8 @@ export interface SessionWatchdogState {
   hasAlerted: boolean;
   intervalMs: number;
   checkCount: number;
+  isSalesHours: boolean;
+  salesHoursText: string;
 }
 
 /**
@@ -54,6 +56,17 @@ export class GloSessionWatchdog {
   }
 
   /**
+   * ตรวจสอบว่าขณะนี้อยู่ในเวลาจำหน่ายสลาก N3 (06:00 - 23:00 น. ตามเวลาประเทศไทย) หรือไม่
+   */
+  public isWithinSalesHours(dateObj?: Date): boolean {
+    const now = dateObj || new Date();
+    const bkkTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+    const hours = bkkTime.getHours();
+    // 06:00:00 ถึง 22:59:59 (hours อยู่ระหว่าง 6 ถึง 22)
+    return hours >= 6 && hours < 23;
+  }
+
+  /**
    * เริ่มต้นระบบตรวจสอบเซสชันทุก 500 ms
    */
   public start(intervalMs: number = 500): void {
@@ -61,7 +74,7 @@ export class GloSessionWatchdog {
       return;
     }
     this.intervalMs = intervalMs;
-    console.log(`[SESSION WATCHDOG] 🛡️ เริ่มต้นระบบตรวจจับเซสชัน GLO N3 ทุก ${this.intervalMs} ms (Telegram Alert Pipeline พร้อมทำงาน)`);
+    console.log(`[SESSION WATCHDOG] 🛡️ เริ่มต้นระบบตรวจจับเซสชัน GLO N3 ทุก ${this.intervalMs} ms (ช่วงเวลาทำการ 06:00 - 23:00 น.)`);
     
     // ทำการตรวจสอบครั้งแรกทันที
     this.checkNow().catch(() => {});
@@ -94,8 +107,15 @@ export class GloSessionWatchdog {
 
   /**
    * ตรวจสอบสถานะเซสชัน 1 รอบทันที
+   * @param pageOverride หน้า Page สำหรับทดสอบหรือระบุเจาะจง
+   * @param dateOverride วันที่สำหรับทดสอบเวลาจำหน่าย
+   * @param forceSalesHours บังคับสถานะช่วงเวลาทำการ (true/false) สำหรับ Test Runner
    */
-  public async checkNow(pageOverride?: Page | null): Promise<SessionHealthStatus> {
+  public async checkNow(
+    pageOverride?: Page | null,
+    dateOverride?: Date,
+    forceSalesHours?: boolean
+  ): Promise<SessionHealthStatus> {
     if (this.isChecking) {
       return this.status;
     }
@@ -104,6 +124,27 @@ export class GloSessionWatchdog {
     this.lastCheckTime = new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }) + ' น.';
 
     try {
+      // ตรวจสอบช่วงเวลาจำหน่ายสลาก 06:00 - 23:00 น.
+      const inSalesHours = forceSalesHours !== undefined
+        ? forceSalesHours
+        : this.isWithinSalesHours(dateOverride);
+
+      if (!inSalesHours) {
+        if (this.status !== 'STANDBY') {
+          console.log(`[SESSION WATCHDOG] 🌙 นอกเวลาจำหน่ายสลาก (23:00 - 06:00 น.) -> ปรับเข้าสู่โหมด Standby (งดส่งแจ้งเตือน Telegram ชั่วคราว)`);
+        }
+        this.status = 'STANDBY';
+        this.lastDropReason = 'อยู่นอกเวลาจำหน่ายสลาก N3 (เปิดจำหน่าย 06:00 - 23:00 น.)';
+        this.hasAlerted = false; // รีเซ็ตตัวล็อกเพื่อให้พร้อมแจ้งเตือนทันทีเมื่อถึง 06:00 น.
+        return this.status;
+      }
+
+      // หากเพิ่งเปลี่ยนจาก STANDBY เข้าสู่เวลาจำหน่าย 06:00 น.
+      if (this.status === 'STANDBY') {
+        console.log(`[SESSION WATCHDOG] ☀️ เข้าสู่เวลาจำหน่ายสลาก N3 (06:00 - 23:00 น.) -> เริ่มระบบเฝ้าระวังเซสชันแบบเรียลไทม์`);
+        this.status = 'INITIALIZING';
+      }
+
       let page: Page | null = pageOverride !== undefined ? pageOverride : PersistentBrowserManager.getActivePage();
 
       // 1. ตรวจสอบว่าเบราว์เซอร์หรือการเชื่อมต่อ CDP ยังทำงานอยู่หรือไม่
@@ -267,7 +308,9 @@ export class GloSessionWatchdog {
       detectedUrl: this.detectedUrl,
       hasAlerted: this.hasAlerted,
       intervalMs: this.intervalMs,
-      checkCount: this.checkCount
+      checkCount: this.checkCount,
+      isSalesHours: this.isWithinSalesHours(),
+      salesHoursText: '06:00 - 23:00 น.'
     };
   }
 
