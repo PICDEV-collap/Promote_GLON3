@@ -25,6 +25,7 @@ export class QuotaManager {
   private static instance: QuotaManager | null = null;
   private filePath: string;
   private data: QuotaData;
+  private lastLandingReloadTime: number = 0;
 
   public static getInstance(customFilePath?: string): QuotaManager {
     if (!QuotaManager.instance) {
@@ -301,13 +302,17 @@ export class QuotaManager {
       const cleanUrl = currentUrl.replace(/\/+$/, '');
       const isLanding = cleanUrl.includes('/landing') || cleanUrl === 'https://n3.glolotteryshop.com';
 
-      // หากอยู่ที่หน้า landing แล้ว ให้รีเฟรชหน้าเพื่อให้ Next.js SPA ดึงยอดขายและยอดคงเหลือล่าสุดจาก Server
-      if (isLanding) {
-        if (typeof (page as any).reload === 'function') {
-          console.log('[QUOTA SYNC] หน้าต่างเบราว์เซอร์อยู่ที่หน้า Landing -> กำลังรีเฟรชเพื่อดึงยอดขายและโควต้าล่าสุด...');
-          await page.reload({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
-          if (typeof page.waitForTimeout === 'function') {
-            await page.waitForTimeout(800);
+      // หากอยู่ที่หน้า landing แล้ว และอนุญาตให้นำทาง/รีเฟรชได้ ให้รีเฟรชหน้าเฉพาะเมื่อเกิน 60 วินาที เพื่อป้องกัน Infinite Reload Loop
+      if (isLanding && navigateIfNeeded) {
+        const now = Date.now();
+        if (now - this.lastLandingReloadTime > 60000) {
+          this.lastLandingReloadTime = now;
+          if (typeof (page as any).reload === 'function') {
+            console.log('[QUOTA SYNC] หน้าต่างเบราว์เซอร์อยู่ที่หน้า Landing -> กำลังรีเฟรชเพื่อดึงยอดขายและโควต้าล่าสุด...');
+            await page.reload({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
+            if (typeof page.waitForTimeout === 'function') {
+              await page.waitForTimeout(800);
+            }
           }
         }
       } else if (navigateIfNeeded) {

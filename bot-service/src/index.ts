@@ -866,12 +866,16 @@ async function ensureBrowser(): Promise<{ context: BrowserContext; page: Page }>
   // ผูกตัวดักฟังการนำทางหน้าเว็บ เพื่อซิงค์โควต้าสดอัตโนมัติเมื่อเข้าสู่หน้า Landing (Requirement 1a)
   if (!(page as any).__quotaNavListenerAttached) {
     (page as any).__quotaNavListenerAttached = true;
+    let lastNavSyncTime = 0;
     page.on('framenavigated', async (frame) => {
       try {
         if (frame === page?.mainFrame()) {
           const rawUrl = frame.url();
           const clean = rawUrl.replace(/\/+$/, '');
           if (clean.includes('/landing') || clean === 'https://n3.glolotteryshop.com') {
+            const now = Date.now();
+            if (now - lastNavSyncTime < 30000) return; // ป้องกันการซิงค์ซ้ำเกิน 1 ครั้งต่อ 30 วินาที
+            lastNavSyncTime = now;
             setTimeout(async () => {
               try {
                 if (page && !page.isClosed() && !orderQueue.isBusy()) {
@@ -939,6 +943,13 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
           }
         ]);
       }
+    } else {
+      // เรียกจากระบบหลังบ้าน/คำสั่งซื้อ แจ้งเตือนแอดมินทาง Telegram เพื่อไม่ให้ออเดอร์ตกค้าง
+      TelegramService.getInstance().notifySystemStatus(
+        'มีคำสั่งซื้อรออยู่ - กำลังรอการสแกนเป๋าตัง',
+        `📌 รายการ: ${reason}\n📲 ระบบกำลังรอแอดมินสแกน QR เข้าสู่ระบบเป๋าตังเพื่อรับออเดอร์${lastAdminQrUrl ? `\n🔗 ลิงก์ตรงรูปภาพ: ${lastAdminQrUrl}` : ''}`,
+        '⏳'
+      ).catch(() => {});
     }
     return;
   }
@@ -1027,6 +1038,11 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
       context = null;
       page = null;
       lastAdminQrUrl = '';
+      TelegramService.getInstance().notifySystemStatus(
+        'หมดเวลาการสแกน QR Login',
+        `ภาพ QR Code เข้าสู่ระบบหมดอายุแล้ว กรุณาส่ง 'qr' ใน LINE หรือสแกนใหม่เมื่อพร้อมครับ`,
+        '⏳'
+      ).catch(() => {});
       await lineHandler.pushToAdmin([
         {
           type: 'text',
@@ -1037,6 +1053,11 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
   } catch (err: any) {
     console.error('[ADMIN AUTH ERROR]', err);
     const errMsg = err?.message || String(err);
+    TelegramService.getInstance().notifySystemStatus(
+      'เกิดข้อผิดพลาดในการสร้าง QR Login',
+      `สาเหตุ: ${errMsg}\n📌 เหตุผล: ${reason}\n💡 กรุณาตรวจสอบสถานะระบบ GLO หรือลองพิมพ์ "qr" ใหม่อีกครั้ง`,
+      '❌'
+    ).catch(() => {});
     const errFeedback: any[] = [
       {
         type: 'text',
@@ -1138,7 +1159,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const itemsDesc = task.items && task.items.length > 0
         ? task.items.map(i => `${i.number}x${i.quantity}`).join(', ')
         : `${task.number} x ${task.quantity} ใบ`;
-      triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบยังไม่ได้ล็อกอิน`);
+      GloSessionWatchdog.getInstance().handleSessionDrop(
+        `มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่เซสชัน GLO N3 ยังไม่ได้ล็อกอินหรือหลุด`
+      ).catch(() => {});
+      triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบยังไม่ได้ล็อกอิน`, undefined, true);
       return;
     }
 
@@ -1259,7 +1283,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
       let userMsg = `ขออภัยครับ เกิดข้อผิดพลาดขณะสั่งซื้อสลากเลข ${itemsDesc} กรุณาลองใหม่อีกครั้งครับ`;
       if (isSessionOrAuthError) {
         userMsg = 'ขออภัยครับ ขณะนี้ระบบร้านค้าสลากกำลังเตรียมความพร้อมเข้าระบบ กรุณารอสักครู่แล้วสั่งซื้อใหม่อีกครั้งครับ 🙏';
-        triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบแจ้ง: ${result.error}`);
+        GloSessionWatchdog.getInstance().handleSessionDrop(
+          `มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบแจ้งข้อผิดพลาดเซสชัน: ${result.error}`
+        ).catch(() => {});
+        triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบแจ้ง: ${result.error}`, undefined, true);
       } else if (result.outOfStockItems && result.outOfStockItems.length > 0) {
         userMsg = `ขออภัยครับ สลากเลข ${result.outOfStockItems.join(', ')} ไม่มีจำหน่ายหรือสลากหมดในระบบแล้วครับ`;
       } else if (result.error && !result.error.includes('Target page') && !result.error.includes('closed') && !result.error.includes('evaluate')) {
