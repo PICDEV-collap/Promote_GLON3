@@ -78,10 +78,16 @@ export class N3Auth {
         }
       }
 
-      // หากอยู่ที่หน้า Landing, Home, QR หรือหน้าหลักของตัวแทน และไม่มีป๊อปอัปหลุดเซสชัน ถือว่า Session ยังใช้งานได้ทันที (ประหยัดเวลา ~3-5 วินาที)
+      // หากอยู่ที่หน้า Landing, Home, QR หรือหน้าหลักของตัวแทน และไม่มีป๊อปอัปหลุดเซสชัน ตรวจสอบว่ามีองค์ประกอบของตัวแทนจำหน่ายจริง
       if (currentUrl.includes('/landing') || currentUrl.includes('/home') || currentUrl.includes('/qr') || currentUrl.replace(/\/+$/, '') === 'https://n3.glolotteryshop.com') {
         const isBlocked = await page.locator('div.fixed.inset-0.bg-black, div.fixed.inset-0[class*="z-"]').first().isVisible().catch(() => false);
-        if (!isBlocked) return true;
+        if (isBlocked) return false;
+
+        const hasLoginPrompt = await page.locator('text=เข้าสู่ระบบด้วยแอปฯ, text=กรุณาเข้าสู่ระบบ').first().isVisible().catch(() => false);
+        if (hasLoginPrompt) return false;
+
+        const isDealerUiPresent = await page.locator('text=บริการจำหน่ายสลาก, text=ยอดขายร้านค้า, text=คุณขายสลาก, text=สลากตัวเลขสามหลัก').first().isVisible().catch(() => false);
+        if (isDealerUiPresent) return true;
       }
 
       console.log('[N3 AUTH] กำลังตรวจสอบ Session ผ่านหน้าค้นหาสลาก...');
