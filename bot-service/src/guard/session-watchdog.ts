@@ -35,6 +35,7 @@ export class GloSessionWatchdog {
   private detectedUrl: string | null = null;
   private hasAlerted: boolean = false;
   private checkCount: number = 0;
+  private isAuthFlowActive: boolean = false;
 
   private telegramService: TelegramService;
   private orderQueue: OrderQueue | null = null;
@@ -53,6 +54,14 @@ export class GloSessionWatchdog {
 
   public setOrderQueue(queue: OrderQueue): void {
     this.orderQueue = queue;
+  }
+
+  public setAuthFlowActive(active: boolean): void {
+    this.isAuthFlowActive = active;
+  }
+
+  public getIsAuthFlowActive(): boolean {
+    return this.isAuthFlowActive;
   }
 
   /**
@@ -191,11 +200,13 @@ export class GloSessionWatchdog {
 
       // 2.1 หาก URL ถูกเปลี่ยนเส้นทางกลับมาที่หน้า /login/ หรือหน้าอื่นนอกระบบตัวแทน
       if (currentUrl.includes('/login') || (currentUrl.startsWith('http') && !currentUrl.includes('glolotteryshop.com'))) {
-        await this.handleSessionDrop(
-          `หน้าเว็บถูกเปลี่ยนเส้นทางไปหน้า Login หรือออกนอกระบบตัวแทน GLO (${currentUrl})`,
-          currentUrl
-        );
-        return this.status;
+        if (!this.isAuthFlowActive) {
+          await this.handleSessionDrop(
+            `หน้าเว็บถูกเปลี่ยนเส้นทางไปหน้า Login หรือออกนอกระบบตัวแทน GLO (${currentUrl})`,
+            currentUrl
+          );
+          return this.status;
+        }
       }
 
       // 3. ตรวจสอบการปรากฏของป๊อปอัปเซสชันหมดอายุบน DOM (Fast Evaluate in < 5ms)

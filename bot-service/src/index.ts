@@ -954,6 +954,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
     return;
   }
   isLoggingIn = true;
+  GloSessionWatchdog.getInstance().setAuthFlowActive(true);
 
   try {
     const { page: currentPage, context: currentContext } = await ensureBrowser();
@@ -982,7 +983,27 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
 
     // 4. สร้างภาพ QR Login เป๋าตังใหม่จากหน้าเว็บ GLO N3
     console.log(`[ADMIN AUTH] ${reason} -> กำลังสร้าง QR Login ส่งให้แอดมิน...`);
-    const { qrImagePath } = await N3Auth.generatePaotangLoginQR(currentPage);
+    const loginResult = await N3Auth.generatePaotangLoginQR(currentPage);
+    if (loginResult.alreadyLoggedIn) {
+      console.log('[ADMIN AUTH] ตรวจพบว่าระบบล็อกอินอยู่แล้ว ไม่จำเป็นต้องสแกนใหม่');
+      await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
+      const liveQuota = quotaManager.getStatus();
+      const salesStatus = OperatingHoursGuard.checkSalesStatus();
+      const adminFeedback: any[] = [
+        {
+          type: 'text',
+          text: `🟢 [สถานะระบบร้านค้า N3: ออนไลน์พร้อมขาย 100%]\n\nขณะนี้ระบบของร้านล็อกอินด้วยแอปเป๋าตังเรียบร้อยแล้ว (Session Active)\n\n📊 โควต้าคงเหลือจริง: ${liveQuota.remainingQuota.toLocaleString()} / ${liveQuota.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveQuota.usedQuota.toLocaleString()} ใบ)\n🏪 สถานะเวลาทำการ: ${salesStatus.reason}\n\n✨ ระบบพร้อมรับและสั่งซื้อสลากให้ลูกค้าอัตโนมัติตลอด 24 ชม. ไม่จำเป็นต้องสแกนใหม่ครับ`
+        }
+      ];
+      if (replyToken) {
+        await lineHandler.reply(replyToken, adminFeedback);
+      } else {
+        await lineHandler.pushToAdmin(adminFeedback);
+      }
+      return;
+    }
+
+    const { qrImagePath } = loginResult;
     const qrFileName = qrImagePath.split(/[\/\\]/).pop();
     const activePublicBase = getPublicBaseUrl();
     const qrPublicUrl = `${activePublicBase}/qrcodes/${qrFileName}`;
@@ -1033,10 +1054,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
       ]);
       console.log(`[BROWSER READY] ล็อกอินสำเร็จ โควต้าจริง ${liveQuota.remainingQuota}/${liveQuota.maxQuota} ใบ หน้าต่าง Chrome พร้อมรับคำสั่งซื้อทันที`);
     } else {
-      // หากหมดเวลาหรือไม่สำเร็จ ให้แจ้งเตือนและปิดเบราว์เซอร์
-      await PersistentBrowserManager.close().catch(() => {});
-      context = null;
-      page = null;
+      // หากหมดเวลาหรือไม่สำเร็จ ให้แจ้งเตือนโดยไม่ตัดการเชื่อมต่อเบราว์เซอร์
       lastAdminQrUrl = '';
       TelegramService.getInstance().notifySystemStatus(
         'หมดเวลาการสแกน QR Login',
@@ -1069,12 +1087,10 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
     } else {
       await lineHandler.pushToAdmin(errFeedback).catch(() => {});
     }
-    await PersistentBrowserManager.close().catch(() => {});
-    context = null;
-    page = null;
     lastAdminQrUrl = '';
   } finally {
     isLoggingIn = false;
+    GloSessionWatchdog.getInstance().setAuthFlowActive(false);
   }
 }
 
@@ -1138,7 +1154,13 @@ orderQueue.setWorker(async (task: OrderTask) => {
     }
 
     // 3. ตรวจสอบสถานะล็อกอิน N3
-    const isLoggedIn = await N3Auth.isSessionValid(currentPage);
+    let isLoggedIn = await N3Auth.isSessionValid(currentPage);
+    if (!isLoggedIn) {
+      // Retry verification 1 ครั้ง เพื่อป้องกัน network lag หรือ DOM transition ชั่วขณะ
+      await currentPage.waitForTimeout(800);
+      isLoggedIn = await N3Auth.isSessionValid(currentPage);
+    }
+
     if (!isLoggedIn) {
       orderHeartbeat.stop(task.orderId);
       orderStatusStore.set(task.orderId, {
@@ -1162,7 +1184,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
       GloSessionWatchdog.getInstance().handleSessionDrop(
         `มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่เซสชัน GLO N3 ยังไม่ได้ล็อกอินหรือหลุด`
       ).catch(() => {});
-      triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบยังไม่ได้ล็อกอิน`, undefined, true);
+      triggerAdminLoginQR(`มีลูกค้าสั่งซื้อสลาก ${itemsDesc} แต่ระบบยังไม่ได้ล็อกอิน`, undefined, false).catch(() => {});
       return;
     }
 
@@ -1255,14 +1277,15 @@ orderQueue.setWorker(async (task: OrderTask) => {
       const fulfilledDesc = (result.fulfilledItems || orderItems).map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
       TelegramService.getInstance().notifyOrderCompleted(fulfilledDesc, actualPrice, qrFilePath || qrPublicUrl, task.userId).catch(() => {});
 
-      // 6. ดำเนินการกดกลับหน้าหลักและซิงค์โควต้าสดจาก GLO Portal ในเบื้องหลัง (ไม่ถ่วงเวลาการส่งรูปให้ลูกค้า)
-      N3OrderService.postOrderCleanupAndQuotaSync(currentPage).then(liveSynced => {
+      // 6. ดำเนินการกดกลับหน้าหลักและซิงค์โควต้าสดจาก GLO Portal (await เพื่อความแน่นอน ป้องกันคิวถัดไปชนกัน)
+      try {
+        const liveSynced = await N3OrderService.postOrderCleanupAndQuotaSync(currentPage);
         if (liveSynced) {
           console.log(`[ORDER QUOTA] ซิงค์ยอดโควต้าสดจาก GLO สำเร็จ: คงเหลือ ${liveSynced.remainingQuota.toLocaleString()} / ${liveSynced.maxQuota.toLocaleString()} ใบ (ขายแล้ว ${liveSynced.usedQuota.toLocaleString()} ใบ)`);
         }
-      }).catch(e => {
+      } catch (e: any) {
         console.warn('[ORDER QUOTA POST-SYNC ERROR]', e?.message);
-      });
+      }
     } else {
       const itemsDesc = task.items && task.items.length > 0
         ? task.items.map(i => i.number).join(', ')
