@@ -1863,7 +1863,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         } else {
           await lineHandler.reply(replyToken, [{
             type: 'text',
-            text: `🔍 ท่านสามารถตรวจผลรางวัลสลาก N3 ได้ที่เว็บไซต์ร้าน:\n${CONFIG.DREAM_PREDICTION_URL}`
+            text: `🔍 ท่านสามารถตรวจผลรางวัลสลาก N3 ได้ที่เว็บไซต์ร้าน:\n${CONFIG.RESULTS_CHECK_URL}`
           }]);
         }
         continue;
