@@ -21,12 +21,13 @@ export const CONFIG = {
   TELEGRAM_ADMIN_CHAT_ID: process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_CHAT_ID || '',
   TELEGRAM_NOTIFY_ENABLED: process.env.TELEGRAM_NOTIFY_ENABLED !== 'false',
 
-  // URL เว็บไซต์โปรโมทสลาก N3 และทำนายฝัน AI
-  DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/?openExternalBrowser=1',
-  ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3.vercel.app/order?openExternalBrowser=1',
-  ORDER_6PACK_URL: process.env.ORDER_6PACK_URL || 'https://promote-glon-3.vercel.app/order-6pack?openExternalBrowser=1',
+  // URL เว็บไซต์โปรโมทสลาก N3, ทำนายฝัน AI และตรวจผลรางวัล (ตรงตาม LINE Rich Menu มาตรฐาน)
+  DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/dream?openExternalBrowser=1',
+  ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3.vercel.app/line?openExternalBrowser=1',
+  ORDER_6PACK_URL: process.env.ORDER_6PACK_URL || 'https://promote-glon-3.vercel.app/line?mode=6pack&openExternalBrowser=1',
+  RESULTS_CHECK_URL: process.env.RESULTS_CHECK_URL || 'https://promote-glon-3.vercel.app/?openExternalBrowser=1#results-stats',
   LIFF_ID: process.env.LIFF_ID || '2011462211-WVsuHFk4',
-  ORDER_LIFF_URL: process.env.ORDER_LIFF_URL || 'https://liff.line.me/2011462211-WVsuHFk4',
+  ORDER_LIFF_URL: process.env.ORDER_LIFF_URL || 'https://promote-glon-3.vercel.app/line?openExternalBrowser=1',
 
   // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก (เฉพาะทางการของกองสลากและเป๋าตังกรุงไทยเท่านั้น)
   ALLOWED_DOMAINS: [

@@ -226,7 +226,7 @@ export class FlexMessageBuilder {
             action: {
               type: 'uri',
               label: '🛒 สั่งซื้อสลาก N3',
-              uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+              uri: CONFIG.ORDER_FORM_URL
             }
           },
           {
@@ -453,7 +453,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_FORM_URL || CONFIG.ORDER_LIFF_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -681,7 +681,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -814,7 +814,7 @@ export class FlexMessageBuilder {
                   action: {
                     type: 'uri',
                     label: '🛒 สั่งซื้อสลาก N3',
-                    uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                    uri: CONFIG.ORDER_FORM_URL
                   }
                 },
                 {
@@ -1120,7 +1120,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -1355,7 +1355,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3 (เปิดตาราง)',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -1487,7 +1487,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -1981,7 +1981,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -2139,7 +2139,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -2396,7 +2396,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -2623,7 +2623,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🔍 ตรวจรางวัลของฉัน',
-                uri: CONFIG.DREAM_PREDICTION_URL
+                uri: CONFIG.RESULTS_CHECK_URL
               }
             },
             {
@@ -2634,7 +2634,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 สั่งซื้อสลาก N3',
-                uri: CONFIG.ORDER_LIFF_URL || CONFIG.ORDER_FORM_URL
+                uri: CONFIG.ORDER_FORM_URL
               }
             },
             {
@@ -2741,7 +2741,7 @@ export class FlexMessageBuilder {
               action: {
                 type: 'uri',
                 label: '🛒 เปิดตารางสั่งซื้อเลขชุด',
-                uri: `${CONFIG.ORDER_LIFF_URL}?mode=6pack`
+                uri: CONFIG.ORDER_6PACK_URL
               }
             }
           ]
