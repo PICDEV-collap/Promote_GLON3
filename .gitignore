@@ -4,14 +4,21 @@ node_modules/
 *.log
 scratch/
 
-# Sensitive Credentials & Tokens
+# Sensitive Credentials, Secrets & Tokens (STRICT GUARD)
 .env
+.env.*
 *.env
+*.env.*
 !.env.example
-
-# Automation Sessions & Storage State (ความปลอดภัย: ห้ามนำ Session คุกกี้ขึ้น Git)
-storageState.json
-*/storageState.json
+*.pem
+*.key
+*.cert
+*.pfx
+*.p12
+*credentials*.json
+*secret*.json
+storageState*.json
+cookies*.json
 bot-service/data/
 
 # Generated QR Codes & Temporary Images

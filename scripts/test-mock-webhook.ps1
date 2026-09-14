@@ -4,7 +4,7 @@ $body = @{
             type = "message"
             replyToken = "dummy_test_token"
             source = @{
-                userId = "U0c10a5974f98b7ebb3367fd309f0222e"
+                userId = "U_dummy_mock_user_id"
             }
             message = @{
                 type = "text"
