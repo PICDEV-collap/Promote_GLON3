@@ -7,8 +7,25 @@ const N3Checker = (function () {
   // Historical & Official GLO N3 Draws (Synced with GLO Official API)
   const drawHistory = [
     {
+      id: '2026-09-16',
+      dateText: '16 กันยายน 2569 (งวดล่าสุด)',
+      winning3Direct: '640',
+      winningTods: ['046', '064', '406', '460', '604'],
+      winning2Direct: '64',
+      specialJackpotTicket: '640000000349',
+      totalSales: 19800000,
+      prizeDirect3: 6330,
+      prizeTod3: 979,
+      prizeDirect2: 478,
+      prizeJackpot: 775136,
+      gloFirstPrize: '730640',
+      gloLast2: '64',
+      gloLast3Front: ['060', '521'],
+      gloLast3Back: ['041', '266']
+    },
+    {
       id: '2026-09-01',
-      dateText: '1 กันยายน 2569 (งวดล่าสุด)',
+      dateText: '1 กันยายน 2569',
       winning3Direct: '212',
       winningTods: ['122', '221'],
       winning2Direct: '04',

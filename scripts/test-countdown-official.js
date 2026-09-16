@@ -44,13 +44,13 @@ runTest('Dataset: data/latest-lottery.json contains official GLO N3 results', ()
   const filePath = path.join(__dirname, '../data/latest-lottery.json');
   assert.strictEqual(fs.existsSync(filePath), true);
   const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  assert.strictEqual(data.drawDate, '2026-09-01');
-  assert.strictEqual(data.n3.straight3.number, '212');
-  assert.strictEqual(data.n3.straight3.prize, 5801);
-  assert.deepStrictEqual(data.n3.shuffle3.numbers, ['122', '221']);
-  assert.strictEqual(data.n3.straight2.number, '04');
-  assert.strictEqual(data.n3.specialJackpot.ticketNumber, '212000003860');
-  assert.strictEqual(data.gloStandard.firstPrize.number, '417212');
+  assert.strictEqual(data.drawDate, '2026-09-16');
+  assert.strictEqual(data.n3.straight3.number, '640');
+  assert.strictEqual(data.n3.straight3.prize, 6330);
+  assert.deepStrictEqual(data.n3.shuffle3.numbers, ['046', '064', '406', '460', '604']);
+  assert.strictEqual(data.n3.straight2.number, '64');
+  assert.strictEqual(data.n3.specialJackpot.ticketNumber, '640000000349');
+  assert.strictEqual(data.gloStandard.firstPrize.number, '730640');
 });
 
 // 2. Postponement Calculation Engine
@@ -124,45 +124,45 @@ runTest('API Handler: api/draw-schedule.js returns 200 with CORS and required fi
   assert.strictEqual(statusCode, 200);
   assert.strictEqual(headers['access-control-allow-origin'], '*');
   assert.strictEqual(responseData.success, true);
-  assert.strictEqual(responseData.upcomingDraw.drawDate, '2026-09-16');
-  assert.strictEqual(responseData.latestLottery.n3.straight3.number, '212');
+  assert.strictEqual(responseData.upcomingDraw.drawDate, '2026-10-01');
+  assert.strictEqual(responseData.latestLottery.n3.straight3.number, '640');
 });
 
 // 4. N3Checker Official Winning Numbers & Prize Checking
-runTest('N3Checker: Latest draw has official GLO winning digits 212', () => {
+runTest('N3Checker: Latest draw has official GLO winning digits 640', () => {
   const latest = N3Checker.getLatestDraw();
-  assert.strictEqual(latest.winning3Direct, '212');
-  assert.deepStrictEqual(latest.winningTods, ['122', '221']);
-  assert.strictEqual(latest.winning2Direct, '04');
-  assert.strictEqual(latest.specialJackpotTicket, '212000003860');
-  assert.strictEqual(latest.prizeDirect3, 5801);
+  assert.strictEqual(latest.winning3Direct, '640');
+  assert.deepStrictEqual(latest.winningTods, ['046', '064', '406', '460', '604']);
+  assert.strictEqual(latest.winning2Direct, '64');
+  assert.strictEqual(latest.specialJackpotTicket, '640000000349');
+  assert.strictEqual(latest.prizeDirect3, 6330);
 });
 
-runTest('N3Checker: checkN3Prize checks official winning 3-Direct 212', () => {
-  const res = N3Checker.checkN3Prize('212');
+runTest('N3Checker: checkN3Prize checks official winning 3-Direct 640', () => {
+  const res = N3Checker.checkN3Prize('640');
   assert.strictEqual(res.isWinner, true);
   assert.strictEqual(res.hasJackpotChance, true);
   const titles = res.prizesWon.map(p => p.type);
   assert.strictEqual(titles.includes('3-DIRECT'), true);
-  assert.strictEqual(res.totalPrize, 5801);
+  assert.strictEqual(res.totalPrize, 6330);
 });
 
-runTest('N3Checker: checkN3Prize checks official winning 3-Tod 122 and 221', () => {
-  const res1 = N3Checker.checkN3Prize('122');
+runTest('N3Checker: checkN3Prize checks official winning 3-Tod 046 and 460', () => {
+  const res1 = N3Checker.checkN3Prize('046');
   assert.strictEqual(res1.isWinner, true);
   assert.strictEqual(res1.prizesWon[0].type, '3-TOD');
-  assert.strictEqual(res1.totalPrize, 2702);
+  assert.strictEqual(res1.totalPrize, 979);
 
-  const res2 = N3Checker.checkN3Prize('221');
+  const res2 = N3Checker.checkN3Prize('460');
   assert.strictEqual(res2.isWinner, true);
   assert.strictEqual(res2.prizesWon[0].type, '3-TOD');
 });
 
-runTest('N3Checker: checkN3Prize checks official winning 2-Direct 04', () => {
-  const res = N3Checker.checkN3Prize('904'); // last 2 is 04
+runTest('N3Checker: checkN3Prize checks official winning 2-Direct 64', () => {
+  const res = N3Checker.checkN3Prize('164'); // last 2 is 64
   assert.strictEqual(res.isWinner, true);
   assert.strictEqual(res.prizesWon[0].type, '2-DIRECT');
-  assert.strictEqual(res.totalPrize, 582);
+  assert.strictEqual(res.totalPrize, 478);
 });
 
 // 5. Dealer Portal Round Parsing

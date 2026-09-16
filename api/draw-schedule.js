@@ -28,14 +28,18 @@ module.exports = async function handler(req, res) {
       latestData = JSON.parse(fs.readFileSync(latestPath, 'utf8'));
     }
 
-    // 3. Attempt live GLO API check with strict 1.8s timeout
+    // 3. Attempt live GLO API check with 3.5s timeout and standard headers
     let liveLatest = null;
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1800);
+      const timer = setTimeout(() => controller.abort(), 3500);
       const gloRes = await fetch('https://www.glo.or.th/api/lottery/getLatestLottery', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        },
+        body: JSON.stringify({}),
         signal: controller.signal
       });
       clearTimeout(timer);

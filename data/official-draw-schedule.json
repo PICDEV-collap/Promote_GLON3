@@ -27,7 +27,7 @@
       "thaiDate": "16 กันยายน 2569",
       "drawTime": "14:30",
       "isPostponed": false,
-      "status": "upcoming",
+      "status": "completed",
       "period": "งวดประจำวันที่ 16 กันยายน 2569"
     },
     {
@@ -35,7 +35,7 @@
       "thaiDate": "1 ตุลาคม 2569",
       "drawTime": "14:30",
       "isPostponed": false,
-      "status": "scheduled",
+      "status": "upcoming",
       "period": "งวดประจำวันที่ 1 ตุลาคม 2569"
     },
     {
