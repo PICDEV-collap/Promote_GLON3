@@ -2858,7 +2858,7 @@
       }, 1000);
     }
 
-    // QR Download Handler - Direct Download from HTML webpage
+    // QR Download Handler - Adaptive Multi-OS (iOS Web Share API & Long-Press / Android & Desktop Direct Blob)
     async function downloadModalQr() {
       const qrImg = document.getElementById('modal-qr-img');
       const qrSrc = window.currentQrData || (qrImg ? qrImg.src : '');
@@ -2867,13 +2867,12 @@
         return;
       }
       const filename = `GLO-N3-Payment-QR-${Date.now()}.png`;
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
-      showToast('📥 กำลังบันทึกรูปภาพ QR Code ลงเครื่อง...', 'info');
-
+      // 1. แปลง Data URL หรือ Image URL เป็น Blob
+      let blob = null;
       try {
-        let blob = null;
-
-        // 1. Base64 Data URL to Blob (Instant, 0 latency, no CORS required)
         if (qrSrc.startsWith('data:')) {
           const parts = qrSrc.split(';base64,');
           const contentType = (parts[0].split(':')[1] || 'image/png').split(';')[0];
@@ -2882,12 +2881,9 @@
           for (let i = 0; i < raw.length; i++) uInt8[i] = raw.charCodeAt(i);
           blob = new Blob([uInt8], { type: contentType });
         } else {
-          // 2. Fetch or Canvas drawing
           try {
             const res = await fetch(qrSrc, { mode: 'cors' });
-            if (res.ok) {
-              blob = await res.blob();
-            }
+            if (res.ok) blob = await res.blob();
           } catch (e) {}
 
           if (!blob) {
@@ -2910,9 +2906,43 @@
             }
           }
         }
+      } catch (err) {
+        console.warn('Blob generation error:', err);
+      }
 
-        // 3. Trigger immediate download via Blob Object URL
-        if (blob) {
+      // 2. สำหรับ iPhone / iOS: ใช้ Web Share API Level 2 เพื่อให้เซฟตรงเข้าคลังรูปภาพ (Photos) ทันที
+      if (isIOS && blob) {
+        try {
+          const file = new File([blob], filename, { type: blob.type || 'image/png' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'QR Code ชำระเงินสลาก N3',
+              text: 'บันทึกรูปภาพเพื่อสแกนจ่ายผ่านแอปเป๋าตัง',
+              files: [file]
+            });
+            showToast('✅ เลือก "บันทึกภาพ (Save Image)" เพื่อนำไปสแกนในเป๋าตัง', 'success');
+            return;
+          }
+        } catch (shareErr) {
+          if (shareErr.name === 'AbortError') return; // ผู้ใช้กดยกเลิก
+          console.warn('iOS Web Share API failed, showing long-press guide:', shareErr);
+        }
+
+        // หาก Web Share API ไม่พร้อมทำงานบน iOS ให้ไฮไลต์รูปและแนะนำแตะค้าง
+        if (qrImg) {
+          qrImg.style.transition = 'box-shadow 0.3s ease';
+          qrImg.style.boxShadow = '0 0 0 4px #f59e0b, 0 0 20px rgba(245, 158, 11, 0.6)';
+          setTimeout(() => { if (qrImg) qrImg.style.boxShadow = ''; }, 3500);
+        }
+        showToast('👆 แตะค้างที่รูปภาพ QR Code แล้วเลือก "บันทึกรูปภาพ" (Save to Photos)', 'info');
+        return;
+      }
+
+      // 3. สำหรับ Android และ Desktop (คงเดิม 100%): ดาวน์โหลดตรงผ่าน Blob Object URL / <a download>
+      showToast('📥 กำลังบันทึกรูปภาพ QR Code ลงเครื่อง...', 'info');
+
+      if (blob) {
+        try {
           const blobUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.download = filename;
@@ -2926,12 +2956,12 @@
           }, 2000);
           showToast('✅ บันทึกรูปภาพ QR Code ลงเครื่องเรียบร้อยแล้ว!', 'success');
           return;
+        } catch (err) {
+          console.warn('Blob direct download failed:', err);
         }
-      } catch (err) {
-        console.warn('Blob direct download failed:', err);
       }
 
-      // 4. Fallback link click
+      // Fallback link click
       try {
         const link = document.createElement('a');
         link.download = filename;

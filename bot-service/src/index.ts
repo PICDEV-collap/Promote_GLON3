@@ -224,7 +224,100 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
     return;
   }
 
-  // ส่งเป็นไฟล์ภาพ PNG ดาวน์โหลดตรงเข้าเครื่องทันที (ไม่มีหน้าเว็บ HTML ดักคั่น)
+  const ua = req.headers['user-agent'] || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isLine = /Line\//i.test(ua);
+  const isRaw = req.query.action === 'raw' || req.query.raw === '1';
+
+  // หากระบุ action=raw ให้ส่งไฟล์ภาพ PNG ตรงๆ
+  if (isRaw) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (cachedBuf) {
+      res.send(cachedBuf);
+    } else {
+      res.sendFile(filePath);
+    }
+    return;
+  }
+
+  // เฉพาะผู้ใช้ iPhone ที่เปิดผ่าน LINE In-App Browser: แสดงหน้าช่วยเหลือที่รองรับ Web Share API และการแตะค้าง (Long-press) ป้องกัน LINE iOS บล็อกดาวน์โหลด
+  if (isIOS && isLine) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QR Code ชำระเงินสลาก N3 - ธนกิจนำโชค</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0c1b33; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 1.25rem; text-align: center; }
+    .card { background: #132742; border: 1px solid #d4af37; border-radius: 18px; padding: 1.5rem; max-width: 380px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    h2 { color: #f6d365; font-size: 1.25rem; margin-bottom: 0.35rem; font-weight: 700; }
+    p.sub { font-size: 0.85rem; color: #cbd5e1; margin-bottom: 0.9rem; }
+    .guide-box { background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 12px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.82rem; color: #fef08a; line-height: 1.45; text-align: left; }
+    .img-wrapper { background: #ffffff; padding: 0.75rem; border-radius: 14px; margin-bottom: 1.15rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    img { width: 100%; height: auto; display: block; border-radius: 8px; -webkit-touch-callout: default !important; user-select: auto !important; }
+    .btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 0.85rem; border-radius: 12px; font-size: 0.95rem; font-weight: 700; cursor: pointer; border: none; text-decoration: none; margin-bottom: 0.65rem; }
+    .btn-share { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
+    .btn-external { background: rgba(255,255,255,0.08); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); font-size: 0.82rem; padding: 0.6rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>QR Code ชำระเงินสลาก N3</h2>
+    <p class="sub">ร้านสลาก N3 ธนกิจนำโชค</p>
+    
+    <div class="guide-box">
+      <strong>📲 คำแนะนำสำหรับผู้ใช้ iPhone:</strong><br>
+      • กดปุ่ม <b>"📥 บันทึกภาพลงเครื่อง"</b> แล้วเลือก <i>"บันทึกภาพ (Save Image)"</i><br>
+      • หรือ <b>แตะค้างที่รูป QR</b> เพื่อเลือก <i>"บันทึกรูปภาพ"</i> ลงอัลบั้ม
+    </div>
+
+    <div class="img-wrapper">
+      <img id="qr-image" src="/download-qr/${filename}?action=raw" alt="Payment QR Code">
+    </div>
+
+    <button id="btn-share-save" class="btn btn-share" onclick="handleSaveImage()">
+      📥 บันทึกภาพ QR ลงเครื่อง (Save Image)
+    </button>
+    
+    <button class="btn btn-external" onclick="openInSafari()">
+      🌐 เปิดใน Safari
+    </button>
+  </div>
+
+  <script>
+    async function handleSaveImage() {
+      const img = document.getElementById('qr-image');
+      try {
+        const res = await fetch(img.src);
+        const blob = await res.blob();
+        const file = new File([blob], '${filename}', { type: 'image/png' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'QR Code ชำระเงินสลาก N3',
+            files: [file]
+          });
+          return;
+        }
+      } catch (e) {}
+      alert('👉 กรุณาแตะค้างที่รูปภาพ QR Code ด้านบน แล้วเลือก "บันทึกรูปภาพ" (Save Image)');
+    }
+
+    function openInSafari() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('openExternalBrowser', '1');
+      window.location.href = url.toString();
+    }
+  </script>
+</body>
+</html>`);
+    return;
+  }
+
+  // ส่งเป็นไฟล์ภาพ PNG ดาวน์โหลดตรงเข้าเครื่องทันที สำหรับ Android, Desktop, และเบราว์เซอร์ทั่วไป (คงเดิม 100%)
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.removeHeader('X-Frame-Options');
