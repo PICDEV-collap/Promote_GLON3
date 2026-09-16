@@ -1129,7 +1129,7 @@ async function runTests() {
 
     // Verify all 6 menu action buttons exist
     assert(bodyStr.includes('สั่งซื้อสลาก N3'));
-    assert(bodyStr.includes('ตรวจผลรางวัล'));
+    assert(bodyStr.includes('สูตรเลขชุด 6 กลับ'));
     assert(bodyStr.includes('วิธีการชำระเงิน (เป๋าตัง)'));
     assert(bodyStr.includes('วิธีการสั่งซื้อสลาก'));
     assert(bodyStr.includes('ทำนายฝัน AI หาเลขเด็ด'));

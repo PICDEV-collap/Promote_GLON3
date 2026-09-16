@@ -820,12 +820,12 @@ export class FlexMessageBuilder {
                 {
                   type: 'button',
                   style: 'primary',
-                  color: '#4f46e5',
+                  color: '#d97706',
                   height: 'sm',
                   action: {
-                    type: 'message',
-                    label: '🏆 ตรวจผลรางวัล',
-                    text: 'ผลรางวัล'
+                    type: 'uri',
+                    label: '🎲 สูตรเลขชุด 6 กลับ',
+                    uri: CONFIG.ORDER_6PACK_URL
                   }
                 },
                 {

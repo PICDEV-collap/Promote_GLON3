@@ -17,7 +17,7 @@ const ROW_H = Math.round(HEIGHT / 2); // 843
 const RICH_MENU_SPEC = {
   size: { width: WIDTH, height: HEIGHT },
   selected: true,
-  name: 'N3_Thanakit_MainMenu_v6',
+  name: 'N3_Thanakit_MainMenu_v7',
   chatBarText: '🏠 เมนูหลัก',
   areas: [
     {
@@ -30,7 +30,7 @@ const RICH_MENU_SPEC = {
     },
     {
       bounds: { x: 1667, y: 0, width: 833, height: ROW_H },
-      action: { type: 'message', text: 'ผลรางวัล' }
+      action: { type: 'message', text: 'วิธีชำระเงิน' }
     },
     {
       bounds: { x: 0, y: ROW_H, width: 833, height: ROW_H },
@@ -85,11 +85,11 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     box-shadow: inset 0 0 80px rgba(251, 191, 36, 0.25);
   }
   .tile-3 {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%);
-    box-shadow: inset 0 0 80px rgba(250, 204, 21, 0.22);
+    background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%);
+    box-shadow: inset 0 0 80px rgba(56, 189, 248, 0.2);
   }
   .tile-4 {
-    background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   }
   .tile-5 {
     background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
@@ -191,22 +191,22 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     <div class="badge badge-gold">ชุดละ 120.- • ลุ้น 9,400</div>
   </div>
 
-  <!-- TILE 3: ผลการออกรางวัล -->
+  <!-- TILE 3: วิธีชำระเงิน (เป๋าตัง) -->
   <div class="tile tile-3">
-    <div class="highlight-tag" style="color: #fef08a; border-color: rgba(254, 240, 138, 0.5);">อัปเดตงวดล่าสุด</div>
-    <div class="icon-box" style="background: rgba(254, 240, 138, 0.22); border-color: rgba(254, 240, 138, 0.6);">🏆</div>
-    <div class="title title-gold">ผลการออกรางวัล</div>
-    <div class="subtitle">3 ตรง • 3 โต๊ด • 2 ตรง • แจ็กพอต</div>
-    <div class="badge badge-trophy">ตรวจผลสลาก N3</div>
+    <div class="highlight-tag" style="color: #67e8f9; border-color: rgba(103, 232, 249, 0.5);">เป๋าตัง เท่านั้น</div>
+    <div class="icon-box" style="background: rgba(14, 165, 233, 0.22); border-color: rgba(56, 189, 248, 0.6);">📲</div>
+    <div class="title" style="color: #38bdf8;">วิธีชำระเงิน</div>
+    <div class="subtitle">สแกน QR ผ่านแอปเป๋าตัง</div>
+    <div class="badge badge-blue">ขั้นตอนสแกนจ่ายเงิน</div>
   </div>
 
-  <!-- TILE 4: วิธีสั่งซื้อ & จ่ายเงิน -->
+  <!-- TILE 4: วิธีสั่งซื้อสลาก -->
   <div class="tile tile-4">
     <div class="highlight-tag" style="color: #fecaca; border-color: rgba(239,68,68,0.4);">มือใหม่เริ่มที่นี่</div>
-    <div class="icon-box">📲</div>
-    <div class="title">วิธีซื้อ & จ่ายเงิน</div>
-    <div class="subtitle">ขั้นตอนสั่ง & สแกนจ่ายเป๋าตัง</div>
-    <div class="badge badge-red">แอปเป๋าตัง เท่านั้น</div>
+    <div class="icon-box">❓</div>
+    <div class="title title-gold">วิธีสั่งซื้อสลาก</div>
+    <div class="subtitle">ขั้นตอนสั่งซื้อสลาก N3 ง่ายๆ</div>
+    <div class="badge badge-red">ขั้นตอนสั่งซื้อสลาก</div>
   </div>
 
   <!-- TILE 5: ทำนายฝัน AI -->
