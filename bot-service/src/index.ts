@@ -246,23 +246,13 @@ app.get(['/order-6pack', '/order-6pack.html'], (_req: Request, res: Response) =>
 
 // LIFF Endpoint fallback for GET /webhook requests (Prevents "Cannot GET /webhook" error in LINE LIFF)
 app.get(['/webhook', '/webhook/'], (req: Request, res: Response) => {
-  const mode = req.query.mode || req.query.type;
-  const liffState = req.query['liff.state'] as string;
-  const is6Pack = mode === '6pack' || mode === 'sixpack' || (liffState && (liffState.includes('6pack') || liffState.includes('sixpack')));
-
-  if (is6Pack) {
-    const root6PackPath = path.join(__dirname, '../../order-6pack.html');
-    const local6PackPath = path.join(__dirname, '../public/order-6pack.html');
-    if (fs.existsSync(root6PackPath)) return res.sendFile(root6PackPath);
-    if (fs.existsSync(local6PackPath)) return res.sendFile(local6PackPath);
-    return res.redirect('/order?mode=6pack');
-  }
-
-  const rootOrderPath = path.join(__dirname, '../../order.html');
-  const localOrderPath = path.join(__dirname, '../public/order.html');
-  if (fs.existsSync(rootOrderPath)) return res.sendFile(rootOrderPath);
-  if (fs.existsSync(localOrderPath)) return res.sendFile(localOrderPath);
-  return res.redirect('/order');
+  // The LIFF endpoint serves the Rich Menu ordering page. Its own startup code
+  // reads mode=6pack from the LIFF state and keeps both order modes in one flow.
+  const rootLinePath = path.join(__dirname, '../../line.html');
+  const localLinePath = path.join(__dirname, '../public/line.html');
+  if (fs.existsSync(rootLinePath)) return res.sendFile(rootLinePath);
+  if (fs.existsSync(localLinePath)) return res.sendFile(localLinePath);
+  return res.redirect('/line');
 });
 
 // Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code ส่งตรงเข้าเครื่องทันที (Direct Download)

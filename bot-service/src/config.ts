@@ -4,6 +4,8 @@ import path from 'path';
 dotenv.config();
 
 const adminId = process.env.ADMIN_LINE_USER_ID || process.env.LINE_ADMIN_USER_ID || '';
+const liffId = process.env.LIFF_ID || '2011462211-WVsuHFk4';
+const liffUrl = `https://liff.line.me/${liffId}`;
 
 export const CONFIG = {
   PORT: parseInt(process.env.PORT || '3333', 10),
@@ -23,11 +25,11 @@ export const CONFIG = {
 
   // URL เว็บไซต์โปรโมทสลาก N3, ทำนายฝัน AI และตรวจผลรางวัล (ตรงตาม LINE Rich Menu มาตรฐาน)
   DREAM_PREDICTION_URL: process.env.DREAM_PREDICTION_URL || 'https://promote-glon-3.vercel.app/dream?openExternalBrowser=1',
-  ORDER_FORM_URL: process.env.ORDER_FORM_URL || 'https://promote-glon-3.vercel.app/line?openExternalBrowser=1',
-  ORDER_6PACK_URL: process.env.ORDER_6PACK_URL || 'https://promote-glon-3.vercel.app/line?mode=6pack&openExternalBrowser=1',
+  ORDER_FORM_URL: process.env.ORDER_FORM_URL || liffUrl,
+  ORDER_6PACK_URL: process.env.ORDER_6PACK_URL || `${liffUrl}?mode=6pack`,
   RESULTS_CHECK_URL: process.env.RESULTS_CHECK_URL || 'https://promote-glon-3.vercel.app/?openExternalBrowser=1#results-stats',
-  LIFF_ID: process.env.LIFF_ID || '2011462211-WVsuHFk4',
-  ORDER_LIFF_URL: process.env.ORDER_LIFF_URL || 'https://promote-glon-3.vercel.app/line?openExternalBrowser=1',
+  LIFF_ID: liffId,
+  ORDER_LIFF_URL: process.env.ORDER_LIFF_URL || liffUrl,
 
   // โดเมนที่ปลอดภัยสำหรับระบบจำหน่ายสลาก (เฉพาะทางการของกองสลากและเป๋าตังกรุงไทยเท่านั้น)
   ALLOWED_DOMAINS: [

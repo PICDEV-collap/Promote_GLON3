@@ -10,6 +10,9 @@ if (!LINE_TOKEN) {
   process.exit(1);
 }
 
+const LIFF_ID = process.env.LIFF_ID || '2011462211-WVsuHFk4';
+const LIFF_URL = `https://liff.line.me/${LIFF_ID}`;
+
 const WIDTH = 2500;
 const HEIGHT = 1686;
 const ROW_H = Math.round(HEIGHT / 2); // 843
@@ -22,11 +25,11 @@ const RICH_MENU_SPEC = {
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/line?openExternalBrowser=1' }
+      action: { type: 'uri', uri: LIFF_URL }
     },
     {
       bounds: { x: 833, y: 0, width: 834, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/line?mode=6pack&openExternalBrowser=1' }
+      action: { type: 'uri', uri: `${LIFF_URL}?mode=6pack` }
     },
     {
       bounds: { x: 1667, y: 0, width: 833, height: ROW_H },
@@ -262,15 +265,7 @@ async function main() {
   const listData = await listRes.json();
   console.log(`   Found ${listData.richmenus ? listData.richmenus.length : 0} existing rich menus`);
 
-  if (listData.richmenus && listData.richmenus.length > 0) {
-    for (const rm of listData.richmenus) {
-      console.log(`   Deleting old menu: ${rm.richMenuId} (${rm.name})...`);
-      await fetch(`https://api.line.me/v2/bot/richmenu/${rm.richMenuId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${LINE_TOKEN}` }
-      });
-    }
-  }
+  console.log('   Existing menus will be kept; the new menu will replace only the default menu.');
 
   console.log('3. Creating new Rich Menu specification...');
   const createRes = await fetch('https://api.line.me/v2/bot/richmenu', {

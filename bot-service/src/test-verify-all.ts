@@ -1383,6 +1383,10 @@ async function runTests() {
   test('Order Table Form: CONFIG.ORDER_FORM_URL is defined and points to line or order', () => {
     assert(CONFIG.ORDER_FORM_URL, 'CONFIG.ORDER_FORM_URL must be defined');
     assert(CONFIG.ORDER_FORM_URL.includes('line') || CONFIG.ORDER_FORM_URL.includes('order'), 'ORDER_FORM_URL must point to line or order');
+    assert(CONFIG.ORDER_FORM_URL.startsWith('https://liff.line.me/'), 'Rich Menu order must open in the configured LIFF app');
+    assert(CONFIG.ORDER_6PACK_URL.startsWith('https://liff.line.me/'), 'Six-pack order must open in the configured LIFF app');
+    assert(CONFIG.ORDER_6PACK_URL.includes('mode=6pack'), 'Six-pack LIFF link must retain its order mode');
+    assert(CONFIG.ORDER_LIFF_URL.startsWith('https://liff.line.me/'), 'ORDER_LIFF_URL must use the LIFF app URL');
   });
 
   test('Order Table Guidance: buildOrderGuidanceMessage includes open order table URI and preview table', () => {
@@ -1814,12 +1818,15 @@ async function runTests() {
     assert(orderRoute.includes('nextOpenText: salesStatus.nextOpenText'));
   });
 
-  test('LINE order page logs into LIFF in external browsers and preserves the order draft', () => {
+  test('LINE Rich Menu order uses LIFF identity and creates the QR in-page without another login', () => {
     const source = fs.readFileSync(path.join(__dirname, '../public/line.html'), 'utf-8');
-    assert(source.includes('withLoginOnExternalBrowser: true'));
-    assert(source.includes("const PENDING_DIRECT_ORDER_KEY = 'glo_n3_pending_direct_order'"));
-    assert(source.includes('restorePendingDirectOrderAfterLogin()'));
-    assert(source.includes('liff.login({ redirectUri: window.location.href })'));
+    assert(!source.includes('withLoginOnExternalBrowser: true'), 'Order flow must not start an external LINE login');
+    assert(!source.includes('liff.login('), 'Order flow must not request a second LINE login');
+    assert(!source.includes('PENDING_DIRECT_ORDER_KEY'), 'No login redirect means there is no pending order draft to restore');
+    assert(source.includes('lineAccessToken = liff.getAccessToken()'), 'Order must use the token from the LIFF Rich Menu session');
+    assert(source.includes("fetch('/api/order-direct'"), 'Order must create the QR through the direct order API');
+    assert(source.includes('showDirectOrderConfirmation(orderCommand, aggregatedItems, totalTickets, totalPrice)'), 'Order selection must open the in-page confirmation modal');
+    assert(source.includes('ไม่พบการยืนยันจาก LINE กรุณาปิดหน้านี้แล้วเปิดใหม่จาก Rich Menu ในแอป LINE'), 'Missing LIFF context must show clear guidance without asking the customer to log in');
     assert(source.includes("resData.code === 'SALES_CLOSED' && resData.nextOpenText"));
     assert(!source.includes('กรุณาเปิดหน้านี้ผ่าน LINE และเข้าสู่ระบบก่อนสั่งซื้อโดยตรง'));
 
@@ -1832,9 +1839,22 @@ async function runTests() {
     const dispatchStart = source.indexOf('async function dispatchAggregatedOrder');
     const dispatchEnd = source.indexOf('function submitSixPackOrder', dispatchStart);
     const dispatcher = source.slice(dispatchStart, dispatchEnd);
-    assert(dispatcher.includes('persistPendingDirectOrder(currentOrderData)'));
-    assert(dispatcher.includes('if (isLiffReady && !liff.isLoggedIn() && !liff.isInClient())'));
-    assert(dispatcher.includes('liff.login({ redirectUri: window.location.href })'), 'Order submission must start LINE Login when external browser is not authenticated');
+    assert(dispatcher.includes('showDirectOrderConfirmation(orderCommand, aggregatedItems, totalTickets, totalPrice)'));
+    assert(!dispatcher.includes('liff.login('), 'Submitting an order must not open LINE Login');
+    assert(!dispatcher.includes('liff.sendMessages('), 'Submitting an order must not send a chat message or consume messaging quota');
+
+    const richMenuSource = fs.readFileSync(path.join(__dirname, '../../scripts/setup-richmenu.js'), 'utf-8');
+    assert(richMenuSource.includes('const LIFF_URL = `https://liff.line.me/${LIFF_ID}`'));
+    assert(richMenuSource.includes('uri: LIFF_URL'), 'Rich Menu order action must launch LIFF');
+    assert(richMenuSource.includes('uri: `${LIFF_URL}?mode=6pack`'), 'Six-pack Rich Menu action must preserve its mode');
+    assert(!richMenuSource.includes("method: 'DELETE'"), 'Updating Rich Menu must not delete unrelated registered menus');
+
+    const serverSource = fs.readFileSync(path.join(__dirname, 'index.ts'), 'utf-8');
+    const endpointStart = serverSource.indexOf("app.get(['/webhook', '/webhook/']");
+    const endpointEnd = serverSource.indexOf("app.get('/download-qr/:filename'", endpointStart);
+    const liffEndpoint = serverSource.slice(endpointStart, endpointEnd);
+    assert(liffEndpoint.includes('rootLinePath'), 'LIFF endpoint must serve the in-page QR order flow');
+    assert(liffEndpoint.includes('return res.redirect(\'/line\')'), 'LIFF endpoint fallback must preserve the same order page');
   });
 
   test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {
