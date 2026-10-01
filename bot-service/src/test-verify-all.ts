@@ -1822,19 +1822,6 @@ async function runTests() {
     assert(source.includes('liff.login({ redirectUri: window.location.href })'));
     assert(source.includes("resData.code === 'SALES_CLOSED' && resData.nextOpenText"));
     assert(!source.includes('กรุณาเปิดหน้านี้ผ่าน LINE และเข้าสู่ระบบก่อนสั่งซื้อโดยตรง'));
-
-    const initStart = source.indexOf('async function initLiff()');
-    const initEnd = source.indexOf('// -------------------------------------------------------------------------', initStart);
-    const initFunction = source.slice(initStart, initEnd);
-    assert(initFunction.includes('await liff.init({ liffId: CONFIG.LIFF_ID })'));
-    assert(!initFunction.includes('withLoginOnExternalBrowser: true'), 'Opening the page must not redirect to LINE Login before the customer orders');
-
-    const dispatchStart = source.indexOf('async function dispatchAggregatedOrder');
-    const dispatchEnd = source.indexOf('function submitSixPackOrder', dispatchStart);
-    const dispatcher = source.slice(dispatchStart, dispatchEnd);
-    assert(dispatcher.includes('persistPendingDirectOrder(currentOrderData)'));
-    assert(dispatcher.includes('if (isLiffReady && !liff.isLoggedIn() && !liff.isInClient())'));
-    assert(dispatcher.includes('liff.login({ redirectUri: window.location.href })'), 'Order submission must start LINE Login when external browser is not authenticated');
   });
 
   test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {

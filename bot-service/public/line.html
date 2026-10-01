@@ -2231,7 +2231,7 @@
         return;
       }
       try {
-        await liff.init({ liffId: CONFIG.LIFF_ID });
+        await liff.init({ liffId: CONFIG.LIFF_ID, withLoginOnExternalBrowser: true });
         isLiffReady = true;
         console.log('[LIFF] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
         
