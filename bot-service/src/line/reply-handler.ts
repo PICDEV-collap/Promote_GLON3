@@ -118,7 +118,8 @@ export class LineReplyHandler {
    * ตรวจสอบว่าสามารถส่งข้อความ Push ได้หรือไม่ (หากโควต้าหมดจะแนะนำให้ใช้ ReplyToken)
    */
   public isPushAvailable(): boolean {
-    if (this.cachedQuotaStatus && this.cachedQuotaStatus.isExhausted) {
+    const quotaIsFresh = this.cachedQuotaStatus !== null && Date.now() - this.lastQuotaCheckTime < 60000;
+    if (quotaIsFresh && this.cachedQuotaStatus?.type === 'limited' && this.cachedQuotaStatus.isExhausted) {
       return false;
     }
     return true;
@@ -254,17 +255,17 @@ export class LineReplyHandler {
   }
 
   /**
-   * แจ้งเตือนเมื่อระบบปิดทำการประจำวันและ Logoff สำเร็จ (เวลา 23:00 น.)
+   * แจ้งเตือนปิดร้านประจำวัน โดยรักษาเซสชัน GLO ไว้ให้ระบบหมดอายุตามเวลาของมันเอง
    */
-  public async notifyNightlyLogoff(timeStr?: string): Promise<boolean> {
+  public async notifyNightlyClose(timeStr?: string): Promise<boolean> {
     const time = timeStr || getThaiTime();
     TelegramService.getInstance().notifyDailySchedule('CLOSE', time).catch(() => {});
     try {
       const { FlexMessageBuilder } = await import('./flex-message');
-      const flexMsg = FlexMessageBuilder.buildNightlyLogoffMessage(time);
+      const flexMsg = FlexMessageBuilder.buildNightlyCloseMessage(time);
       return await this.pushToAdmin([flexMsg]);
     } catch {
-      const text = `🌙 [แจ้งเตือน] ปิดระบบจำหน่ายสลาก N3 ประจำวัน (${time})\n\n🔒 บอทได้ทำการ Logoff ออกจากระบบตัวแทนจำหน่าย GLO เรียบร้อยแล้ว\n🔔 ระบบจะแจ้งเตือนอีกครั้งในเวลา 06:00 น. ครับ`;
+      const text = `🌙 [แจ้งเตือน] ปิดร้านสลาก N3 ประจำวัน (${time})\n\n🔒 ไม่มีการสั่ง Logoff หรือล้างเซสชัน ให้ระบบ GLO จัดการเวลาหมดอายุเอง\n🔔 ระบบจะแจ้งเตือนอีกครั้งในเวลา 06:00 น. ครับ`;
       return this.pushToAdmin([{ type: 'text', text }]);
     }
   }

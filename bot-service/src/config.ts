@@ -45,7 +45,9 @@ export const CONFIG = {
 
   // การจัดการโควต้า 2,000 ใบ
   DEFAULT_MAX_QUOTA: 2000,
-  QUOTA_FILE_PATH: path.join(__dirname, '../data/quota.json'),
+  // File path overrides allow tests to isolate mutable runtime state from production data.
+  QUOTA_FILE_PATH: process.env.N3_QUOTA_FILE_PATH || path.join(__dirname, '../data/quota.json'),
+  CUSTOMER_REGISTRY_FILE_PATH: process.env.N3_CUSTOMER_REGISTRY_FILE_PATH || path.join(__dirname, '../data/customers.json'),
 
   // ระเบียบเวลาจำหน่ายสลากกินแบ่งรัฐบาลตัวเลขสามหลัก (N3)
   SALES_HOURS: {

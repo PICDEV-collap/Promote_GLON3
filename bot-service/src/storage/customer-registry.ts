@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { CONFIG } from '../config';
 
 export interface CustomerLuckyRecord {
   number: string;
@@ -8,6 +9,7 @@ export interface CustomerLuckyRecord {
   blessing: string;
   drawDate: string;
   sentAt: string;
+  deliveryStatus?: 'pending' | 'sent';
 }
 
 export interface CustomerProfile {
@@ -28,7 +30,7 @@ export class CustomerRegistry {
   private isLoaded: boolean = false;
 
   private constructor() {
-    this.filePath = path.join(__dirname, '../../data/customers.json');
+    this.filePath = CONFIG.CUSTOMER_REGISTRY_FILE_PATH;
     this.load();
   }
 
@@ -162,6 +164,21 @@ export class CustomerRegistry {
       profile.assignedLuckyNumbers[record.drawDate] = record;
       this.save();
     }
+  }
+
+  /** Persist planned numbers before sending so retries keep each customer's number. */
+  public recordLuckyAssignments(assignments: Array<{ userId: string; record: CustomerLuckyRecord }>): void {
+    let changed = false;
+    for (const { userId, record } of assignments) {
+      const profile = this.customers.get(userId);
+      if (!profile) continue;
+      if (!profile.assignedLuckyNumbers) profile.assignedLuckyNumbers = {};
+      if (!profile.assignedLuckyNumbers[record.drawDate]) {
+        profile.assignedLuckyNumbers[record.drawDate] = record;
+        changed = true;
+      }
+    }
+    if (changed) this.save();
   }
 
   /**

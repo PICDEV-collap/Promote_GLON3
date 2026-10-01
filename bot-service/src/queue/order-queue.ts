@@ -7,6 +7,8 @@ export interface OrderTask {
   orderId: string;
   replyToken: string;
   userId: string;
+  /** Customer-facing delivery path. Web orders receive updates via status polling. */
+  customerDeliveryChannel?: 'line-chat' | 'web-polling';
   items: OrderItem[];
   totalQuantity: number;
   totalPrice: number;

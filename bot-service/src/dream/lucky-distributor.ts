@@ -114,23 +114,34 @@ export class LuckyDistributor {
     const assignedNumbers: DistributedLuckyItem[] = [];
     const usedInThisRound = new Set<string>();
 
-    // 3. วนจ่ายหมายเลขให้ลูกค้าแต่ละคน
+    // Reserve current-draw assignments first so retries cannot reuse numbers
+    // that have already been assigned or sent to another customer.
+    for (const customer of customers) {
+      const currentNumber = customer.assignedLuckyNumbers?.[drawDate]?.number;
+      if (currentNumber && /^\d{3}$/.test(currentNumber)) usedInThisRound.add(currentNumber);
+    }
+
+    // 3. Keep persisted assignments and allocate the remaining numbers.
     let poolIndex = 0;
     for (const customer of customers) {
-      // ตรวจสอบว่าในงวดที่แล้วลูกค้าเคยได้เลขอะไร หากเลขจาก Pool ตรงกับงวดก่อน ให้ขยับไปเลขถัดไป
-      const lastAssignment = customer.assignedLuckyNumbers ? Object.values(customer.assignedLuckyNumbers).pop() : undefined;
-      const previousNumber = lastAssignment?.number;
+      const currentRecord = customer.assignedLuckyNumbers?.[drawDate];
+      const previousAssignments = Object.entries(customer.assignedLuckyNumbers || {})
+        .filter(([date]) => date < drawDate)
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+      const previousNumber = previousAssignments[previousAssignments.length - 1]?.[1].number;
 
-      let chosenNumber = pool[poolIndex % pool.length];
-      poolIndex++;
-
-      // หากชนกับเลขงวดก่อนและยังมีตัวเลือกเหลือ ให้เลื่อนไปเอาเลขตัวถัดไป
-      if (chosenNumber === previousNumber && pool.length > 1) {
-        chosenNumber = pool[poolIndex % pool.length];
-        poolIndex++;
+      let chosenNumber = currentRecord?.number;
+      if (!chosenNumber || !/^\d{3}$/.test(chosenNumber)) {
+        while (poolIndex < pool.length) {
+          const candidate = pool[poolIndex++];
+          if (!usedInThisRound.has(candidate) && candidate !== previousNumber) {
+            chosenNumber = candidate;
+            usedInThisRound.add(candidate);
+            break;
+          }
+        }
       }
-
-      usedInThisRound.add(chosenNumber);
+      if (!chosenNumber) break;
 
       const tods = this.calculateTods(chosenNumber);
       const n2 = chosenNumber.slice(1);

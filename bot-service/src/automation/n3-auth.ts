@@ -243,6 +243,13 @@ export class N3Auth {
    */
   public static async logoffSession(page?: Page | null): Promise<boolean> {
     try {
+      // ถ้าไม่มีหน้า browser ที่ active จะยืนยันการ logoff จริงไม่ได้
+      // อย่าลบ storageState ทิ้ง เพราะเป็นข้อมูลกู้คืนเซสชันที่ยังอาจใช้งานอยู่
+      if (!page || page.isClosed()) {
+        console.warn('[N3 AUTH] ไม่มีหน้า browser ที่ active จึงไม่สั่ง Logoff และไม่ลบ storageState');
+        return true;
+      }
+
       console.log('[N3 AUTH] 🔒 กำลังดำเนินการ Logoff ออกจากระบบตัวแทนจำหน่าย GLO...');
       if (page && !page.isClosed()) {
         const currentUrl = page.url();

@@ -114,26 +114,8 @@ module.exports = async function handler(req, res) {
       };
     }
 
-    // 5. Calculate Next Upcoming Official Draw
-    const now = new Date();
-    const bkkTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-    
-    // Find next schedule after current time
-    let upcoming = null;
-    if (scheduleData && Array.isArray(scheduleData.schedules)) {
-      const futureList = scheduleData.schedules
-        .map(s => {
-          const [y, m, d] = s.drawDate.split('-').map(Number);
-          const drawDateTime = new Date(y, m - 1, d, 14, 30, 0);
-          return { ...s, drawDateTime };
-        })
-        .filter(s => s.drawDateTime > bkkTime)
-        .sort((a, b) => a.drawDateTime - b.drawDateTime);
-
-      if (futureList.length > 0) {
-        upcoming = futureList[0];
-      }
-    }
+    // 5. Calculate Next Upcoming Official Draw using Bangkok wall-clock time.
+    const upcoming = getNextUpcomingDraw(scheduleData?.schedules, new Date());
 
     return res.status(200).json({
       success: true,
@@ -157,6 +139,64 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+function getNextUpcomingDraw(schedules, referenceNow = new Date()) {
+  if (!Array.isArray(schedules)) return null;
+
+  const now = referenceNow instanceof Date ? referenceNow : new Date(referenceNow);
+  const bangkokParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(now);
+  const bangkok = Object.fromEntries(bangkokParts
+    .filter(part => part.type !== 'literal')
+    .map(part => [part.type, Number(part.value)]));
+  const nowTimestamp = Date.UTC(
+    bangkok.year,
+    bangkok.month - 1,
+    bangkok.day,
+    bangkok.hour,
+    bangkok.minute,
+    bangkok.second
+  );
+
+  const candidates = schedules.flatMap(schedule => {
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(schedule?.drawDate || '');
+    if (!dateMatch) return [];
+
+    const [, yearText, monthText, dayText] = dateMatch;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const validDate = new Date(Date.UTC(year, month - 1, day));
+    if (validDate.getUTCFullYear() !== year || validDate.getUTCMonth() !== month - 1 || validDate.getUTCDate() !== day) {
+      return [];
+    }
+
+    const drawTime = schedule.drawTime || '14:30';
+    const timeMatch = /^(\d{2}):(\d{2})$/.exec(drawTime);
+    if (!timeMatch) return [];
+    const hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2]);
+    if (hour > 23 || minute > 59) return [];
+
+    return [{
+      schedule,
+      timestamp: Date.UTC(year, month - 1, day, hour, minute)
+    }];
+  });
+
+  candidates.sort((a, b) => a.timestamp - b.timestamp);
+  return candidates.find(candidate => candidate.timestamp > nowTimestamp)?.schedule || null;
+}
+
+module.exports.getNextUpcomingDraw = getNextUpcomingDraw;
 
 function getThaiMonthName(m) {
   const months = [

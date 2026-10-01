@@ -2751,12 +2751,12 @@ export class FlexMessageBuilder {
   }
 
   /**
-   * 14. การ์ดแจ้งเตือนปิดระบบจำหน่ายประจำวัน & สั่ง Logoff อัตโนมัติ (เวลา 23:00 น.)
+   * 14. การ์ดแจ้งเตือนปิดร้านประจำวัน โดยไม่สั่ง Logoff (เวลา 23:00 น.)
    */
-  public static buildNightlyLogoffMessage(timeStr: string = '23:00 น.'): messagingApi.FlexMessage {
+  public static buildNightlyCloseMessage(timeStr: string = '23:00 น.'): messagingApi.FlexMessage {
     return {
       type: 'flex',
-      altText: `🌙 [แจ้งเตือน] ปิดระบบจำหน่ายสลาก N3 ประจำวัน (${timeStr}) และ Logoff เรียบร้อยแล้ว`,
+      altText: `🌙 [แจ้งเตือน] ปิดร้านสลาก N3 ประจำวัน (${timeStr}) โดยคงเซสชัน GLO ไว้`,
       contents: {
         type: 'bubble',
         size: 'giga',
@@ -2814,14 +2814,14 @@ export class FlexMessageBuilder {
               contents: [
                 {
                   type: 'text',
-                  text: '🔒 สถานะระบบ: Logoff เรียบร้อยแล้ว',
+                  text: '🔒 สถานะระบบ: คงเซสชัน GLO ไว้',
                   weight: 'bold',
                   size: 'sm',
                   color: '#0f172a'
                 },
                 {
                   type: 'text',
-                  text: 'บอทได้ทำการออกจากระบบ (Logoff) และล้างเซสชันร้านค้า GLO เพื่อความปลอดภัยเรียบร้อยแล้ว',
+                  text: 'ไม่มีการสั่ง Logoff หรือล้างเซสชัน ปล่อยให้ระบบ GLO จัดการเวลาหมดอายุของเซสชันเอง',
                   size: 'xs',
                   color: '#475569',
                   wrap: true,

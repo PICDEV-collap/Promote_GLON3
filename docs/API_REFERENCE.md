@@ -6,6 +6,10 @@
 
 ## 1. Bot Service Endpoints (Port 3333)
 
+### Admin API Authentication
+
+Administrative endpoints, campaign broadcast endpoints, and the Telegram test endpoint require `ADMIN_API_KEY` in `bot-service/.env`. Send it in the `x-api-key` header (or `x-admin-key` for legacy admin callers). If the key is not configured, these endpoints are disabled and return HTTP 503. Requests without a valid key return HTTP 401.
+
 ### 1.1 `POST /webhook`
 จุดรับเหตุการณ์ (Webhook Receiver) จาก LINE Messaging API Platform
 
@@ -50,7 +54,7 @@
   * `target` / `targetUserId` (string, optional): ระบุ User ID เพื่อทดสอบส่งเฉพาะราย
   * `force` (boolean, optional): บังคับส่งแม้จะเคยได้รับแล้วในงวดนี้
 * **Headers**:
-  * `x-api-key: <ADMIN_API_KEY>` (ถ้ามีการตั้งค่าไว้ใน `.env`)
+  * `x-api-key: <ADMIN_API_KEY>` (จำเป็น)
 
 ---
 
@@ -62,7 +66,12 @@
   * `target` / `targetUserId` (string, optional): ระบุ User ID เพื่อทดสอบ
   * `force` (boolean, optional): บังคับส่งซ้ำ
 * **Headers**:
-  * `x-api-key: <ADMIN_API_KEY>` (ถ้ามีการตั้งค่าไว้ใน `.env`)
+  * `x-api-key: <ADMIN_API_KEY>` (จำเป็น)
+
+---
+
+### 1.5 `POST /api/order-direct`
+รับคำสั่งซื้อจากหน้า LIFF โดยต้องส่ง `accessToken` ที่ได้จาก `liff.getAccessToken()` พร้อมรายการ `items` ผู้ให้บริการจะตรวจ token และ channel กับ LINE ก่อนอ่าน User ID จาก LINE และตรวจสมาชิกของ Official Account ค่าที่ส่งมาใน `userId` หรือ `source` จะไม่ถูกใช้ยืนยันตัวตน
 
 ---
 

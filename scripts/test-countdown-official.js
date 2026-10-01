@@ -8,16 +8,28 @@ const path = require('path');
 const N3Countdown = require('../js/n3-countdown.js');
 const N3Checker = require('../js/n3-checker.js');
 const { parseOfficialRoundFromPortal, QuotaManager } = require('../bot-service/dist/quota/quota-manager.js');
+const drawScheduleHandler = require('../api/draw-schedule.js');
 
 let passedTests = 0;
 let totalTests = 0;
+const pendingTests = [];
 
 function runTest(name, fn) {
   totalTests++;
   try {
-    fn();
-    console.log(`✅ PASS: ${name}`);
-    passedTests++;
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      pendingTests.push(Promise.resolve(result).then(() => {
+        console.log(`✅ PASS: ${name}`);
+        passedTests++;
+      }).catch(err => {
+        console.error(`❌ FAIL: ${name}`);
+        console.error(err);
+      }));
+    } else {
+      console.log(`✅ PASS: ${name}`);
+      passedTests++;
+    }
   } catch (err) {
     console.error(`❌ FAIL: ${name}`);
     console.error(err);
@@ -106,9 +118,19 @@ runTest('Schedule: Regular month (Sept 2026) targets Sept 16 at 14:30', () => {
   assert.strictEqual(rem.targetDateText.includes('16 กันยายน 2569'), true);
 });
 
+runTest('Schedule API: Oct 1 is upcoming before 14:30 Bangkok and Oct 16 after it', () => {
+  const filePath = path.join(__dirname, '../data/official-draw-schedule.json');
+  const schedules = JSON.parse(fs.readFileSync(filePath, 'utf8')).schedules;
+
+  const beforeDraw = drawScheduleHandler.getNextUpcomingDraw(schedules, new Date('2026-10-01T07:29:59.000Z'));
+  assert.strictEqual(beforeDraw?.drawDate, '2026-10-01');
+
+  const atDrawTime = drawScheduleHandler.getNextUpcomingDraw(schedules, new Date('2026-10-01T07:30:00.000Z'));
+  assert.strictEqual(atDrawTime?.drawDate, '2026-10-16');
+});
+
 // 3. Official API Handler
 runTest('API Handler: api/draw-schedule.js returns 200 with CORS and required fields', async () => {
-  const handler = require('../api/draw-schedule.js');
   let statusCode = 0;
   let headers = {};
   let responseData = null;
@@ -120,11 +142,13 @@ runTest('API Handler: api/draw-schedule.js returns 200 with CORS and required fi
     json(data) { responseData = data; }
   };
 
-  await handler(req, res);
+  await drawScheduleHandler(req, res);
   assert.strictEqual(statusCode, 200);
   assert.strictEqual(headers['access-control-allow-origin'], '*');
   assert.strictEqual(responseData.success, true);
-  assert.strictEqual(responseData.upcomingDraw.drawDate, '2026-10-01');
+  assert.strictEqual(typeof responseData.upcomingDraw.drawDate, 'string');
+  assert.strictEqual(responseData.upcomingDraw.drawTime, '14:30');
+  assert.strictEqual(responseData.scheduleCount > 5, true);
   assert.strictEqual(responseData.latestLottery.n3.straight3.number, '640');
 });
 
@@ -191,10 +215,12 @@ runTest('QuotaManager: getCurrentRoundIdentifier respects GLO postponed holidays
   assert.strictEqual(sept16, '2026-09-16');
 });
 
-console.log('\n====================================================');
-console.log(`OFFICIAL DRAW TEST SUMMARY: ${passedTests} / ${totalTests} tests passed (100%)`);
-console.log('====================================================');
+Promise.all(pendingTests).then(() => {
+  console.log('\n====================================================');
+  console.log(`OFFICIAL DRAW TEST SUMMARY: ${passedTests} / ${totalTests} tests passed (${Math.round((passedTests / totalTests) * 100)}%)`);
+  console.log('====================================================');
 
-if (passedTests !== totalTests) {
-  process.exit(1);
-}
+  if (passedTests !== totalTests) {
+    process.exitCode = 1;
+  }
+});

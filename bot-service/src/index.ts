@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, RequestHandler } from 'express';
+import { timingSafeEqual } from 'crypto';
 import { Page, BrowserContext } from 'playwright';
 import { validateSignature, messagingApi } from '@line/bot-sdk';
 import http from 'http';
@@ -22,9 +23,74 @@ import { LuckyDistributor } from './dream/lucky-distributor';
 import { DailyScheduleService } from './guard/daily-schedule-service';
 import { GloSessionWatchdog } from './guard/session-watchdog';
 import { TelegramService } from './notify/telegram-service';
-import { CyberJailManager, MultiTierRateLimiter, createCyberGuardMiddleware } from './guard/cyber-guard';
+import { CyberJailManager, MultiTierRateLimiter, createCyberGuardMiddleware, extractClientIp } from './guard/cyber-guard';
 
 const app = express();
+
+function suppliedAdminApiKey(req: Request): string {
+  const candidates: unknown[] = [
+    req.headers['x-api-key'],
+    req.headers['x-admin-key']
+  ];
+  const value = candidates.find((candidate): candidate is string => typeof candidate === 'string');
+  return value || '';
+}
+
+function hasValidAdminApiKey(req: Request): boolean {
+  const expected = CONFIG.ADMIN_API_KEY;
+  const supplied = suppliedAdminApiKey(req);
+  if (!expected || !supplied) return false;
+
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  const suppliedBytes = Buffer.from(supplied, 'utf8');
+  return expectedBytes.length === suppliedBytes.length && timingSafeEqual(expectedBytes, suppliedBytes);
+}
+
+async function verifyLiffAccessToken(accessToken: unknown): Promise<string | null> {
+  if (typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 8192) return null;
+
+  const channelId = CONFIG.LIFF_ID.split('-')[0];
+  if (!/^\d+$/.test(channelId)) return null;
+
+  try {
+    const verifyUrl = new URL('https://api.line.me/oauth2/v2.1/verify');
+    verifyUrl.searchParams.set('access_token', accessToken);
+    const verificationResponse = await fetch(verifyUrl, { signal: AbortSignal.timeout(8000) });
+    if (!verificationResponse.ok) return null;
+
+    const verification = await verificationResponse.json() as { client_id?: string; expires_in?: number };
+    if (verification.client_id !== channelId || !Number.isFinite(verification.expires_in) || (verification.expires_in || 0) <= 0) {
+      return null;
+    }
+
+    const profileResponse = await fetch('https://api.line.me/v2/profile', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!profileResponse.ok) return null;
+
+    const profile = await profileResponse.json() as { userId?: string };
+    return typeof profile.userId === 'string' && profile.userId.startsWith('U') ? profile.userId : null;
+  } catch {
+    return null;
+  }
+}
+
+const requireAdminAuth: RequestHandler = (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    next();
+    return;
+  }
+  if (!CONFIG.ADMIN_API_KEY) {
+    res.status(503).json({ error: 'Admin API is disabled: ADMIN_API_KEY is not configured' });
+    return;
+  }
+  if (!hasValidAdminApiKey(req)) {
+    res.status(401).json({ error: 'Unauthorized: Invalid Admin API Key' });
+    return;
+  }
+  next();
+};
 
 // ปิดการเปิดเผยเทคโนโลยีเซิร์ฟเวอร์
 app.disable('x-powered-by');
@@ -69,27 +135,29 @@ export function getQrFromMemoryCache(filename: string): Buffer | null {
   return item.buffer;
 }
 
-// ล้างไฟล์ภาพ QR Code ตกค้างที่เก่าเกิน 24 ชั่วโมงออกจากดิสก์ตอนเริ่มต้นระบบ
-try {
-  if (fs.existsSync(CONFIG.QR_OUTPUT_DIR)) {
-    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const oldFiles = fs.readdirSync(CONFIG.QR_OUTPUT_DIR).filter(f => f.startsWith('payment-') && f.endsWith('.png'));
-    let cleanedCount = 0;
-    for (const f of oldFiles) {
-      try {
-        const fullPath = path.join(CONFIG.QR_OUTPUT_DIR, f);
-        const stats = fs.statSync(fullPath);
-        if (stats.mtimeMs < oneDayAgo) {
-          fs.unlinkSync(fullPath);
-          cleanedCount++;
-        }
-      } catch {}
+// ล้างไฟล์ภาพ QR Code ตกค้างเมื่อเริ่มรัน service จริงเท่านั้น ไม่ทำลายไฟล์ตอน import เพื่อใช้ test
+if (require.main === module) {
+  try {
+    if (fs.existsSync(CONFIG.QR_OUTPUT_DIR)) {
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const oldFiles = fs.readdirSync(CONFIG.QR_OUTPUT_DIR).filter(f => f.startsWith('payment-') && f.endsWith('.png'));
+      let cleanedCount = 0;
+      for (const f of oldFiles) {
+        try {
+          const fullPath = path.join(CONFIG.QR_OUTPUT_DIR, f);
+          const stats = fs.statSync(fullPath);
+          if (stats.mtimeMs < oneDayAgo) {
+            fs.unlinkSync(fullPath);
+            cleanedCount++;
+          }
+        } catch {}
+      }
+      if (cleanedCount > 0) {
+        console.log(`[STARTUP STORAGE CLEANUP] ล้างภาพ QR Code เก่าเกิน 24 ชม. ตกค้างบนดิสก์ ${cleanedCount} ไฟล์เรียบร้อยแล้ว`);
+      }
     }
-    if (cleanedCount > 0) {
-      console.log(`[STARTUP STORAGE CLEANUP] ล้างภาพ QR Code เก่าเกิน 24 ชม. ตกค้างบนดิสก์ ${cleanedCount} ไฟล์เรียบร้อยแล้ว`);
-    }
-  }
-} catch {}
+  } catch {}
+}
 
 // -------------------------------------------------------------------------
 // Static Asset Whitelist (จำกัดสิทธิ์เฉพาะโฟลเดอร์สาธารณะที่ปลอดภัยเท่านั้น)
@@ -382,23 +450,14 @@ app.get(['/api/draw-info', '/api/draw-schedule'], async (req: Request, res: Resp
 });
 
 // Admin REST API: คำสั่ง Logoff (ปรับปรุงเพื่อรักษาเซสชันร้านค้า ไม่ตัดการเชื่อมต่อ เว้นแต่จะระบุ force=true)
-app.all('/api/admin/logoff', async (req: Request, res: Response): Promise<void> => {
+app.all('/api/admin/logoff', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-admin-key');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();
-    return;
-  }
-
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '';
-  const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
-
-  if (!isLocal && CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
-    res.status(401).json({ success: false, error: 'Unauthorized' });
     return;
   }
 
@@ -436,7 +495,7 @@ app.all('/api/admin/logoff', async (req: Request, res: Response): Promise<void> 
 });
 
 // Admin REST API: ตรวจสอบสถานะระบบเฝ้าระวังเซสชัน (500 ms Watchdog)
-app.get('/api/admin/session/status', (_req: Request, res: Response): void => {
+app.get('/api/admin/session/status', requireAdminAuth, (_req: Request, res: Response): void => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   const watchdog = GloSessionWatchdog.getInstance();
@@ -448,18 +507,9 @@ app.get('/api/admin/session/status', (_req: Request, res: Response): void => {
 });
 
 // Admin REST API: ตรวจสอบสถานะความปลอดภัย Cyber Security & Anti-DDoS
-app.get('/api/admin/security/status', (req: Request, res: Response): void => {
+app.get('/api/admin/security/status', requireAdminAuth, (_req: Request, res: Response): void => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '';
-  const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
-
-  if (!isLocal && CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
-    res.status(401).json({ success: false, error: 'Unauthorized' });
-    return;
-  }
 
   res.json({
     success: true,
@@ -472,18 +522,9 @@ app.get('/api/admin/security/status', (req: Request, res: Response): void => {
 });
 
 // Admin REST API: ปลดแบน IP (Unjail)
-app.post('/api/admin/security/unjail', (req: Request, res: Response): void => {
+app.post('/api/admin/security/unjail', requireAdminAuth, (req: Request, res: Response): void => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '';
-  const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
-
-  if (!isLocal && CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
-    res.status(401).json({ success: false, error: 'Unauthorized' });
-    return;
-  }
 
   const targetIp = (req.body?.ip || req.query.ip) as string;
   if (!targetIp) {
@@ -513,13 +554,7 @@ app.get('/api/campaign/stats', (_req: Request, res: Response) => {
 });
 
 // Campaign REST API: ยิงเลขมงคลกระจายไม่ซ้ำ (รองรับ ?dryRun=true หรือ ?target=userId)
-app.post('/api/campaign/lucky-teaser', async (req: Request, res: Response) => {
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  if (CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
-    res.status(401).json({ success: false, error: 'Unauthorized' });
-    return;
-  }
-
+app.post('/api/campaign/lucky-teaser', requireAdminAuth, async (req: Request, res: Response) => {
   const dryRun = req.query.dryRun === 'true' || req.body?.dryRun === true;
   const targetUserId = (req.query.target as string) || req.body?.targetUserId;
   const force = req.query.force === 'true' || req.body?.force === true;
@@ -533,13 +568,7 @@ app.post('/api/campaign/lucky-teaser', async (req: Request, res: Response) => {
 });
 
 // Campaign REST API: บรอดแคสต์ผลรางวัลล่าสุด (รองรับ ?dryRun=true หรือ ?target=userId)
-app.post('/api/campaign/draw-results', async (req: Request, res: Response) => {
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  if (CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
-    res.status(401).json({ success: false, error: 'Unauthorized' });
-    return;
-  }
-
+app.post('/api/campaign/draw-results', requireAdminAuth, async (req: Request, res: Response) => {
   const dryRun = req.query.dryRun === 'true' || req.body?.dryRun === true;
   const targetUserId = (req.query.target as string) || req.body?.targetUserId;
   const force = req.query.force === 'true' || req.body?.force === true;
@@ -769,41 +798,32 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
 
-  const { userId, items, source } = req.body || {};
+  const { accessToken, items } = req.body || {};
   if (!items || !Array.isArray(items) || items.length === 0) {
     res.status(400).json({ success: false, error: 'ข้อมูลคำสั่งซื้อไม่ถูกต้อง (ต้องระบุรายการ items)' });
     return;
   }
 
-  // 0. ตรวจสอบสิทธิ์สมาชิก LINE อย่างเข้มงวด
-  // สำหรับผู้ใช้ที่มาจาก LINE Rich Menu (source === 'richmenu' หรือ userId ขึ้นต้นด้วย U_RICHMENU_) ถือเป็นสมาชิกที่เข้าถึงจาก LINE Official Account อยู่แล้ว
-  let effectiveUserId = userId;
-  const isRichMenu = source === 'richmenu' || (typeof userId === 'string' && userId.startsWith('U_RICHMENU_'));
+  // 0. ยืนยันตัวตนจาก LINE Platform โดยตรง ห้ามเชื่อ userId/source ที่ส่งมาจากเบราว์เซอร์
+  const effectiveUserId = await verifyLiffAccessToken(accessToken);
+  if (!effectiveUserId) {
+    res.status(401).json({
+      success: false,
+      isMember: false,
+      error: 'ไม่สามารถยืนยันบัญชี LINE ได้ กรุณาเปิดผ่าน LIFF และเข้าสู่ระบบใหม่ก่อนสั่งซื้อ'
+    });
+    return;
+  }
 
-  if (isRichMenu) {
-    if (!effectiveUserId || typeof effectiveUserId !== 'string' || !effectiveUserId.startsWith('U')) {
-      effectiveUserId = `U_RICHMENU_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    }
-  } else {
-    if (!userId || typeof userId !== 'string' || !userId.startsWith('U') || userId === 'anonymous_web_user') {
-      res.status(403).json({
-        success: false,
-        isMember: false,
-        error: 'ไม่อนุญาต: ต้องเข้าสู่ระบบด้วยบัญชี LINE ก่อนสั่งซื้อสลาก N3 เพื่อความปลอดภัย'
-      });
-      return;
-    }
-
-    // ตรวจสอบกับ LINE Messaging API แบบ Real-time ว่าเป็นเพื่อนจริงหรือไม่
-    const profile = await lineHandler.getProfile(userId);
-    if (!profile) {
-      res.status(403).json({
-        success: false,
-        isMember: false,
-        error: 'ไม่อนุญาต: ตรวจสอบไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
-      });
-      return;
-    }
+  // ตรวจสอบกับ LINE Messaging API ว่าผู้ใช้เป็นเพื่อนกับ LINE Official Account
+  const profile = await lineHandler.getProfile(effectiveUserId);
+  if (!profile) {
+    res.status(403).json({
+      success: false,
+      isMember: false,
+      error: 'ไม่อนุญาต: ตรวจสอบไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
+    });
+    return;
   }
 
   // กรองตัวเลขสลาก 3 หลัก
@@ -859,6 +879,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     orderId,
     replyToken: '',
     userId: effectiveUserId,
+    customerDeliveryChannel: 'web-polling',
     items: validItems,
     number: validItems[0].number,
     quantity: totalQuantity,
@@ -884,19 +905,9 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   // ส่งแจ้งเตือนคำสั่งซื้อใหม่เข้า Telegram ของแอดมินทันที
   TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, effectiveUserId).catch(() => {});
 
-  const waitingMessage = queuePos > 1
-    ? `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ (คิวที่ ${queuePos})\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⏱️ กำลังจัดทำตามคิว (รอประมาณ ~${estSeconds} วินาที)\n\n⚡ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`
-    : `✨ ร้านสลาก N3 ธนกิจนำโชค ได้รับคำสั่งซื้อจากตารางแล้วครับ\n\n🎯 ชุดเลขมงคล: ${formattedSummary}\n🔢 รวมทั้งหมด: ${totalQuantity} ใบ — ยอดรวม ${totalPrice} บาท\n⚡ กำลังออก QR Code ชำระเงินให้คุณ รอสักครู่นะครับ ขอให้เฮงๆ ปังๆ ถูกรางวัลใหญ่ 3 ตัวตรงงวดนี้นะครับ! 💰🎉`;
-
-  // ส่ง Push Message แจ้งเตือนเข้าแชท LINE เฉพาะเมื่อมี Push Quota เท่านั้น
-  if (lineHandler.isPushAvailable() && effectiveUserId !== 'anonymous_web_user') {
-    try {
-      await lineHandler.push(effectiveUserId, [{ type: 'text', text: waitingMessage }]);
-      orderTask.hasRepliedQueue = true;
-    } catch (err) {
-      console.warn('[ORDER DIRECT] ไม่สามารถ push ข้อความยืนยันรับออเดอร์ได้:', err);
-    }
-  }
+  // หน้าเว็บแสดงคิวและผลการสร้าง QR ผ่าน /api/order-status อยู่แล้ว จึงไม่ส่ง
+  // LINE Push ยืนยันรับออเดอร์ซ้ำและสงวนโควตาไว้สำหรับแชท/แคมเปญที่จำเป็น
+  console.log(`[ORDER DIRECT] ออเดอร์ ${orderId} แจ้งสถานะลูกค้าผ่าน Web Polling (คิวที่ ${queuePos})`);
 
   res.json({
     success: true,
@@ -994,9 +1005,10 @@ let lastAdminQrTime: number = 0;
 /**
  * ฟังก์ชันสร้างและส่ง QR Login เป๋าตังให้ "ผู้ดูแลระบบ (ADMIN)" พร้อมระบบ Feedback ครบถ้วน
  */
-async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRelogin: boolean = false): Promise<void> {
-  // 1. หากมีภาพ QR ที่ยังไม่หมดอายุ (< 4 นาที) และไม่ได้เป็นการบังคับสร้างใหม่ ให้ส่งภาพนั้นทันที
-  if (!forceRelogin && replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
+async function triggerAdminLoginQR(reason: string, replyToken?: string, forceQrCreation: boolean = false): Promise<void> {
+  // forceQrCreation บังคับเริ่ม flow สร้าง QR เท่านั้น ไม่ได้สั่ง Logoff หรือล้างเซสชัน
+  // หากมีภาพ QR ที่ยังไม่หมดอายุ (< 4 นาที) และไม่ได้บังคับสร้างใหม่ ให้ส่งภาพนั้นทันที
+  if (!forceQrCreation && replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
     console.log(`[ADMIN AUTH INSTANT REPLY] ส่งภาพ QR Code เดิมที่กำลังรอสแกนให้แอดมินผ่าน ReplyToken ทันที`);
     const adminMessages: any[] = [
       {
@@ -1052,8 +1064,8 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
   try {
     const { page: currentPage, context: currentContext } = await ensureBrowser();
 
-    // 3. ตรวจสอบว่าระบบล็อกอินอยู่แล้วหรือไม่ (หากไม่ได้ระบุ forceRelogin)
-    if (!forceRelogin) {
+    // 3. ตรวจสอบว่าระบบล็อกอินอยู่แล้วหรือไม่ (หากไม่ได้บังคับสร้าง QR ใหม่)
+    if (!forceQrCreation) {
       const isValid = await N3Auth.isSessionValid(currentPage).catch(() => false);
       if (isValid) {
         await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
@@ -1193,6 +1205,11 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceRel
 orderQueue.setWorker(async (task: OrderTask) => {
   // ฟังก์ชันช่วยส่งข้อความหาลูกค้า: ส่งผ่าน ReplyToken ก่อนเสมอ (ฟรี 100% ไม่เสียโควต้า Push) และ Fallback ไปยัง Push Message หากจำเป็น
   const sendCustomerMessage = async (messages: any[]): Promise<boolean> => {
+    if (task.customerDeliveryChannel === 'web-polling') {
+      console.log(`[ORDER DELIVERY WEB] ข้าม LINE Push สำหรับ ${task.orderId}; หน้าเว็บอ่านผลจาก /api/order-status`);
+      return false;
+    }
+
     let sent = false;
     if (!task.hasRepliedQueue && task.replyToken) {
       sent = await lineHandler.reply(task.replyToken, messages);
@@ -1364,7 +1381,10 @@ orderQueue.setWorker(async (task: OrderTask) => {
 
       // 5. ส่งข้อความให้ลูกค้าทันที! ลูกค้าได้รับ QR Code รวดเร็วที่สุด
       await sendCustomerMessage([imageMsg, flexMsg]);
-      console.log(`[SUCCESS] ส่งภาพ QR Code คมชัดสูง (Native Image + การ์ดสรุปคำสั่งซื้อ) ให้ลูกค้า ${task.userId} เรียบร้อยแล้ว (ทาง ${task.hasRepliedQueue ? 'Push' : 'Reply'})`);
+      const deliveryPath = task.customerDeliveryChannel === 'web-polling'
+        ? 'Web Polling'
+        : task.hasRepliedQueue ? 'Push' : 'Reply';
+      console.log(`[SUCCESS] สร้าง QR Code สำหรับออเดอร์ ${task.orderId} สำเร็จ (แจ้งลูกค้าทาง ${deliveryPath})`);
 
       // ส่งแจ้งเตือนออเดอร์สำเร็จพร้อมภาพ QR ชำระเงินเข้า Telegram ของแอดมิน
       const fulfilledDesc = (result.fulfilledItems || orderItems).map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
@@ -1567,7 +1587,7 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
  * LINE Webhook Endpoint
  */
 app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
+  const ip = extractClientIp(req);
 
   // 0. Rate Limiting ป้องกัน DoS / Flooding บน Webhook
   if (!rateLimiter.check(`webhook:${ip}`, 120, 60000)) {
@@ -1580,12 +1600,15 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
   const rawBody = (req as any).rawBody;
 
   // 1. ตรวจสอบความถูกต้องของ LINE Webhook Signature ป้องกันการปลอมแปลง Request 100%
-  if (CONFIG.LINE_CHANNEL_SECRET) {
-    if (!signature || !rawBody || !validateSignature(rawBody, CONFIG.LINE_CHANNEL_SECRET, signature)) {
-      console.warn(`[SECURITY BLOCKED] ปฏิเสธ Webhook จาก IP ${ip}: ไม่มีลายเซ็น หรือ ลายเซ็น x-line-signature ไม่ถูกต้อง!`);
-      res.status(403).send('Invalid Signature');
-      return;
-    }
+  if (!CONFIG.LINE_CHANNEL_SECRET) {
+    console.error('[CONFIG ERROR] ปฏิเสธ LINE Webhook เพราะยังไม่ได้ตั้งค่า LINE_CHANNEL_SECRET');
+    res.status(503).send('Webhook is not configured');
+    return;
+  }
+  if (!signature || !rawBody || !validateSignature(rawBody, CONFIG.LINE_CHANNEL_SECRET, signature)) {
+    console.warn(`[SECURITY BLOCKED] ปฏิเสธ Webhook จาก IP ${ip}: ไม่มีลายเซ็น หรือ ลายเซ็น x-line-signature ไม่ถูกต้อง!`);
+    res.status(403).send('Invalid Signature');
+    return;
   }
 
   res.status(200).send('OK');
@@ -2060,6 +2083,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         replyToken,
         userId,
+        customerDeliveryChannel: 'line-chat',
         items: parsedItems,
         number: parsedItems[0].number,
         quantity: totalQuantity,
@@ -2089,23 +2113,6 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
     }
   }
 });
-
-const requireAdminAuth = (req: Request, res: Response, next: () => void) => {
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '';
-  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
-
-  if (CONFIG.ADMIN_API_KEY) {
-    const key = req.headers['x-admin-key'] || req.query.key;
-    if (key !== CONFIG.ADMIN_API_KEY) {
-      res.status(401).json({ error: 'Unauthorized: Invalid Admin API Key' });
-      return;
-    }
-  } else if (!isLocal) {
-    res.status(401).json({ error: 'Unauthorized: ADMIN_API_KEY is not configured for public access' });
-    return;
-  }
-  next();
-};
 
 app.post('/admin/login-qr', requireAdminAuth, async (_req: Request, res: Response) => {
   triggerAdminLoginQR('เรียกผ่าน API Admin');
@@ -2154,14 +2161,8 @@ app.get('/api/telegram/status', (_req: Request, res: Response) => {
   });
 });
 
-app.post('/api/telegram/test', async (req: Request, res: Response) => {
+app.post('/api/telegram/test', requireAdminAuth, async (_req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  if (CONFIG.ADMIN_API_KEY && apiKey !== CONFIG.ADMIN_API_KEY) {
-    res.status(401).json({ success: false, error: 'Unauthorized: Invalid API Key' });
-    return;
-  }
-
   const tg = TelegramService.getInstance();
   const result = await tg.testConnection();
   if (result.ok) {
@@ -2351,8 +2352,13 @@ function startServerWithPort(targetPort: number) {
     const dailyScheduleService = DailyScheduleService.getInstance(lineHandler, orderQueue);
     dailyScheduleService.start();
 
-    // เริ่มต้นระบบเฝ้าระวังเซสชัน GLO N3 แบบเรียลไทม์ทุก 500 ms (แจ้งเตือน Telegram ทันทีเมื่อเซสชันหลุด)
+    // เฝ้าระวังเซสชันทุก 500 ms และเริ่มส่ง QR Login อัตโนมัติเมื่อเซสชันหลุด
     const sessionWatchdog = GloSessionWatchdog.getInstance(TelegramService.getInstance(), orderQueue);
+    sessionWatchdog.setSessionDropHandler(async ({ reason, detectedUrl }) => {
+      const detail = detectedUrl ? ` (URL: ${detectedUrl})` : '';
+      console.log('[SESSION WATCHDOG] เริ่มสร้างและส่ง QR Login ให้แอดมินโดยอัตโนมัติ');
+      await triggerAdminLoginQR(`ตรวจพบเซสชัน GLO N3 หลุด: ${reason}${detail}`, undefined, true);
+    });
     sessionWatchdog.start(500);
 
     // ส่งแจ้งเตือน Admin เมื่อเปิดบอท (หากไม่ได้เปิดผ่าน n3-engine ที่แจ้งเตือนพร้อม URL Tunnel แล้ว)

@@ -2854,9 +2854,15 @@
       }, 300);
 
       try {
-        const currentUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id') || `U_RICHMENU_${Date.now()}`;
+        let lineAccessToken = '';
+        if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
+          try { lineAccessToken = liff.getAccessToken() || ''; } catch (_) {}
+        }
+        if (!lineAccessToken) {
+          throw new Error('กรุณาเปิดหน้านี้ผ่าน LINE และเข้าสู่ระบบก่อนสั่งซื้อโดยตรง หรือส่งคำสั่งซื้อผ่านแชท LINE');
+        }
 
-        // Send order to bot backend API with pre-verified richmenu source
+        // The server verifies this token with LINE and derives the user ID from LINE's response.
         const response = await fetch('/api/order-direct', {
           method: 'POST',
           headers: {
@@ -2864,8 +2870,7 @@
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            userId: currentUserId,
-            source: 'richmenu',
+            accessToken: lineAccessToken,
             items: currentOrderData.aggregatedItems,
             command: currentOrderData.orderCommand
           })

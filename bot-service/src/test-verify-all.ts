@@ -775,6 +775,8 @@ async function runTests() {
     // Verify watchdog is present
     assert(indexContent.includes('tasklist'), 'index.ts must include tunnel watchdog using tasklist');
     assert(indexContent.includes('cloudflared.exe'), 'index.ts watchdog must monitor cloudflared.exe');
+    assert(indexContent.includes('sessionWatchdog.setSessionDropHandler'), 'session drops must start the recovery handler');
+    assert(indexContent.includes('triggerAdminLoginQR(`ตรวจพบเซสชัน GLO N3 หลุด:'), 'session recovery must send a login QR to the admin');
 
     // Verify CONFIG admin user IDs match
     assert.strictEqual(CONFIG.LINE_ADMIN_USER_ID, CONFIG.ADMIN_LINE_USER_ID);
@@ -1597,6 +1599,81 @@ async function runTests() {
     assert(!!info.thaiDate, 'Must resolve upcoming Thai date');
   });
 
+  test('CampaignService: upcoming draw uses Bangkok date and selects the earliest schedule entry', () => {
+    const cs = CampaignService.getInstance();
+    const newYearMorning = cs.getUpcomingDrawInfo(new Date('2025-12-31T18:00:00.000Z'));
+    assert.strictEqual(newYearMorning.drawDate, '2026-01-02', '01:00 in Bangkok must use the Jan 2 draw entry');
+
+    const afterScheduleEnd = cs.getUpcomingDrawInfo(new Date('2027-12-31T18:00:00.000Z'));
+    assert.strictEqual(afterScheduleEnd.drawDate, '2028-01-17', 'Fallback must use the shifted January draw date');
+  });
+
+  test('CampaignService: retry sends pending customer the same unique lucky number', async () => {
+    const cs = CampaignService.getInstance() as any;
+    const previousRegistry = cs.customerRegistry;
+    const previousLineHandler = cs.lineHandler;
+    const drawDate = '2026-10-01';
+    const customers: any[] = ['U_CAMPAIGN_SUCCESS', 'U_CAMPAIGN_RETRY'].map(userId => ({
+      userId,
+      status: 'active',
+      firstSeen: '2026-01-01T00:00:00.000Z',
+      lastSeen: '2026-01-01T00:00:00.000Z',
+      totalOrders: 0,
+      assignedLuckyNumbers: {}
+    }));
+    const attempts: Record<string, number> = {};
+    const sentNumbers: Record<string, string[]> = {};
+
+    cs.customerRegistry = {
+      getActiveCustomers: () => customers,
+      recordLuckyAssignments: (assignments: any[]) => {
+        for (const { userId, record } of assignments) {
+          const profile = customers.find(customer => customer.userId === userId);
+          if (profile && !profile.assignedLuckyNumbers[drawDate]) {
+            profile.assignedLuckyNumbers[drawDate] = record;
+          }
+        }
+      },
+      recordLuckyAssignment: (userId: string, record: any) => {
+        const profile = customers.find(customer => customer.userId === userId);
+        if (profile) profile.assignedLuckyNumbers[drawDate] = record;
+      }
+    };
+    cs.lineHandler = {
+      isPushAvailable: () => true,
+      push: async (userId: string, messages: any[]) => {
+        attempts[userId] = (attempts[userId] || 0) + 1;
+        const altText = messages[0].altText as string;
+        const number = altText.match(/เลขมงคลเฉพาะคุณ: (\d{3})/)?.[1];
+        assert(number, 'Push should contain a three-digit lucky number');
+        if (userId !== 'U_CAMPAIGN_RETRY' || attempts[userId] > 1) {
+          (sentNumbers[userId] ||= []).push(number);
+          return true;
+        }
+        (sentNumbers[userId] ||= []).push(number);
+        return false;
+      }
+    };
+
+    try {
+      const drawMorning = new Date('2026-10-01T02:00:00.000Z');
+      const firstRun = await cs.sendPersonalizedLuckyTeasers({ nowOverride: drawMorning });
+      const secondRun = await cs.sendPersonalizedLuckyTeasers({ nowOverride: new Date('2026-10-01T02:15:00.000Z') });
+
+      assert.strictEqual(firstRun.sentCount, 1);
+      assert.strictEqual(firstRun.failedCount, 1);
+      assert.strictEqual(secondRun.sentCount, 1);
+      assert.strictEqual(secondRun.failedCount, 0);
+      assert.strictEqual(attempts.U_CAMPAIGN_SUCCESS, 1, 'Successful customer must not be sent twice');
+      assert.strictEqual(attempts.U_CAMPAIGN_RETRY, 2, 'Failed customer must be retried');
+      assert.strictEqual(sentNumbers.U_CAMPAIGN_RETRY[0], sentNumbers.U_CAMPAIGN_RETRY[1], 'Retry must reuse its planned number');
+      assert.notStrictEqual(sentNumbers.U_CAMPAIGN_SUCCESS[0], sentNumbers.U_CAMPAIGN_RETRY[1], 'Numbers must remain unique across recipients');
+    } finally {
+      cs.customerRegistry = previousRegistry;
+      cs.lineHandler = previousLineHandler;
+    }
+  });
+
   test('OrderQueue: getPosition accurately reflects FIFO waiting order and running status', () => {
     const q = new OrderQueue();
     const t1: OrderTask = { orderId: 'O1', replyToken: '', userId: 'U1', items: [{ number: '111', quantity: 1 }], totalQuantity: 1, totalPrice: 20, timestamp: Date.now() };
@@ -1681,6 +1758,44 @@ async function runTests() {
     assert.strictEqual(hb.getActiveCount(), 0, 'Active heartbeat must be cleared');
   });
 
+  test('OrderHeartbeatManager: web polling orders do not send LINE heartbeat messages', () => {
+    const lineCalls: string[] = [];
+    const lineStub: any = {
+      showLoading: async () => { lineCalls.push('loading'); return true; },
+      isPushAvailable: () => true,
+      push: async () => { lineCalls.push('push'); return true; }
+    };
+    const hb = new OrderHeartbeatManager(lineStub, 20000);
+    const webTask: OrderTask = {
+      orderId: 'ORD_TEST_WEB_POLLING',
+      replyToken: '',
+      userId: 'U_test_web_order',
+      customerDeliveryChannel: 'web-polling',
+      items: [{ number: '748', quantity: 1 }],
+      totalQuantity: 1,
+      totalPrice: 20,
+      timestamp: Date.now()
+    };
+
+    hb.start(webTask);
+    assert.strictEqual(hb.getActiveCount(), 0, 'Web orders must not start LINE heartbeat timers');
+    assert.deepStrictEqual(lineCalls, [], 'Web orders must not call LINE loading or push APIs');
+  });
+
+  test('Order API: web orders use polling and skip customer LINE Push', () => {
+    const source = fs.readFileSync(path.join(__dirname, 'index.ts'), 'utf-8');
+    const routeStart = source.indexOf("app.post('/api/order-direct'");
+    const routeEnd = source.indexOf('let context:', routeStart);
+    const orderRoute = source.slice(routeStart, routeEnd);
+    assert(orderRoute.includes("customerDeliveryChannel: 'web-polling'"));
+    assert(!orderRoute.includes('lineHandler.push('), 'Direct web order endpoint must not send customer LINE Push');
+
+    const workerStart = source.indexOf('const sendCustomerMessage = async');
+    const workerEnd = source.indexOf('\n  };', workerStart);
+    const customerDelivery = source.slice(workerStart, workerEnd);
+    assert(customerDelivery.includes("task.customerDeliveryChannel === 'web-polling'"));
+  });
+
   test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {
     const handler = new LineReplyHandler();
     const quota = await handler.getQuotaStatus();
@@ -1688,6 +1803,20 @@ async function runTests() {
     assert(typeof quota.isExhausted === 'boolean', 'isExhausted must be boolean');
     assert(typeof quota.checkedAt === 'number', 'checkedAt timestamp must be number');
     assert(typeof handler.isPushAvailable() === 'boolean', 'isPushAvailable must return boolean');
+  });
+
+  test('LineReplyHandler: stale or unknown quota cache does not block campaign pushes', () => {
+    const handler = new LineReplyHandler() as any;
+    handler.cachedQuotaStatus = { type: 'limited', isExhausted: true };
+    handler.lastQuotaCheckTime = Date.now();
+    assert.strictEqual(handler.isPushAvailable(), false, 'Fresh exhausted quota should stop push sends');
+
+    handler.lastQuotaCheckTime = Date.now() - 60001;
+    assert.strictEqual(handler.isPushAvailable(), true, 'Stale quota data must not block future sends');
+
+    handler.cachedQuotaStatus = { type: 'unknown', isExhausted: true };
+    handler.lastQuotaCheckTime = Date.now();
+    assert.strictEqual(handler.isPushAvailable(), true, 'Unknown quota state should let LINE decide whether push is available');
   });
 
   test('Zero-Quota Architecture: OrderTask preserves replyToken for final QR code delivery', () => {
@@ -1706,29 +1835,29 @@ async function runTests() {
     assert.strictEqual(orderTask.replyToken, 'mock_reply_token_12345', 'replyToken must be intact for QR delivery');
   });
 
-  // TEST SUITE 18: Daily Schedule Automation (23:00 Logoff & 06:00 Morning Store Open Alert)
-  test('DailyScheduleService: triggers 23:00 Logoff + night alert and 06:00 morning open alert with idempotency', async () => {
+  // TEST SUITE 18: Daily Schedule Automation (23:00 Night Close & 06:00 Morning Store Open Alert)
+  test('DailyScheduleService: triggers 23:00 night close without logging off and 06:00 morning alert with idempotency', async () => {
     const { DailyScheduleService } = await import('./guard/daily-schedule-service');
     const service = DailyScheduleService.getInstance();
     service.resetTrackingForTest();
 
-    // 1. Simulate 23:00:00 (Night Logoff)
+    // 1. Simulate 23:00:00 (Night Close; GLO session must be preserved)
     const nightDate = new Date('2026-09-07T23:00:00+07:00');
     const r1 = await service.checkSchedule(nightDate);
-    assert.strictEqual(r1.triggeredLogoff, true, 'Must trigger 23:00 Logoff');
+    assert.strictEqual(r1.triggeredNightlyClose, true, 'Must trigger the 23:00 night-close notification');
     assert.strictEqual(r1.triggeredMorningAlert, false);
-    assert.strictEqual(service.getLastLogoffDate(), '2026-09-07');
+    assert.strictEqual(service.getLastNightlyCloseDate(), '2026-09-07');
 
     // 2. Idempotency test: second check at 23:05 on same date should NOT trigger again
     const nightDate2 = new Date('2026-09-07T23:05:00+07:00');
     const r1Repeat = await service.checkSchedule(nightDate2);
-    assert.strictEqual(r1Repeat.triggeredLogoff, false, 'Should not trigger duplicate logoff on same date');
+    assert.strictEqual(r1Repeat.triggeredNightlyClose, false, 'Should not trigger a duplicate night-close notification');
 
     // 3. Simulate 06:00:00 next morning (Morning Store Open Alert)
     const morningDate = new Date('2026-09-08T06:00:00+07:00');
     const r2 = await service.checkSchedule(morningDate);
     assert.strictEqual(r2.triggeredMorningAlert, true, 'Must trigger 06:00 Morning Open Alert');
-    assert.strictEqual(r2.triggeredLogoff, false);
+    assert.strictEqual(r2.triggeredNightlyClose, false);
     assert.strictEqual(service.getLastMorningAlertDate(), '2026-09-08');
 
     // 4. Idempotency test: second check at 06:15 on same date should NOT trigger again
@@ -1740,12 +1869,13 @@ async function runTests() {
   });
 
   test('DailyScheduleService: Flex Messages for 23:00 and 06:00 are structured properly', () => {
-    const nightMsg = FlexMessageBuilder.buildNightlyLogoffMessage('23:00 น.');
+    const nightMsg = FlexMessageBuilder.buildNightlyCloseMessage('23:00 น.');
     assert.strictEqual(nightMsg.type, 'flex');
-    assert(nightMsg.altText.includes('ปิดระบบจำหน่ายสลาก N3 ประจำวัน (23:00 น.)'));
-    assert(nightMsg.altText.includes('Logoff เรียบร้อยแล้ว'));
+    assert(nightMsg.altText.includes('ปิดร้านสลาก N3 ประจำวัน (23:00 น.)'));
+    assert(nightMsg.altText.includes('คงเซสชัน GLO ไว้'));
     const nightStr = JSON.stringify(nightMsg.contents);
-    assert(nightStr.includes('Logoff เรียบร้อยแล้ว'));
+    assert(nightStr.includes('คงเซสชัน GLO ไว้'));
+    assert(nightStr.includes('ไม่มีการสั่ง Logoff หรือล้างเซสชัน'));
     assert(nightStr.includes('23:00 - 06:00 น.'));
 
     const morningMsg = FlexMessageBuilder.buildMorningStoreOpenMessage('06:00 น.');
@@ -1756,13 +1886,28 @@ async function runTests() {
     assert(morningStr.includes('login'));
   });
 
-  test('N3Auth: logoffSession safely executes with closed or null page without throwing', async () => {
-    const resultNull = await N3Auth.logoffSession(null);
-    assert.strictEqual(resultNull, true, 'logoffSession should return true for null page');
+  test('N3Auth: logoffSession does not clear stored auth state when no active page exists', async () => {
+    const originalUnlinkSync = fs.unlinkSync;
+    let triedToDeleteSessionState = false;
+    (fs as any).unlinkSync = (filePath: fs.PathLike, ...args: any[]) => {
+      if (String(filePath) === CONFIG.SESSION_STORAGE_PATH) triedToDeleteSessionState = true;
+      return (originalUnlinkSync as any)(filePath, ...args);
+    };
 
-    const mockClosedPage: any = { isClosed: () => true };
-    const resultClosed = await N3Auth.logoffSession(mockClosedPage);
-    assert.strictEqual(resultClosed, true, 'logoffSession should return true for closed page');
+    let resultNull: boolean;
+    let resultClosed: boolean;
+    try {
+      resultNull = await N3Auth.logoffSession(null);
+      const mockClosedPage: any = { isClosed: () => true };
+      resultClosed = await N3Auth.logoffSession(mockClosedPage);
+    } finally {
+      (fs as any).unlinkSync = originalUnlinkSync;
+    }
+
+    assert.strictEqual(resultNull!, true, 'logoffSession should safely return for null page');
+    assert.strictEqual(resultClosed!, true, 'logoffSession should safely return for closed page');
+    assert.strictEqual(triedToDeleteSessionState, false, 'A missing or closed page must not delete stored auth state');
+
   });
 
   // TEST SUITE 16: Telegram Bot Notification Service
@@ -1877,6 +2022,8 @@ async function runTests() {
     const tg = TelegramService.getInstance();
     const watchdog = GloSessionWatchdog.getInstance(tg);
     watchdog.resetTrackingForTest();
+    let sessionDropHandlerCalls = 0;
+    watchdog.setSessionDropHandler(() => { sessionDropHandlerCalls++; });
 
     // 1. Initial State & Sales Hours Timing logic
     let state = watchdog.getStatus();
@@ -1920,6 +2067,15 @@ async function runTests() {
     assert.strictEqual(state.status, 'DISCONNECTED');
     assert.strictEqual(state.hasAlerted, true, 'Must set hasAlerted = true on first drop during sales hours');
     assert(state.lastDropReason?.includes('Login'));
+    assert.strictEqual(sessionDropHandlerCalls, 1, 'Must start the login QR recovery flow after the first detected drop');
+
+    // While a login QR is active, the Login page must not count as a recovered session.
+    watchdog.setAuthFlowActive(true);
+    const statusDuringAuth = await watchdog.checkNow(mockLoginPage, timeMorningOpen, true);
+    assert.strictEqual(statusDuringAuth, 'DISCONNECTED', 'Must remain disconnected while waiting for the admin scan');
+    assert.strictEqual(watchdog.getStatus().hasAlerted, true, 'Must keep the drop latch set until a healthy session is observed');
+    assert.strictEqual(sessionDropHandlerCalls, 1, 'Must not start a duplicate QR flow during authentication');
+    watchdog.setAuthFlowActive(false);
 
     // 3. Anti-Spam Latch: Second check on same disconnected page must NOT duplicate alert
     const statusLogin2 = await watchdog.checkNow(mockLoginPage, timeMorningOpen, true);

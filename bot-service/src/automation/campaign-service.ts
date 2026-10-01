@@ -23,6 +23,10 @@ export class CampaignService {
   private customerRegistry: CustomerRegistry;
   private schedulerTimer: NodeJS.Timeout | null = null;
   private lastTeaserDateSent: string = '';
+  private teaserAttemptDate: string = '';
+  private teaserAttemptCount: number = 0;
+  // Scheduler checks every 15 minutes during the three-hour send window.
+  private readonly maxScheduledTeaserAttempts: number = 12;
   private lastResultsDateSent: string = '';
 
   private constructor() {
@@ -40,22 +44,27 @@ export class CampaignService {
   /**
    * ดึงข้อมูลกำหนดการออกรางวัลงวดถัดไปจาก official-draw-schedule.json
    */
-  public getUpcomingDrawInfo(): { drawDate: string; thaiDate: string; period: string } {
+  public getUpcomingDrawInfo(nowOverride?: Date): { drawDate: string; thaiDate: string; period: string } {
+    const now = nowOverride || new Date();
+    const bangkokNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const todayYMD = `${bangkokNow.getUTCFullYear()}-${String(bangkokNow.getUTCMonth() + 1).padStart(2, '0')}-${String(bangkokNow.getUTCDate()).padStart(2, '0')}`;
+
     try {
       const schedulePath = path.join(__dirname, '../../../data/official-draw-schedule.json');
       if (fs.existsSync(schedulePath)) {
         const raw = fs.readFileSync(schedulePath, 'utf-8');
         const data = JSON.parse(raw);
-        const schedules: any[] = data.schedules || [];
-        const nowStr = new Date().toISOString().slice(0, 10);
+        const schedules: any[] = Array.isArray(data.schedules) ? data.schedules : [];
 
-        // หางวดที่เป็นปัจจุบันหรือถัดไป
-        const found = schedules.find(s => s.drawDate >= nowStr);
+        // ไฟล์มีวันย้อนหลังต่อท้ายได้ จึงเลือกวันที่ใกล้ที่สุดจากรายการทั้งหมด ไม่ใช้แถวแรกที่ยังไม่ผ่านวัน
+        const found = schedules
+          .filter(s => typeof s?.drawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.drawDate) && s.drawDate >= todayYMD)
+          .sort((a, b) => a.drawDate.localeCompare(b.drawDate))[0];
         if (found) {
           return {
             drawDate: found.drawDate,
-            thaiDate: found.thaiDate,
-            period: found.period || `งวดประจำวันที่ ${found.thaiDate}`
+            thaiDate: found.thaiDate || this.formatThaiDrawDate(found.drawDate),
+            period: found.period || `งวดประจำวันที่ ${found.thaiDate || this.formatThaiDrawDate(found.drawDate)}`
           };
         }
       }
@@ -63,23 +72,34 @@ export class CampaignService {
       console.warn('[CAMPAIGN] ไม่สามารถอ่านไฟล์กำหนดการออกรางวัลได้:', err);
     }
 
-    // ค่าเริ่มต้นหากไม่พบไฟล์ (คำนวณจากวันที่ปัจจุบัน)
-    const now = new Date();
-    const day = now.getDate();
-    const month = now.getMonth();
-    const year = now.getFullYear() + 543;
-    const targetDay = day <= 16 ? 16 : 1;
-    const targetMonth = day <= 16 ? month : (month + 1) % 12;
-    const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-    const thaiDate = `${targetDay} ${months[targetMonth]} ${year}`;
-    const targetYearStr = day <= 16 ? now.getFullYear() : (month === 11 ? now.getFullYear() + 1 : now.getFullYear());
-    const drawDate = `${targetYearStr}-${String(targetMonth + 1).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+    // Fallback ตามรอบปกติและวันเลื่อนประจำปีของ กองสลากฯ ใช้เวลาไทย ไม่ผูกกับ timezone ของเครื่อง
+    const currentYear = bangkokNow.getUTCFullYear();
+    const fallbackDates: string[] = [];
+    for (const year of [currentYear, currentYear + 1]) {
+      for (let month = 1; month <= 12; month++) {
+        const days = month === 1 ? [17]
+          : month === 5 ? [2, 16]
+          : month === 12 ? [1, 16, 30]
+          : [1, 16];
+        for (const day of days) {
+          fallbackDates.push(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+        }
+      }
+    }
+    const drawDate = fallbackDates.filter(date => date >= todayYMD).sort()[0];
+    const thaiDate = this.formatThaiDrawDate(drawDate);
 
     return {
       drawDate,
       thaiDate,
       period: `งวดประจำวันที่ ${thaiDate}`
     };
+  }
+
+  private formatThaiDrawDate(drawDate: string): string {
+    const [year, month, day] = drawDate.split('-').map(Number);
+    const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    return `${day} ${months[month - 1]} ${year + 543}`;
   }
 
   /**
@@ -105,9 +125,10 @@ export class CampaignService {
     dryRun?: boolean;
     targetUserId?: string;
     force?: boolean;
+    nowOverride?: Date;
   } = {}): Promise<CampaignResult> {
     const isDryRun = !!options.dryRun;
-    const drawInfo = this.getUpcomingDrawInfo();
+    const drawInfo = this.getUpcomingDrawInfo(options.nowOverride);
 
     let targets: CustomerProfile[] = [];
     if (options.targetUserId) {
@@ -141,13 +162,33 @@ export class CampaignService {
       };
     }
 
-    // กรองลูกค้าที่เคยส่งไปแล้วในงวดนี้ เว้นแต่ระบุ force
-    if (!options.force && !options.targetUserId) {
-      targets = targets.filter(c => !c.assignedLuckyNumbers || !c.assignedLuckyNumbers[drawInfo.drawDate]);
-    }
+    // Distribute using the complete active list before filtering delivered customers.
+    // Otherwise a retry can shift a failed customer's number onto another customer's number.
+    const allDistributedItems = LuckyDistributor.distributeLuckyNumbers(targets, drawInfo.drawDate, drawInfo.thaiDate);
+    const targetById = new Map(targets.map(customer => [customer.userId, customer]));
+    const distributedItems = allDistributedItems.filter(item => {
+      if (options.force || options.targetUserId) return true;
+      const record = targetById.get(item.userId)?.assignedLuckyNumbers?.[drawInfo.drawDate];
+      return !record || record.deliveryStatus === 'pending';
+    });
 
-    // จัดสรรเลขมงคลแบบกระจายตัวและไม่ซ้ำกัน (Non-Colliding Shuffled Distribution)
-    const distributedItems = LuckyDistributor.distributeLuckyNumbers(targets, drawInfo.drawDate, drawInfo.thaiDate);
+    // Persist the plan before sending so transient failures retry with the same number.
+    if (!isDryRun) {
+      this.customerRegistry.recordLuckyAssignments(distributedItems
+        .filter(item => !targetById.get(item.userId)?.assignedLuckyNumbers?.[drawInfo.drawDate])
+        .map(item => ({
+          userId: item.userId,
+          record: {
+            number: item.number,
+            tods: item.tods,
+            n2: item.n2,
+            blessing: item.blessing,
+            drawDate: item.drawDate,
+            sentAt: '',
+            deliveryStatus: 'pending' as const
+          }
+        })));
+    }
 
     console.log(`[CAMPAIGN TEASER] 🚀 เริ่มส่งเลขมงคลกระจายไม่ซ้ำ (${distributedItems.length} รายการ | งวด ${drawInfo.thaiDate} | dryRun=${isDryRun})`);
 
@@ -155,11 +196,17 @@ export class CampaignService {
     let failedCount = 0;
     const details: any[] = [];
 
-    for (const item of distributedItems) {
+    for (let i = 0; i < distributedItems.length; i++) {
+      const item = distributedItems[i];
       try {
         const flexMsg = FlexMessageBuilder.buildPersonalizedLuckyTeaserMessage(item);
 
         if (!isDryRun) {
+          if (!this.lineHandler.isPushAvailable()) {
+            failedCount += distributedItems.length - i;
+            console.warn('[CAMPAIGN TEASER] หยุดส่งต่อเพราะโควตา LINE Push หมด จะลองใหม่ในรอบ scheduler ถัดไป');
+            break;
+          }
           const success = await this.lineHandler.push(item.userId, [flexMsg]);
           if (success) {
             sentCount++;
@@ -169,7 +216,8 @@ export class CampaignService {
               n2: item.n2,
               blessing: item.blessing,
               drawDate: item.drawDate,
-              sentAt: new Date().toISOString()
+              sentAt: new Date().toISOString(),
+              deliveryStatus: 'sent'
             });
           } else {
             failedCount++;
@@ -191,10 +239,6 @@ export class CampaignService {
         console.error(`[CAMPAIGN TEASER ERROR] ส่งให้ ${item.userId} ล้มเหลว:`, e);
         failedCount++;
       }
-    }
-
-    if (!isDryRun && !options.targetUserId) {
-      this.lastTeaserDateSent = drawInfo.drawDate;
     }
 
     console.log(`[CAMPAIGN TEASER DONE] สำเร็จ: ${sentCount}, ล้มเหลว: ${failedCount}`);
@@ -332,21 +376,38 @@ export class CampaignService {
   /**
    * ตรวจสอบเงื่อนไขวันและเวลา เพื่อส่งแคมเปญโดยอัตโนมัติ
    */
-  public async checkAndRunScheduledCampaigns(): Promise<void> {
-    const now = new Date();
-    // เวลาประเทศไทย (UTC+7)
-    const thaiHour = (now.getUTCHours() + 7) % 24;
-    const thaiMinute = now.getUTCMinutes();
-    const todayYMD = new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  public async checkAndRunScheduledCampaigns(nowOverride?: Date): Promise<void> {
+    const now = nowOverride || new Date();
+    // ใช้ snapshot เวลาไทยเดียวกันทั้งการตรวจวันและช่วงเวลาส่ง
+    const bangkokNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const thaiHour = bangkokNow.getUTCHours();
+    const thaiMinute = bangkokNow.getUTCMinutes();
+    const todayYMD = `${bangkokNow.getUTCFullYear()}-${String(bangkokNow.getUTCMonth() + 1).padStart(2, '0')}-${String(bangkokNow.getUTCDate()).padStart(2, '0')}`;
 
-    const upcoming = this.getUpcomingDrawInfo();
+    const upcoming = this.getUpcomingDrawInfo(now);
     const isTodayDrawDay = upcoming.drawDate === todayYMD;
 
-    // เงื่อนไขที่ 1: ช่วงเช้าของวันหวยออก (09:00 - 11:30 น.) -> ส่งเลขมงคลกระจายไม่ซ้ำ
+    // เงื่อนไขที่ 1: ช่วงเช้าของวันหวยออก (09:00 - 12:00 น.) -> ส่งเลขมงคลกระจายไม่ซ้ำ
     if (isTodayDrawDay && thaiHour >= 9 && thaiHour < 12) {
       if (this.lastTeaserDateSent !== todayYMD) {
-        console.log(`[AUTO CAMPAIGN] 🌟 วันนี้เป็นวันหวยออก (${todayYMD} เวลา ${thaiHour}:${thaiMinute} น.) -> เริ่มส่งเลขมงคลให้ลูกค้าทุกคน`);
-        await this.sendPersonalizedLuckyTeasers({ force: false });
+        if (this.teaserAttemptDate !== todayYMD) {
+          this.teaserAttemptDate = todayYMD;
+          this.teaserAttemptCount = 0;
+        }
+
+        if (this.teaserAttemptCount < this.maxScheduledTeaserAttempts) {
+          this.teaserAttemptCount++;
+          console.log(`[AUTO CAMPAIGN] 🌟 วันนี้เป็นวันหวยออก (${todayYMD} เวลา ${thaiHour}:${thaiMinute} น.) -> ส่งเลขมงคล (รอบ ${this.teaserAttemptCount}/${this.maxScheduledTeaserAttempts})`);
+          const result = await this.sendPersonalizedLuckyTeasers({ force: false, nowOverride: now });
+          if (result.failedCount === 0) {
+            this.lastTeaserDateSent = todayYMD;
+          } else if (this.teaserAttemptCount >= this.maxScheduledTeaserAttempts) {
+            this.lastTeaserDateSent = todayYMD;
+            console.error(`[AUTO CAMPAIGN] ส่งเลขมงคลไม่ครบหลังลอง ${this.teaserAttemptCount} รอบ: สำเร็จ ${result.sentCount}, ล้มเหลว ${result.failedCount}`);
+          } else {
+            console.warn(`[AUTO CAMPAIGN] ส่งเลขมงคลไม่ครบ: สำเร็จ ${result.sentCount}, ล้มเหลว ${result.failedCount}; จะลองซ้ำในรอบ scheduler ถัดไป`);
+          }
+        }
       }
     }
 

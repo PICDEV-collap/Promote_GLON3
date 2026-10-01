@@ -18,10 +18,18 @@ export interface SessionWatchdogState {
   salesHoursText: string;
 }
 
+export interface SessionDropEvent {
+  reason: string;
+  detectedUrl?: string;
+  timestamp?: string;
+}
+
+export type SessionDropHandler = (event: SessionDropEvent) => Promise<void> | void;
+
 /**
  * GloSessionWatchdog : ระบบเฝ้าระวังเซสชัน GLO N3 แบบเรียลไทม์ (ตรวจทุก 500 ms)
- * เมื่อตรวจพบว่าเซสชันหลุด จะส่งแจ้งเตือนด่วนเข้า Telegram แอดมินทันที
- * และมีระบบ Anti-Spam Latch ป้องกันข้อความส่งซ้ำรัวๆ
+ * เมื่อตรวจพบว่าเซสชันหลุด จะแจ้ง Telegram และเรียก recovery handler เพื่อส่ง QR Login ให้แอดมิน
+ * มีระบบ Anti-Spam Latch ป้องกันการแจ้งเตือนหรือสร้าง QR ซ้ำรัวๆ
  */
 export class GloSessionWatchdog {
   private static instance: GloSessionWatchdog | null = null;
@@ -39,6 +47,7 @@ export class GloSessionWatchdog {
 
   private telegramService: TelegramService;
   private orderQueue: OrderQueue | null = null;
+  private sessionDropHandler: SessionDropHandler | null = null;
 
   private constructor(telegramService?: TelegramService, orderQueue?: OrderQueue | null) {
     this.telegramService = telegramService || TelegramService.getInstance();
@@ -54,6 +63,10 @@ export class GloSessionWatchdog {
 
   public setOrderQueue(queue: OrderQueue): void {
     this.orderQueue = queue;
+  }
+
+  public setSessionDropHandler(handler: SessionDropHandler | null): void {
+    this.sessionDropHandler = handler;
   }
 
   public setAuthFlowActive(active: boolean): void {
@@ -152,6 +165,12 @@ export class GloSessionWatchdog {
       if (this.status === 'STANDBY') {
         console.log(`[SESSION WATCHDOG] ☀️ เข้าสู่เวลาจำหน่ายสลาก N3 (06:00 - 23:00 น.) -> เริ่มระบบเฝ้าระวังเซสชันแบบเรียลไทม์`);
         this.status = 'INITIALIZING';
+      }
+
+      // ระหว่างสร้าง QR และรอแอดมินสแกน อย่าตีความหน้า Login ว่าเซสชันกลับมาปกติ
+      // เพราะจะรีเซ็ต anti-spam latch และส่งแจ้งเตือนกู้คืนทั้งที่ยังไม่ได้ล็อกอิน
+      if (this.isAuthFlowActive) {
+        return this.status;
       }
 
       let page: Page | null = pageOverride !== undefined ? pageOverride : PersistentBrowserManager.getActivePage();
@@ -266,7 +285,6 @@ export class GloSessionWatchdog {
    * จัดการกรณีเซสชันหลุด (Drop Event)
    */
   public async handleSessionDrop(reason: string, url?: string): Promise<void> {
-    const prevStatus = this.status;
     this.status = 'DISCONNECTED';
     this.lastDropReason = reason;
     if (url) this.detectedUrl = url;
@@ -275,6 +293,17 @@ export class GloSessionWatchdog {
     if (!this.hasAlerted) {
       this.hasAlerted = true;
       console.warn(`[SESSION WATCHDOG ALERT] 🚨 ตรวจพบเซสชัน GLO N3 หลุด! สาเหตุ: ${reason} (กำลังส่งแจ้งเตือน Telegram แอดมิน)`);
+
+      if (this.sessionDropHandler) {
+        const event: SessionDropEvent = {
+          reason,
+          detectedUrl: this.detectedUrl || url || undefined,
+          timestamp: this.lastCheckTime || undefined
+        };
+        Promise.resolve(this.sessionDropHandler(event)).catch((handlerErr: any) => {
+          console.error('[SESSION WATCHDOG RECOVERY ERROR] ไม่สามารถเริ่มสร้าง QR Login อัตโนมัติได้:', handlerErr?.message || handlerErr);
+        });
+      }
 
       try {
         await this.telegramService.notifySessionDropped({
@@ -332,6 +361,8 @@ export class GloSessionWatchdog {
     this.detectedUrl = null;
     this.hasAlerted = false;
     this.checkCount = 0;
+    this.isAuthFlowActive = false;
+    this.sessionDropHandler = null;
   }
 
   public setHasAlertedForTest(val: boolean): void {

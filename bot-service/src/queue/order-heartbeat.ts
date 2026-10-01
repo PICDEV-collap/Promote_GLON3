@@ -45,6 +45,13 @@ export class OrderHeartbeatManager {
       return;
     }
 
+    // Web orders already receive live status through /api/order-status polling.
+    // Avoid redundant LINE loading indicators and quota-consuming heartbeat pushes.
+    if (task.customerDeliveryChannel === 'web-polling') {
+      console.log(`[HEARTBEAT] ไม่เริ่ม LINE heartbeat สำหรับออเดอร์เว็บ ${task.orderId} (ใช้ Web Polling)`);
+      return;
+    }
+
     // หากมี Heartbeat เดิมของออเดอร์นี้อยู่ ให้เคลียร์ก่อน
     this.stop(task.orderId);
 
