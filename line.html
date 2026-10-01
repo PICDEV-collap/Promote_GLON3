@@ -6,6 +6,14 @@
     (function() {
       try {
         var href = window.location.href;
+        var ua = navigator.userAgent || '';
+        // If opened inside LINE In-App Browser without openExternalBrowser=1, automatically redirect to native external browser
+        if (/Line\//i.test(ua) && window.location.search.indexOf('openExternalBrowser=1') === -1) {
+          var sep = href.indexOf('?') !== -1 ? '&' : '?';
+          window.location.replace(href + sep + 'openExternalBrowser=1');
+          return;
+        }
+
         var params = new URLSearchParams(window.location.search);
         var liffState = params.get('liff.state');
         var is6Pack = false;
@@ -2240,6 +2248,7 @@
 
         // 2. Seamless background verification on load (0 clicks inside LINE client or for returning users)
         await checkSeamlessMobileLineAuth();
+        restorePendingDirectOrderAfterLogin();
       } catch (err) {
         console.warn('[LIFF] Initialization failed:', err);
       }
@@ -2520,6 +2529,7 @@
     let orderPollInterval = null;
     let orderTimerInterval = null;
     let progressTimer = null;
+    const PENDING_DIRECT_ORDER_KEY = 'glo_n3_pending_direct_order';
 
     function resetModalState() {
       if (orderPollInterval) {
@@ -2574,6 +2584,44 @@
         btnModalClose.style.color = 'var(--color-text-muted)';
         btnModalClose.style.border = '1px solid rgba(255, 255, 255, 0.15)';
       }
+    }
+
+    function persistPendingDirectOrder(orderData = currentOrderData) {
+      if (!orderData || !Array.isArray(orderData.aggregatedItems) || orderData.aggregatedItems.length === 0) return false;
+      try {
+        sessionStorage.setItem(PENDING_DIRECT_ORDER_KEY, JSON.stringify({
+          orderCommand: orderData.orderCommand,
+          aggregatedItems: orderData.aggregatedItems,
+          totalTickets: orderData.totalTickets,
+          totalPrice: orderData.totalPrice
+        }));
+        return true;
+      } catch (err) {
+        console.warn('[ORDER AUTH] Could not preserve pending order before LINE login:', err);
+        return false;
+      }
+    }
+
+    function restorePendingDirectOrderAfterLogin() {
+      if (typeof liff === 'undefined' || !isLiffReady || !liff.isLoggedIn()) return false;
+      let pending = null;
+      try {
+        pending = JSON.parse(sessionStorage.getItem(PENDING_DIRECT_ORDER_KEY) || 'null');
+      } catch (_) {}
+      if (!pending || typeof pending.orderCommand !== 'string' || !Array.isArray(pending.aggregatedItems) || pending.aggregatedItems.length === 0) {
+        return false;
+      }
+
+      sessionStorage.removeItem(PENDING_DIRECT_ORDER_KEY);
+      showDirectOrderConfirmation(
+        pending.orderCommand,
+        pending.aggregatedItems,
+        Number(pending.totalTickets) || pending.aggregatedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+        Number(pending.totalPrice) || 0,
+        'เข้าสู่ระบบ LINE แล้ว กรุณาตรวจสอบรายการและยืนยันการสั่งซื้ออีกครั้ง',
+        'success'
+      );
+      return true;
     }
 
     function showDirectOrderConfirmation(orderCommand, aggregatedItems, totalTickets, totalPrice, toastMessage, toastType = 'info') {
@@ -2791,13 +2839,26 @@
       }
 
       if (typeof liff !== 'undefined' && CONFIG.LIFF_ID && !isLiffReady) {
+        persistPendingDirectOrder();
         try {
-          await liff.init({ liffId: CONFIG.LIFF_ID });
+          await liff.init({ liffId: CONFIG.LIFF_ID, withLoginOnExternalBrowser: true });
           isLiffReady = true;
         } catch (initErr) {
           console.warn('[LIFF] Could not initialize before direct order:', initErr);
         }
       }
+      if (typeof liff !== 'undefined' && isLiffReady && !liff.isLoggedIn() && !liff.isInClient()) {
+        persistPendingDirectOrder();
+        try {
+          showToast('กำลังเปิดหน้าเข้าสู่ระบบ LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
+          liff.login({ redirectUri: window.location.href });
+        } catch (loginErr) {
+          console.error('[LIFF LOGIN] Unable to start external browser login:', loginErr);
+          showToast('เปิดหน้าเข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองอีกครั้ง', 'error');
+        }
+        return;
+      }
+
       // Activate Screen Wake Lock during active order processing
       requestScreenWakeLock();
 
@@ -2886,8 +2947,14 @@
           try { lineAccessToken = liff.getAccessToken() || ''; } catch (_) {}
         }
         if (!lineAccessToken) {
-          throw new Error('ไม่พบการยืนยันจาก LINE กรุณาปิดหน้านี้แล้วเปิดใหม่จาก Rich Menu ในแอป LINE');
+          if (typeof liff !== 'undefined' && isLiffReady && !liff.isInClient() && persistPendingDirectOrder()) {
+            showToast('กำลังเปิดหน้าเข้าสู่ระบบ LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
+            liff.login({ redirectUri: window.location.href });
+            return;
+          }
+          throw new Error('ต้องเข้าสู่ระบบ LINE ก่อนยืนยันคำสั่งซื้อ กรุณาเปิดลิงก์สั่งซื้อผ่าน LINE แล้วลองอีกครั้ง');
         }
+        sessionStorage.removeItem(PENDING_DIRECT_ORDER_KEY);
 
         // The server verifies this token with LINE and derives the user ID from LINE's response.
         const response = await fetch('/api/order-direct', {
@@ -3075,7 +3142,57 @@
         totalPrice
       };
 
-      // Keep the customer in LIFF and show an in-page confirmation before creating the QR.
+      const allSubmitBtns = document.querySelectorAll('.btn-submit-order, #btn-submit-order');
+
+
+
+      // 1. If inside LINE LIFF Client -> Try 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
+      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
+        if (!isLiffReady) {
+          try {
+            persistPendingDirectOrder(currentOrderData);
+            await liff.init({ liffId: CONFIG.LIFF_ID, withLoginOnExternalBrowser: true });
+            isLiffReady = true;
+          } catch (initErr) {}
+        }
+        if (isLiffReady && !liff.isLoggedIn() && !liff.isInClient()) {
+          persistPendingDirectOrder(currentOrderData);
+          try {
+            showToast('กำลังเปิดหน้าเข้าสู่ระบบ LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
+            liff.login({ redirectUri: window.location.href });
+          } catch (loginErr) {
+            console.error('[LIFF LOGIN] Unable to start external browser login:', loginErr);
+            showToast('เปิดหน้าเข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองอีกครั้ง', 'error');
+          }
+          return;
+        }
+      }
+
+      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        allSubmitBtns.forEach(b => b.disabled = true);
+        showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
+
+        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100% ไม่ต้องกดส่งซ้ำ)
+        try {
+          await liff.sendMessages([{ type: 'text', text: orderCommand }]);
+          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
+          setTimeout(() => {
+            allSubmitBtns.forEach(b => b.disabled = false);
+            liff.closeWindow();
+          }, 400);
+          return;
+        } catch (err) {
+          console.error('[LIFF QUICK BUY] sendMessages failed, fallback to in-page / deep link:', err);
+          allSubmitBtns.forEach(b => b.disabled = false);
+        }
+      }
+
+      // 2. Outside LIFF or Web Mode: Reset & Open Modal
       showDirectOrderConfirmation(orderCommand, aggregatedItems, totalTickets, totalPrice);
     }
 
