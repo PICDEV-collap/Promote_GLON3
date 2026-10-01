@@ -2,7 +2,7 @@ import assert from 'assert';
 import { messagingApi } from '@line/bot-sdk';
 import fs from 'fs';
 import path from 'path';
-import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl, getPublicBaseUrl, saveQrToMemoryCache, getQrFromMemoryCache } from './index';
+import { parseOrderMessage, isStopIntentional, getStoredWebhookUrl, getPublicBaseUrl, saveQrToMemoryCache, getQrFromMemoryCache, isAllowedOrderOrigin } from './index';
 import { FlexMessageBuilder } from './line/flex-message';
 import { QuotaManager, parseQuotaFromPortalText } from './quota/quota-manager';
 import { syncQuotaFromLivePortal as syncQuotaAutomation } from './automation/quota-manager';
@@ -1794,6 +1794,26 @@ async function runTests() {
     const workerEnd = source.indexOf('\n  };', workerStart);
     const customerDelivery = source.slice(workerStart, workerEnd);
     assert(customerDelivery.includes("task.customerDeliveryChannel === 'web-polling'"));
+  });
+
+  test('Order API: Rich Menu web orders need no LIFF login and restrict the order origin', () => {
+    const source = fs.readFileSync(path.join(__dirname, 'index.ts'), 'utf-8');
+    const routeStart = source.indexOf("app.post('/api/order-direct'");
+    const routeEnd = source.indexOf('let context:', routeStart);
+    const orderRoute = source.slice(routeStart, routeEnd);
+    const page = fs.readFileSync(path.join(__dirname, '../../line.html'), 'utf-8');
+    const expectedOrigin = new URL(CONFIG.ORDER_FORM_URL).origin;
+
+    assert.strictEqual(isAllowedOrderOrigin(expectedOrigin), true, 'Configured order page origin must be allowed');
+    assert.strictEqual(isAllowedOrderOrigin('http://localhost:3333'), true, 'Local development page must be allowed');
+    assert.strictEqual(isAllowedOrderOrigin('https://attacker.example'), false, 'Untrusted page origin must be rejected');
+    assert(orderRoute.includes("let effectiveUserId = 'anonymous_web_user'"), 'No-token web orders must use the anonymous polling path');
+    assert(orderRoute.includes('applyDirectOrderCors(req, res)'), 'Direct orders must validate the request origin');
+    assert(orderRoute.includes('direct-order-hour:'), 'Anonymous direct orders must be rate limited');
+    assert(orderRoute.includes('randomUUID()'), 'Polling IDs must be unguessable');
+    assert(!/liff/i.test(page), 'The Rich Menu order page must not load or call LIFF');
+    assert(page.includes("fetch('/api/order-direct'"), 'Confirming the order must call the direct web order API');
+    assert(!page.includes('accessToken:'), 'The Rich Menu order page must not require a LINE access token');
   });
 
   test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {

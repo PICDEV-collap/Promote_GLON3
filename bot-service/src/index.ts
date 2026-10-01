@@ -1,5 +1,5 @@
 import express, { Request, Response, RequestHandler } from 'express';
-import { timingSafeEqual } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'crypto';
 import { Page, BrowserContext } from 'playwright';
 import { validateSignature, messagingApi } from '@line/bot-sdk';
 import http from 'http';
@@ -74,6 +74,32 @@ async function verifyLiffAccessToken(accessToken: unknown): Promise<string | nul
   } catch {
     return null;
   }
+}
+
+export function isAllowedOrderOrigin(origin: string): boolean {
+  const allowedOrigins = new Set([
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3333',
+    'http://127.0.0.1:3333'
+  ]);
+
+  try {
+    allowedOrigins.add(new URL(CONFIG.ORDER_FORM_URL).origin);
+  } catch {}
+
+  return allowedOrigins.has(origin);
+}
+
+function applyDirectOrderCors(req: Request, res: Response): boolean {
+  const origin = req.headers.origin;
+  res.setHeader('Vary', 'Origin');
+  if (typeof origin !== 'string' || !isAllowedOrderOrigin(origin)) return false;
+
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  return true;
 }
 
 const requireAdminAuth: RequestHandler = (req, res, next) => {
@@ -690,7 +716,15 @@ app.all('/api/check-line-member', async (req: Request, res: Response): Promise<v
 // -------------------------------------------------------------------------
 // Direct Order REST API (รองรับการสั่งซื้อผ่านตารางเว็บ / LIFF โดยตรง ไม่ต้องพิมพ์ส่งซ้ำในแชท LINE)
 // -------------------------------------------------------------------------
-app.options(['/api/order-direct', '/api/order-status/:orderId', '/api/check-line-member'], (_req: Request, res: Response) => {
+app.options('/api/order-direct', (req: Request, res: Response) => {
+  if (!applyDirectOrderCors(req, res)) {
+    res.status(403).end();
+    return;
+  }
+  res.status(204).end();
+});
+
+app.options(['/api/order-status/:orderId', '/api/check-line-member'], (_req: Request, res: Response) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
@@ -794,9 +828,17 @@ app.get('/api/order-status/:orderId', (req: Request, res: Response) => {
 });
 
 app.post('/api/order-direct', async (req: Request, res: Response): Promise<void> => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  if (!applyDirectOrderCors(req, res)) {
+    res.status(403).json({ success: false, error: 'ไม่สามารถส่งคำสั่งซื้อจากหน้านี้ได้ กรุณาเปิดหน้าสั่งซื้อเดิมอีกครั้ง' });
+    return;
+  }
+
+  const ip = extractClientIp(req);
+  if (!rateLimiter.check(`direct-order:${ip}`, 10, 60000) || !rateLimiter.check(`direct-order-hour:${ip}`, 60, 60 * 60 * 1000)) {
+    res.setHeader('Retry-After', '60');
+    res.status(429).json({ success: false, error: 'ส่งคำสั่งซื้อถี่เกินไป กรุณารอสักครู่แล้วลองใหม่' });
+    return;
+  }
 
   const { accessToken, items } = req.body || {};
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -804,34 +846,41 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  // 0. ยืนยันตัวตนจาก LINE Platform โดยตรง ห้ามเชื่อ userId/source ที่ส่งมาจากเบราว์เซอร์
-  const effectiveUserId = await verifyLiffAccessToken(accessToken);
-  if (!effectiveUserId) {
-    res.status(401).json({
-      success: false,
-      isMember: false,
-      error: 'ไม่สามารถยืนยันบัญชี LINE ได้ กรุณาเปิดผ่าน LIFF และเข้าสู่ระบบใหม่ก่อนสั่งซื้อ'
-    });
-    return;
-  }
+  // The Rich Menu opens a regular mobile web page. Orders without a token are
+  // anonymous web-polling orders; explicitly supplied tokens remain validated.
+  let effectiveUserId = 'anonymous_web_user';
+  const tokenWasProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'accessToken');
+  if (tokenWasProvided) {
+    effectiveUserId = await verifyLiffAccessToken(accessToken) || '';
+    if (!effectiveUserId) {
+      res.status(401).json({ success: false, error: 'ไม่สามารถยืนยันข้อมูลบัญชีได้ กรุณาโหลดหน้าสั่งซื้อใหม่แล้วลองอีกครั้ง' });
+      return;
+    }
 
-  // ตรวจสอบกับ LINE Messaging API ว่าผู้ใช้เป็นเพื่อนกับ LINE Official Account
-  const profile = await lineHandler.getProfile(effectiveUserId);
-  if (!profile) {
-    res.status(403).json({
-      success: false,
-      isMember: false,
-      error: 'ไม่อนุญาต: ตรวจสอบไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
-    });
-    return;
+    const profile = await lineHandler.getProfile(effectiveUserId);
+    if (!profile) {
+      res.status(403).json({
+        success: false,
+        isMember: false,
+        error: 'ไม่พบสถานะสมาชิก LINE @586xxhlx กรุณากดเพิ่มเพื่อนก่อนทำรายการ'
+      });
+      return;
+    }
   }
 
   // กรองตัวเลขสลาก 3 หลัก
   const validItems: OrderItem[] = [];
+  if (items.length > 1000) {
+    res.status(400).json({ success: false, error: 'มีรายการสั่งซื้อมากเกินไป กรุณาแบ่งทำรายการใหม่' });
+    return;
+  }
+
   for (const it of items) {
-    const num = String(it.number || '').trim();
-    const qty = parseInt(it.quantity, 10) || 1;
-    if (/^\d{3}$/.test(num) && qty >= 1) {
+    if (!it || typeof it !== 'object') continue;
+    const num = String(it.number ?? '').trim();
+    const rawQuantity = String(it.quantity ?? '1').trim();
+    const qty = /^\d+$/.test(rawQuantity) ? Number(rawQuantity) : 0;
+    if (/^\d{3}$/.test(num) && Number.isSafeInteger(qty) && qty >= 1) {
       validItems.push({ number: num, quantity: Math.min(qty, 100) });
     }
   }
@@ -873,7 +922,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   }
 
   const formattedSummary = validItems.map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
-  const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const orderId = `ORD-${randomUUID()}`;
 
   const orderTask: OrderTask = {
     orderId,

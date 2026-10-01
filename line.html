@@ -15,17 +15,7 @@
         }
 
         var params = new URLSearchParams(window.location.search);
-        var liffState = params.get('liff.state');
         var is6Pack = false;
-        
-        if (liffState) {
-          try {
-            var decoded = decodeURIComponent(liffState);
-            if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
-              is6Pack = true;
-            }
-          } catch (err) {}
-        }
 
         var mode = params.get('mode') || params.get('type') || params.get('view');
         if (is6Pack || mode === '6pack' || mode === 'sixpack' || mode === '6-pack' || href.indexOf('order-6pack') !== -1 || href.indexOf('6pack') !== -1) {
@@ -43,9 +33,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- LIFF SDK for LINE In-App Browser Integration -->
-  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     /* Modern Web Guidance: Native Cross-Document View Transitions */
@@ -1626,13 +1613,11 @@
     // Configuration
     const CONFIG = {
       LINE_OA_ID: '@586xxhlx',
-      LIFF_ID: '2011462211-WVsuHFk4',
       PRICE_PER_TICKET: 20,
       MAX_QUANTITY_PER_ROW: 100
     };
 
-    // LIFF Ready State
-    let isLiffReady = false;
+    let isDirectOrderSubmitting = false;
 
     // State
     let rowsData = [];
@@ -2082,12 +2067,7 @@
 
     // Open LINE App Button (Fallback)
     btnModalOpenLine.addEventListener('click', () => {
-      showToast('🟢 กำลังเปิดแอป LINE เพื่อส่งคำสั่งซื้อ...', 'info');
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-        setTimeout(() => {
-          try { liff.closeWindow(); } catch (e) {}
-        }, 1500);
-      }
+      showToast('🟢 หากต้องการส่งคำสั่งซื้อทางแชท ระบบกำลังเปิดแอป LINE...', 'info');
     });
 
     // Close Modal
@@ -2130,138 +2110,6 @@
         }
       }
     });
-
-    // Helper to persist member data in both localStorage and sessionStorage
-    function persistMemberAuth(userId, profile = {}, data = {}) {
-      if (!userId) return;
-      isMemberVerified = true;
-      const displayName = profile?.displayName || data?.displayName || localStorage.getItem('glo_line_display_name') || 'สมาชิก LINE';
-      const pictureUrl = profile?.pictureUrl || data?.pictureUrl || localStorage.getItem('glo_line_picture_url') || '';
-
-      localStorage.setItem('glo_line_user_id', userId);
-      localStorage.setItem('glo_line_member_status', 'verified');
-      if (displayName) localStorage.setItem('glo_line_display_name', displayName);
-      if (pictureUrl) localStorage.setItem('glo_line_picture_url', pictureUrl);
-
-      sessionStorage.setItem('glo_line_user_id', userId);
-      sessionStorage.setItem('glo_line_member_status', 'verified');
-      if (displayName) sessionStorage.setItem('glo_line_display_name', displayName);
-      if (pictureUrl) sessionStorage.setItem('glo_line_picture_url', pictureUrl);
-
-      updateAuthUI('verified', { displayName, pictureUrl, userId });
-      hideOrderGuard();
-    }
-
-    function clearMemberAuth() {
-      isMemberVerified = false;
-      localStorage.removeItem('glo_line_member_status');
-      sessionStorage.removeItem('glo_line_member_status');
-    }
-
-    // Seamless Verification: Auto-detect mobile LINE app or cached returning user
-    async function checkSeamlessMobileLineAuth() {
-      // Priority 1: If opened inside LINE Client (liff.isInClient() === true), auto-authenticate seamlessly (0 clicks)
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-        try {
-          if (liff.isLoggedIn()) {
-            const profile = await liff.getProfile();
-            const userId = profile?.userId;
-            if (userId && userId.startsWith('U')) {
-              const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(userId)}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (data.isMember) {
-                  persistMemberAuth(userId, profile, data);
-                  return true;
-                } else {
-                  clearMemberAuth();
-                  updateAuthUI('not-friend', profile);
-                  return false;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('[SEAMLESS LIFF CLIENT ERROR]:', e);
-        }
-      }
-
-      // Priority 2: Persistent LocalStorage Cache (Returning mobile browser or desktop browser user)
-      const cachedUserId = localStorage.getItem('glo_line_user_id') || sessionStorage.getItem('glo_line_user_id');
-      if (cachedUserId && cachedUserId.startsWith('U')) {
-        try {
-          const res = await fetch(`/api/check-line-member?userId=${encodeURIComponent(cachedUserId)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.isMember) {
-              const cachedProfile = {
-                userId: cachedUserId,
-                displayName: localStorage.getItem('glo_line_display_name') || data.displayName,
-                pictureUrl: localStorage.getItem('glo_line_picture_url') || data.pictureUrl
-              };
-              persistMemberAuth(cachedUserId, cachedProfile, data);
-              return true;
-            } else {
-              clearMemberAuth();
-              updateAuthUI('not-friend', { displayName: localStorage.getItem('glo_line_display_name') });
-              return false;
-            }
-          }
-        } catch (e) {
-          console.warn('[SEAMLESS CACHE CHECK ERROR]:', e);
-        }
-      }
-
-      // Priority 3: LIFF browser session (if logged in via OAuth redirect)
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
-        return await checkLineMembershipStatus(false);
-      }
-
-      updateAuthUI('unauthenticated');
-      return false;
-    }
-
-    // Initialize LINE LIFF SDK
-    async function initLiff() {
-      // 1. Check cached credentials immediately in background (Instant UI response)
-      checkSeamlessMobileLineAuth().catch(() => {});
-
-      if (typeof liff === 'undefined' || !CONFIG.LIFF_ID) {
-        console.warn('[LIFF] SDK or LIFF_ID not available');
-        return;
-      }
-      try {
-        await liff.init({ liffId: CONFIG.LIFF_ID });
-        isLiffReady = true;
-        console.log('[LIFF] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
-        
-        // Clean URL parameter quietly after LIFF initialization is completely resolved
-        if (window.location.search.includes('liff.state')) {
-          try {
-            const cleanParams = new URLSearchParams(window.location.search);
-            cleanParams.delete('liff.state');
-            const cleanSearch = cleanParams.toString();
-            const cleanUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
-            window.history.replaceState(null, '', cleanUrl);
-          } catch (e) {}
-        }
-
-        // 2. Seamless background verification on load (0 clicks inside LINE client or for returning users)
-        await checkSeamlessMobileLineAuth();
-      } catch (err) {
-        console.warn('[LIFF] Initialization failed:', err);
-      }
-    }
-
-    // -------------------------------------------------------------------------
-    // LINE Member VIP Status: Always pre-authorized for Rich Menu traffic
-    // -------------------------------------------------------------------------
-    let isMemberVerified = true;
-    function showOrderGuard() {}
-    function hideOrderGuard() {}
-    function triggerLineLogin() {}
-    function updateAuthUI() {}
-    async function checkLineMembershipStatus() { return true; }
 
     function switchOrderMode(mode, updateHistory = true) {
       const htmlEl = document.documentElement;
@@ -2530,6 +2378,7 @@
     let progressTimer = null;
 
     function resetModalState() {
+      isDirectOrderSubmitting = false;
       if (orderPollInterval) {
         clearInterval(orderPollInterval);
         orderPollInterval = null;
@@ -2766,10 +2615,12 @@
 
     // Execute direct order against bot-service backend
     async function executeDirectOrder() {
+      if (isDirectOrderSubmitting) return;
       if (!currentOrderData || !currentOrderData.aggregatedItems || currentOrderData.aggregatedItems.length === 0) {
         showToast('ไม่พบรายการสลากที่จะสั่งซื้อ กรุณาลองใหม่อีกครั้ง', 'error');
         return;
       }
+      isDirectOrderSubmitting = true;
 
       // Activate Screen Wake Lock during active order processing
       requestScreenWakeLock();
@@ -2854,15 +2705,6 @@
       }, 300);
 
       try {
-        let lineAccessToken = '';
-        if (typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn()) {
-          try { lineAccessToken = liff.getAccessToken() || ''; } catch (_) {}
-        }
-        if (!lineAccessToken) {
-          throw new Error('กรุณาเปิดหน้านี้ผ่าน LINE และเข้าสู่ระบบก่อนสั่งซื้อโดยตรง หรือส่งคำสั่งซื้อผ่านแชท LINE');
-        }
-
-        // The server verifies this token with LINE and derives the user ID from LINE's response.
         const response = await fetch('/api/order-direct', {
           method: 'POST',
           headers: {
@@ -2870,7 +2712,6 @@
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            accessToken: lineAccessToken,
             items: currentOrderData.aggregatedItems,
             command: currentOrderData.orderCommand
           })
@@ -2975,6 +2816,7 @@
                 showToast('✅ สร้าง QR Code สำเร็จแล้ว!', 'success');
               }, 400);
             } else if (statusData.status === 'failed') {
+              isDirectOrderSubmitting = false;
               clearInterval(orderPollInterval);
               if (progressTimer) {
                 clearInterval(progressTimer);
@@ -2983,7 +2825,7 @@
               orderPollInterval = null;
 
               if (modalTitle) modalTitle.textContent = 'ไม่สามารถสร้าง QR Code ได้';
-              if (modalDesc) modalDesc.textContent = statusData.error || 'ระบบไม่สามารถสร้าง QR ได้ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทน';
+              if (modalDesc) modalDesc.textContent = statusData.error || 'ระบบไม่สามารถสร้าง QR ได้ กรุณาลองอีกครั้ง หรือติดต่อร้านผ่าน LINE';
               if (modalProcessingArea) modalProcessingArea.style.display = 'none';
               if (modalOrderPreview) modalOrderPreview.style.display = 'block';
               if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
@@ -2996,6 +2838,7 @@
           }
 
           if (pollCount >= maxPolls) {
+            isDirectOrderSubmitting = false;
             clearInterval(orderPollInterval);
             if (progressTimer) {
               clearInterval(progressTimer);
@@ -3003,7 +2846,7 @@
             }
             orderPollInterval = null;
             if (modalTitle) modalTitle.textContent = 'ใช้เวลาดำเนินการนานกว่าปกติ';
-            if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทนเพื่อความรวดเร็ว';
+            if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาลองตรวจสอบสถานะอีกครั้ง หรือติดต่อร้านผ่าน LINE';
             if (modalProcessingArea) modalProcessingArea.style.display = 'none';
             if (modalOrderPreview) modalOrderPreview.style.display = 'block';
             if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
@@ -3013,6 +2856,7 @@
         }, 1500);
 
       } catch (err) {
+        isDirectOrderSubmitting = false;
         if (progressTimer) {
           clearInterval(progressTimer);
           progressTimer = null;
@@ -3021,13 +2865,13 @@
         const errText = err?.message || '';
         const isTimeOrQuota = errText.includes('เวลา') || errText.includes('โควต้า') || errText.includes('ชั่วโมง');
         if (modalTitle) modalTitle.textContent = isTimeOrQuota ? 'แจ้งเตือนสถานะร้านค้า' : 'ไม่สามารถสร้าง QR Code สั่งซื้อตรงได้';
-        if (modalDesc) modalDesc.textContent = errText || 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ คุณยังสามารถส่งคำสั่งซื้อผ่านแอป LINE ได้ตามปกติ';
+        if (modalDesc) modalDesc.textContent = errText || 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อร้านผ่าน LINE';
         if (modalProcessingArea) modalProcessingArea.style.display = 'none';
         if (modalOrderPreview) modalOrderPreview.style.display = 'block';
         if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
         if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
         if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
-        showToast(errText || 'ไม่สามารถสั่งซื้อตรงได้ กรุณากดส่งผ่าน LINE แทน', 'error');
+        showToast(errText || 'ไม่สามารถสั่งซื้อตรงได้ กรุณาลองใหม่อีกครั้ง', 'error');
       }
     }
 
@@ -3040,45 +2884,8 @@
         totalPrice
       };
 
-      const allSubmitBtns = document.querySelectorAll('.btn-submit-order, #btn-submit-order');
-
-
-
-      // 1. If inside LINE LIFF Client -> Try 1-Tap Background Send & Auto-Close (Zero Push Quota, 100% Free)
-      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
-        if (!isLiffReady) {
-          try {
-            await liff.init({ liffId: CONFIG.LIFF_ID });
-            isLiffReady = true;
-          } catch (initErr) {}
-        }
-      }
-
-      if (typeof liff !== 'undefined' && isLiffReady && liff.isInClient()) {
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-
-        allSubmitBtns.forEach(b => b.disabled = true);
-        showToast('🛒 กำลังส่งคำสั่งซื้อเข้าระบบร้านค้าอัตโนมัติ...', 'info');
-
-        // ส่งคำสั่งซื้อผ่าน liff.sendMessages เข้าห้องแชทโดยตรง (สร้าง ReplyToken ตอบกลับภาพ QR ฟรี 100% ไม่ต้องกดส่งซ้ำ)
-        try {
-          await liff.sendMessages([{ type: 'text', text: orderCommand }]);
-          showToast('✅ สั่งซื้อสำเร็จ! กำลังกลับสู่ห้องแชทเพื่อรอรับ QR Code...', 'success');
-          setTimeout(() => {
-            allSubmitBtns.forEach(b => b.disabled = false);
-            liff.closeWindow();
-          }, 400);
-          return;
-        } catch (err) {
-          console.error('[LIFF QUICK BUY] sendMessages failed, fallback to in-page / deep link:', err);
-          allSubmitBtns.forEach(b => b.disabled = false);
-        }
-      }
-
-      // 2. Outside LIFF or Web Mode: Reset & Open Modal
+      // Always open the in-page confirmation. Its confirmation button creates
+      // the QR directly through the web order API without opening LINE login.
       resetModalState();
 
       const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
@@ -3152,24 +2959,6 @@
     function initFromParams() {
       const href = window.location.href;
       const params = new URLSearchParams(window.location.search);
-      const liffState = params.get('liff.state');
-      if (liffState) {
-        try {
-          const decoded = decodeURIComponent(liffState);
-          const qIndex = decoded.indexOf('?');
-          const searchPart = qIndex !== -1 ? decoded.substring(qIndex) : (decoded.indexOf('=') !== -1 ? (decoded.startsWith('?') ? decoded : '?' + decoded) : '');
-          if (searchPart) {
-            const stateParams = new URLSearchParams(searchPart);
-            stateParams.forEach((val, key) => {
-              if (!params.has(key)) params.set(key, val);
-            });
-          }
-          if (decoded.indexOf('6pack') !== -1 || decoded.indexOf('sixpack') !== -1) {
-            params.set('mode', '6pack');
-          }
-        } catch (e) {}
-      }
-
       const modeParam = params.get('mode') || params.get('type') || params.get('view');
       const is6Pack = (modeParam === '6pack' || modeParam === 'sixpack' || modeParam === '6-pack' || href.includes('order-6pack') || href.includes('6pack'));
 
@@ -3182,10 +2971,6 @@
       const lineParam = params.get('line');
       if (lineParam) {
         CONFIG.LINE_OA_ID = lineParam.startsWith('@') ? lineParam : '@' + lineParam;
-      }
-      const liffParam = params.get('liffId') || params.get('liff');
-      if (liffParam) {
-        CONFIG.LIFF_ID = liffParam;
       }
       const rawSingleNum = params.get('n') || params.get('number');
       const rawSingleQty = params.get('q') || params.get('qty') || 1;
@@ -3269,13 +3054,10 @@
       renderTable();
     }
 
-    // Mobile Hardware & Gesture Back Button Interceptor for LINE LIFF & Mobile Browsers
+    // Mobile Hardware & Gesture Back Button Interceptor for LINE and mobile browsers
     function isLineBrowser() {
       const ua = navigator.userAgent || navigator.vendor || '';
       if (/Line/i.test(ua)) return true;
-      if (typeof liff !== 'undefined') {
-        try { if (liff.isInClient && liff.isInClient()) return true; } catch (e) {}
-      }
       return false;
     }
 
@@ -3293,7 +3075,7 @@
       if (hasPushedInitialState) return;
       try {
         if (isLineBrowser()) {
-          window.history.pushState({ liffApp: true, page: 'order' }, '', window.location.href);
+          window.history.pushState({ lineWebPage: true, page: 'order' }, '', window.location.href);
           hasPushedInitialState = true;
         }
       } catch (e) {}
@@ -3305,14 +3087,6 @@
 
     function handleExitOrBack() {
       if (isLineBrowser()) {
-        if (typeof liff !== 'undefined') {
-          try {
-            liff.closeWindow();
-            return;
-          } catch (err) {
-            console.warn('[LIFF] closeWindow failed:', err);
-          }
-        }
         try {
           window.close();
           return;
@@ -3326,10 +3100,9 @@
     }
 
     // Start Page
-    window.addEventListener('DOMContentLoaded', async () => {
+    window.addEventListener('DOMContentLoaded', () => {
       setupMobileBackInterceptor();
       initFromParams();
-      await initLiff();
       updateDigitDisplay();
       requestScreenWakeLock();
     });
