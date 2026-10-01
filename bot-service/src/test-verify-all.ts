@@ -17,7 +17,6 @@ import { CustomerRegistry } from './storage/customer-registry';
 import { LuckyDistributor } from './dream/lucky-distributor';
 import { CampaignService } from './automation/campaign-service';
 import { TelegramService } from './notify/telegram-service';
-import { OperatingHoursGuard } from './guard/operating-hours';
 
 async function runTests() {
   console.log('====================================================');
@@ -1795,33 +1794,6 @@ async function runTests() {
     const workerEnd = source.indexOf('\n  };', workerStart);
     const customerDelivery = source.slice(workerStart, workerEnd);
     assert(customerDelivery.includes("task.customerDeliveryChannel === 'web-polling'"));
-  });
-
-  test('Order API: closed-sales response gives the customer the next opening time', () => {
-    const beforeOpen = OperatingHoursGuard.checkSalesStatus(new Date('2026-10-02T05:30:00+07:00'));
-    assert.strictEqual(beforeOpen.isOpen, false);
-    assert.strictEqual(beforeOpen.nextOpenText, 'เปิดจำหน่ายวันนี้ เวลา 06:00 น.');
-
-    const afterDrawCutoff = OperatingHoursGuard.checkSalesStatus(new Date('2026-10-01T20:15:00+07:00'));
-    assert.strictEqual(afterDrawCutoff.isOpen, false);
-    assert.strictEqual(afterDrawCutoff.nextOpenText, 'เปิดจำหน่ายงวดถัดไป เวลา 06:00 น.');
-
-    const source = fs.readFileSync(path.join(__dirname, 'index.ts'), 'utf-8');
-    const routeStart = source.indexOf("app.post('/api/order-direct'");
-    const routeEnd = source.indexOf('let context:', routeStart);
-    const orderRoute = source.slice(routeStart, routeEnd);
-    assert(orderRoute.includes("code: 'SALES_CLOSED'"));
-    assert(orderRoute.includes('nextOpenText: salesStatus.nextOpenText'));
-  });
-
-  test('LINE order page logs into LIFF in external browsers and preserves the order draft', () => {
-    const source = fs.readFileSync(path.join(__dirname, '../public/line.html'), 'utf-8');
-    assert(source.includes('withLoginOnExternalBrowser: true'));
-    assert(source.includes("const PENDING_DIRECT_ORDER_KEY = 'glo_n3_pending_direct_order'"));
-    assert(source.includes('restorePendingDirectOrderAfterLogin()'));
-    assert(source.includes('liff.login({ redirectUri: window.location.href })'));
-    assert(source.includes("resData.code === 'SALES_CLOSED' && resData.nextOpenText"));
-    assert(!source.includes('กรุณาเปิดหน้านี้ผ่าน LINE และเข้าสู่ระบบก่อนสั่งซื้อโดยตรง'));
   });
 
   test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {

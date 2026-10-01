@@ -2231,7 +2231,7 @@
         return;
       }
       try {
-        await liff.init({ liffId: CONFIG.LIFF_ID, withLoginOnExternalBrowser: true });
+        await liff.init({ liffId: CONFIG.LIFF_ID });
         isLiffReady = true;
         console.log('[LIFF] Initialized successfully. InClient:', liff.isInClient(), 'LoggedIn:', liff.isLoggedIn());
         
@@ -2248,7 +2248,6 @@
 
         // 2. Seamless background verification on load (0 clicks inside LINE client or for returning users)
         await checkSeamlessMobileLineAuth();
-        restorePendingDirectOrderAfterLogin();
       } catch (err) {
         console.warn('[LIFF] Initialization failed:', err);
       }
@@ -2529,7 +2528,6 @@
     let orderPollInterval = null;
     let orderTimerInterval = null;
     let progressTimer = null;
-    const PENDING_DIRECT_ORDER_KEY = 'glo_n3_pending_direct_order';
 
     function resetModalState() {
       if (orderPollInterval) {
@@ -2584,71 +2582,6 @@
         btnModalClose.style.color = 'var(--color-text-muted)';
         btnModalClose.style.border = '1px solid rgba(255, 255, 255, 0.15)';
       }
-    }
-
-    function persistPendingDirectOrder(orderData = currentOrderData) {
-      if (!orderData || !Array.isArray(orderData.aggregatedItems) || orderData.aggregatedItems.length === 0) return false;
-      try {
-        sessionStorage.setItem(PENDING_DIRECT_ORDER_KEY, JSON.stringify({
-          orderCommand: orderData.orderCommand,
-          aggregatedItems: orderData.aggregatedItems,
-          totalTickets: orderData.totalTickets,
-          totalPrice: orderData.totalPrice
-        }));
-        return true;
-      } catch (err) {
-        console.warn('[ORDER AUTH] Could not preserve pending order before LINE login:', err);
-        return false;
-      }
-    }
-
-    function restorePendingDirectOrderAfterLogin() {
-      if (typeof liff === 'undefined' || !isLiffReady || !liff.isLoggedIn()) return false;
-      let pending = null;
-      try {
-        pending = JSON.parse(sessionStorage.getItem(PENDING_DIRECT_ORDER_KEY) || 'null');
-      } catch (_) {}
-      if (!pending || typeof pending.orderCommand !== 'string' || !Array.isArray(pending.aggregatedItems) || pending.aggregatedItems.length === 0) {
-        return false;
-      }
-
-      sessionStorage.removeItem(PENDING_DIRECT_ORDER_KEY);
-      showDirectOrderConfirmation(
-        pending.orderCommand,
-        pending.aggregatedItems,
-        Number(pending.totalTickets) || pending.aggregatedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
-        Number(pending.totalPrice) || 0,
-        'เข้าสู่ระบบ LINE แล้ว กรุณาตรวจสอบรายการและยืนยันการสั่งซื้ออีกครั้ง',
-        'success'
-      );
-      return true;
-    }
-
-    function showDirectOrderConfirmation(orderCommand, aggregatedItems, totalTickets, totalPrice, toastMessage, toastType = 'info') {
-      currentOrderData = { orderCommand, aggregatedItems, totalTickets, totalPrice };
-      resetModalState();
-
-      const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
-      modalItemsText.textContent = previewText;
-      modalQtyText.textContent = `${totalTickets} ใบ`;
-      modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
-      modalCmdDisplay.textContent = orderCommand;
-
-      const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID);
-      const encodedMsg = encodeURIComponent(orderCommand);
-      const isAndroid = /Android/i.test(navigator.userAgent || '');
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-      const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
-      const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
-      const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
-      btnModalOpenLine.href = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(orderCommand).catch(() => {});
-      }
-
-      modalConfirm.classList.add('active');
-      showToast(toastMessage || '📋 บันทึกคำสั่งซื้อแล้ว แตะปุ่ม "ยืนยันการสั่งซื้อ" เพื่อรับ QR Code', toastType);
     }
 
     function startCountdown(seconds = 600) {
@@ -2838,27 +2771,6 @@
         return;
       }
 
-      if (typeof liff !== 'undefined' && CONFIG.LIFF_ID && !isLiffReady) {
-        persistPendingDirectOrder();
-        try {
-          await liff.init({ liffId: CONFIG.LIFF_ID, withLoginOnExternalBrowser: true });
-          isLiffReady = true;
-        } catch (initErr) {
-          console.warn('[LIFF] Could not initialize before direct order:', initErr);
-        }
-      }
-      if (typeof liff !== 'undefined' && isLiffReady && !liff.isLoggedIn() && !liff.isInClient()) {
-        persistPendingDirectOrder();
-        try {
-          showToast('กำลังเปิดหน้าเข้าสู่ระบบ LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
-          liff.login({ redirectUri: window.location.href });
-        } catch (loginErr) {
-          console.error('[LIFF LOGIN] Unable to start external browser login:', loginErr);
-          showToast('เปิดหน้าเข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองอีกครั้ง', 'error');
-        }
-        return;
-      }
-
       // Activate Screen Wake Lock during active order processing
       requestScreenWakeLock();
 
@@ -2947,14 +2859,8 @@
           try { lineAccessToken = liff.getAccessToken() || ''; } catch (_) {}
         }
         if (!lineAccessToken) {
-          if (typeof liff !== 'undefined' && isLiffReady && !liff.isInClient() && persistPendingDirectOrder()) {
-            showToast('กำลังเปิดหน้าเข้าสู่ระบบ LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
-            liff.login({ redirectUri: window.location.href });
-            return;
-          }
-          throw new Error('ต้องเข้าสู่ระบบ LINE ก่อนยืนยันคำสั่งซื้อ กรุณาเปิดลิงก์สั่งซื้อผ่าน LINE แล้วลองอีกครั้ง');
+          throw new Error('กรุณาเปิดหน้านี้ผ่าน LINE และเข้าสู่ระบบก่อนสั่งซื้อโดยตรง หรือส่งคำสั่งซื้อผ่านแชท LINE');
         }
-        sessionStorage.removeItem(PENDING_DIRECT_ORDER_KEY);
 
         // The server verifies this token with LINE and derives the user ID from LINE's response.
         const response = await fetch('/api/order-direct', {
@@ -2976,15 +2882,7 @@
         } catch (_) {}
 
         if (!response.ok || !resData.success || !resData.orderId) {
-          const errorMessage = resData.code === 'SALES_CLOSED'
-            ? (resData.reason || resData.error || `เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ (รหัส ${response.status})`)
-            : (resData.error || resData.reason || `เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ (รหัส ${response.status})`);
-          const customerMessage = resData.code === 'SALES_CLOSED' && resData.nextOpenText
-            ? `${errorMessage} • เปิดรับอีกครั้ง: ${resData.nextOpenText}`
-            : errorMessage;
-          const orderError = new Error(customerMessage);
-          orderError.code = resData.code;
-          throw orderError;
+          throw new Error(resData.error || resData.reason || `เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ (รหัส ${response.status})`);
         }
 
         const orderId = resData.orderId;
@@ -3121,7 +3019,7 @@
         }
         console.error('executeDirectOrder error:', err);
         const errText = err?.message || '';
-        const isTimeOrQuota = err?.code === 'SALES_CLOSED' || errText.includes('เวลา') || errText.includes('โควต้า') || errText.includes('ชั่วโมง');
+        const isTimeOrQuota = errText.includes('เวลา') || errText.includes('โควต้า') || errText.includes('ชั่วโมง');
         if (modalTitle) modalTitle.textContent = isTimeOrQuota ? 'แจ้งเตือนสถานะร้านค้า' : 'ไม่สามารถสร้าง QR Code สั่งซื้อตรงได้';
         if (modalDesc) modalDesc.textContent = errText || 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ คุณยังสามารถส่งคำสั่งซื้อผ่านแอป LINE ได้ตามปกติ';
         if (modalProcessingArea) modalProcessingArea.style.display = 'none';
@@ -3150,21 +3048,9 @@
       if (typeof liff !== 'undefined' && CONFIG.LIFF_ID) {
         if (!isLiffReady) {
           try {
-            persistPendingDirectOrder(currentOrderData);
-            await liff.init({ liffId: CONFIG.LIFF_ID, withLoginOnExternalBrowser: true });
+            await liff.init({ liffId: CONFIG.LIFF_ID });
             isLiffReady = true;
           } catch (initErr) {}
-        }
-        if (isLiffReady && !liff.isLoggedIn() && !liff.isInClient()) {
-          persistPendingDirectOrder(currentOrderData);
-          try {
-            showToast('กำลังเปิดหน้าเข้าสู่ระบบ LINE เพื่อยืนยันคำสั่งซื้อ...', 'info');
-            liff.login({ redirectUri: window.location.href });
-          } catch (loginErr) {
-            console.error('[LIFF LOGIN] Unable to start external browser login:', loginErr);
-            showToast('เปิดหน้าเข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองอีกครั้ง', 'error');
-          }
-          return;
         }
       }
 
@@ -3193,7 +3079,33 @@
       }
 
       // 2. Outside LIFF or Web Mode: Reset & Open Modal
-      showDirectOrderConfirmation(orderCommand, aggregatedItems, totalTickets, totalPrice);
+      resetModalState();
+
+      const previewText = aggregatedItems.map(it => `${it.number} (${it.quantity} ใบ)`).join(', ');
+      modalItemsText.textContent = previewText;
+      modalQtyText.textContent = `${totalTickets} ใบ`;
+      modalPriceText.textContent = `${totalPrice.toLocaleString()} บาท`;
+      modalCmdDisplay.textContent = orderCommand;
+
+      const encodedId = encodeURIComponent(CONFIG.LINE_OA_ID);
+      const encodedMsg = encodeURIComponent(orderCommand);
+      const isAndroid = /Android/i.test(navigator.userAgent || '');
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+      const universalUrl = `https://line.me/R/oaMessage/${encodedId}/?${encodedMsg}`;
+      const customSchemeUrl = `line://oaMessage/${encodedId}/?${encodedMsg}`;
+      const androidIntentUrl = `intent://oaMessage/${encodedId}/?${encodedMsg}#Intent;scheme=line;package=jp.naver.line.android;S.browser_fallback_url=${encodeURIComponent(universalUrl)};end`;
+
+      const directAppUrl = isAndroid ? androidIntentUrl : (isIOS ? customSchemeUrl : universalUrl);
+      btnModalOpenLine.href = directAppUrl;
+
+      // Auto-copy order command to clipboard
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(orderCommand).catch(() => {});
+      }
+
+      modalConfirm.classList.add('active');
+      showToast('📋 บันทึกคำสั่งซื้อแล้ว แตะปุ่ม "ยืนยันการสั่งซื้อ" เพื่อรับ QR Code', 'info');
     }
 
     function submitSixPackOrder() {
