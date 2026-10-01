@@ -849,8 +849,11 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   if (!salesStatus.isOpen) {
     res.status(400).json({
       success: false,
+      code: 'SALES_CLOSED',
       error: 'ไม่อยู่ในเวลาจำหน่ายสลาก N3 (เปิดจำหน่าย 06:00 - 23:00 น.)',
-      reason: salesStatus.reason
+      reason: salesStatus.reason,
+      currentHoursText: salesStatus.currentHoursText,
+      nextOpenText: salesStatus.nextOpenText
     });
     return;
   }
