@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -15,8 +15,8 @@ module.exports = async function handler(req, res) {
 
   try {
     // 2. Load Local Authoritative Datasets
-    const schedulePath = path.join(process.cwd(), 'data', 'official-draw-schedule.json');
-    const latestPath = path.join(process.cwd(), 'data', 'latest-lottery.json');
+    const schedulePath = path.join(__dirname, '../data', 'official-draw-schedule.json');
+    const latestPath = path.join(__dirname, '../data', 'latest-lottery.json');
 
     let scheduleData = null;
     let latestData = null;
@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
 
     // 4. Resolve latest lottery info
     let finalLatest = latestData;
-    if (liveLatest && liveLatest.n3) {
+    if (liveLatest && liveLatest.n3 && liveLatest.date >= (latestData?.drawDate || '') && /^\d{3}$/.test(liveLatest.n3?.straight3?.number?.[0]?.value || '')) {
       finalLatest = {
         source: 'สำนักงานสลากกินแบ่งรัฐบาล (Official GLO Live API)',
         officialApi: 'https://www.glo.or.th/api/lottery/getLatestLottery',

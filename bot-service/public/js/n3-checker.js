@@ -7,8 +7,25 @@ const N3Checker = (function () {
   // Historical & Official GLO N3 Draws (Synced with GLO Official API)
   const drawHistory = [
     {
+      id: '2026-10-01',
+      dateText: '1 ตุลาคม 2569 (งวดล่าสุด)',
+      winning3Direct: '701',
+      winningTods: ['017', '071', '107', '170', '710'],
+      winning2Direct: '70',
+      specialJackpotTicket: '701000001140',
+      totalSales: 18900000,
+      prizeDirect3: 6021,
+      prizeTod3: 997,
+      prizeDirect2: 443,
+      prizeJackpot: 740490,
+      gloFirstPrize: '402701',
+      gloLast2: '70',
+      gloLast3Front: ['791', '912'],
+      gloLast3Back: ['058', '396']
+    },
+    {
       id: '2026-09-16',
-      dateText: '16 กันยายน 2569 (งวดล่าสุด)',
+      dateText: '16 กันยายน 2569',
       winning3Direct: '640',
       winningTods: ['046', '064', '406', '460', '604'],
       winning2Direct: '64',
@@ -125,7 +142,8 @@ const N3Checker = (function () {
    * Dynamically synchronizes official latest lottery results from GLO API or dataset.
    */
   function syncLatestResults(latestData) {
-    if (!latestData || !latestData.n3) return false;
+    if (!latestData || !latestData.n3 || !/^\d{4}-\d{2}-\d{2}$/.test(latestData.drawDate || '') || !/^\d{3}$/.test(latestData.n3.straight3?.number || '')) return false;
+    if (latestData.drawDate < drawHistory[0].id) return false;
 
     const n3 = latestData.n3;
     const dateId = latestData.drawDate || '2026-09-01';
@@ -161,6 +179,7 @@ const N3Checker = (function () {
       drawHistory.unshift(updatedEntry);
     }
 
+    drawHistory.sort((a, b) => b.id.localeCompare(a.id));
     return true;
   }
 
@@ -310,6 +329,7 @@ const N3Checker = (function () {
   };
 })();
 
+if (typeof window !== 'undefined') window.N3Checker = N3Checker;
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = N3Checker;
 }

@@ -261,7 +261,7 @@ const N3Countdown = (function () {
     try {
       const res = await fetch('/api/draw-schedule', {
         headers: { 'Accept': 'application/json' },
-        cache: 'no-cache'
+        cache: 'no-store'
       });
       if (res.ok) {
         const json = await res.json();
@@ -275,8 +275,8 @@ const N3Countdown = (function () {
     if (!payload) {
       try {
         const [schedRes, latestRes] = await Promise.all([
-          fetch('./data/official-draw-schedule.json'),
-          fetch('./data/latest-lottery.json')
+          fetch('./data/official-draw-schedule.json', { cache: 'no-store' }),
+          fetch('./data/latest-lottery.json', { cache: 'no-store' })
         ]);
         if (schedRes.ok && latestRes.ok) {
           const sched = await schedRes.json();

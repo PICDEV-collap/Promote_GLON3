@@ -1,5 +1,21 @@
 [
   {
+    "drawDate": "2026-10-01",
+    "drawDateThai": "1 ตุลาคม 2569",
+    "dayOfWeek": "Thursday",
+    "dayOfWeekThai": "พฤหัสบดี",
+    "threeStraight": "701",
+    "twoStraight": "70",
+    "threeTod": [
+      "017",
+      "071",
+      "107",
+      "170",
+      "710"
+    ],
+    "jackpot": "701000001140"
+  },
+  {
     "drawDate": "2026-09-16",
     "drawDateThai": "16 กันยายน 2569",
     "dayOfWeek": "Wednesday",

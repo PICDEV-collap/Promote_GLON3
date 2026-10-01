@@ -2863,7 +2863,7 @@
         }
         console.error('executeDirectOrder error:', err);
         const errText = err?.message || '';
-        const isTimeOrQuota = errText.includes('เวลา') || errText.includes('โควต้า') || errText.includes('ชั่วโมง');
+        const isTimeOrQuota = errText.includes('เวลา') || errText.includes('โควต้า') || errText.includes('ชั่วโมง') || errText.includes('งวดนี้ปิดรับแล้ว');
         if (modalTitle) modalTitle.textContent = isTimeOrQuota ? 'แจ้งเตือนสถานะร้านค้า' : 'ไม่สามารถสร้าง QR Code สั่งซื้อตรงได้';
         if (modalDesc) modalDesc.textContent = errText || 'เซิร์ฟเวอร์สั่งซื้อตรงไม่พร้อมใช้งานขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อร้านผ่าน LINE';
         if (modalProcessingArea) modalProcessingArea.style.display = 'none';

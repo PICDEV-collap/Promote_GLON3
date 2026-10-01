@@ -57,14 +57,8 @@ async function testScenario1() {
       details.push('Bot HTTP status not ok');
     }
   } catch (err) {
-    // If bot service isn't currently running, check if built dist exists
-    const distIndex = path.join(ROOT_DIR, 'bot-service/dist/index.js');
-    if (fs.existsSync(distIndex)) {
-      details.push(`Bot Service (Daemon idle, dist ready)`);
-    } else {
-      pass = false;
-      details.push(`Bot Service unreachable (${err.message})`);
-    }
+    pass = false;
+    details.push(`Bot Service unreachable (${err.message})`);
   }
 
   // Check 1.2: Chrome CDP (Port 9222)
@@ -84,7 +78,8 @@ async function testScenario1() {
       details.push(`CDP 9222 OK (${cdpJson.Browser.split('/')[0]})`);
     }
   } catch (e) {
-    details.push('CDP Port 9222 (Headless standby)');
+    pass = false;
+    details.push(`CDP Port 9222 unreachable (${e.message})`);
   }
 
   // Check 1.3: Quota file
@@ -185,7 +180,7 @@ function testScenario3() {
   }
 
   const duration = Date.now() - start;
-  recordResult(3, 'Mobile Direct LINE Deep-Linking (Bypass line.me)', pass, details.join(', '), duration);
+  recordResult(3, 'Mobile LINE Deep-Link (static checks only)', pass, details.join(', '), duration);
 }
 
 // ------------------------------------------------------------------------------
@@ -237,7 +232,7 @@ function testScenario4() {
   }
 
   const duration = Date.now() - start;
-  recordResult(4, 'Cross-Browser Mobile Image Saving (Samsung/LINE/Safari)', pass, details.join(', '), duration);
+  recordResult(4, 'Mobile Image Saving (static checks only)', pass, details.join(', '), duration);
 }
 
 // ------------------------------------------------------------------------------
@@ -284,7 +279,7 @@ function testScenario5() {
   }
 
   const duration = Date.now() - start;
-  recordResult(5, 'GLO Portal Cart Accumulation & Canvas Capture Guard', pass, details.join(', '), duration);
+  recordResult(5, 'GLO Cart & Canvas (static checks only)', pass, details.join(', '), duration);
 }
 
 // ------------------------------------------------------------------------------
@@ -409,7 +404,7 @@ async function main() {
   console.log('\n' + '='.repeat(80));
 
   if (allPass) {
-    console.log(`${GREEN}${BOLD} OVERALL RESULT: 7 / 7 SCENARIOS PASSED (100%) - READY FOR PRODUCTION DEPLOY${RESET} ${DIM}(${totalTime}s)${RESET}`);
+    console.log(`${GREEN}${BOLD} OVERALL RESULT: 7 / 7 AUTOMATED CHECKS PASSED; mobile interaction and real purchase flow require separate verification${RESET} ${DIM}(${totalTime}s)${RESET}`);
     console.log('='.repeat(80) + '\n');
     process.exit(0);
   } else {

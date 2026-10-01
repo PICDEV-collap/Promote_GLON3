@@ -226,7 +226,7 @@ export class QuotaManager {
     if (soldMatch) {
       const sold = parseInt(soldMatch[1].replace(/,/g, ''), 10);
       const max = parseInt(soldMatch[2].replace(/,/g, ''), 10);
-      if (!isNaN(sold) && !isNaN(max) && max > 0) {
+      if (Number.isSafeInteger(sold) && Number.isSafeInteger(max) && max > 0 && sold <= max) {
         usedQuota = sold;
         maxQuota = max;
       }
@@ -236,7 +236,7 @@ export class QuotaManager {
     const bannerMatch = text.match(/คุณขายสลาก(?:ฯ)?\s*(?:สามารถ)?\s*ได้อีก\s*[:：]?\s*([0-9,]+)\s*ใบ/);
     if (bannerMatch) {
       const rem = parseInt(bannerMatch[1].replace(/,/g, ''), 10);
-      if (!isNaN(rem)) {
+      if (Number.isSafeInteger(rem) && rem >= 0 && rem <= maxQuota) {
         remainingQuota = rem;
       }
     }
@@ -246,7 +246,7 @@ export class QuotaManager {
       const cardRemainingMatch = text.match(/(?:ยอด)?(?:คง)?เหลือ(?:อีก)?\s*[:：]?\s*([0-9,]+)\s*ใบ/);
       if (cardRemainingMatch) {
         const rem = parseInt(cardRemainingMatch[1].replace(/,/g, ''), 10);
-        if (!isNaN(rem)) {
+        if (Number.isSafeInteger(rem) && rem >= 0 && rem <= maxQuota) {
           remainingQuota = rem;
         }
       }
@@ -256,7 +256,7 @@ export class QuotaManager {
     const pendingMatch = text.match(/รอชำระเงิน\s*[:：]?\s*([0-9,]+)\s*ใบ/);
     if (pendingMatch) {
       const pend = parseInt(pendingMatch[1].replace(/,/g, ''), 10);
-      if (!isNaN(pend)) {
+      if (Number.isSafeInteger(pend) && pend >= 0 && pend <= maxQuota) {
         pendingQuota = pend;
       }
     }
@@ -453,6 +453,9 @@ export class QuotaManager {
    * Sync ยอดสลากคงเหลือจากหน้าเว็บตัวแทน N3
    */
   public syncFromWeb(webRemainingQuota: number, maxQuota: number = 2000, usedQuota?: number): QuotaData {
+    if (!Number.isSafeInteger(maxQuota) || maxQuota <= 0 || !Number.isSafeInteger(webRemainingQuota) || webRemainingQuota < 0 || webRemainingQuota > maxQuota || (usedQuota !== undefined && (!Number.isSafeInteger(usedQuota) || usedQuota < 0 || usedQuota > maxQuota))) {
+      throw new Error('Invalid quota values; preserving existing quota');
+    }
     console.log(`[QUOTA SYNC] ปรับปรุงยอดจากหน้าเว็บ N3: คงเหลือ ${webRemainingQuota} ใบ`);
     this.data.maxQuota = maxQuota;
     this.data.remainingQuota = webRemainingQuota;
@@ -467,6 +470,9 @@ export class QuotaManager {
    * อัปเดตยอดโควต้าสดทั้งขายแล้วและคงเหลือ
    */
   public updateLiveQuota(usedQuota: number, remainingQuota: number, maxQuota: number = 2000): QuotaData {
+    if (!Number.isSafeInteger(maxQuota) || maxQuota <= 0 || !Number.isSafeInteger(usedQuota) || usedQuota < 0 || usedQuota > maxQuota || !Number.isSafeInteger(remainingQuota) || remainingQuota < 0 || remainingQuota > maxQuota) {
+      throw new Error('Invalid quota values; preserving existing quota');
+    }
     this.data.maxQuota = maxQuota;
     this.data.usedQuota = usedQuota;
     this.data.remainingQuota = remainingQuota;
@@ -515,5 +521,4 @@ export async function syncQuotaFromLivePortal(
 ): Promise<ExtractedQuota | null> {
   return QuotaManager.syncQuotaFromLivePortal(page, navigateIfNeeded);
 }
-
 

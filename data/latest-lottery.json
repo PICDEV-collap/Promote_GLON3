@@ -2,63 +2,63 @@
   "source": "สำนักงานสลากกินแบ่งรัฐบาล (The Government Lottery Office - GLO)",
   "officialApi": "https://www.glo.or.th/api/lottery/getLatestLottery",
   "status": "completed",
-  "drawDate": "2026-09-16",
-  "drawDateThai": "16 กันยายน 2569",
-  "period": "งวดประจำวันที่ 16 กันยายน 2569",
+  "drawDate": "2026-10-01",
+  "drawDateThai": "1 ตุลาคม 2569",
+  "period": "งวดประจำวันที่ 1 ตุลาคม 2569",
   "n3": {
     "straight3": {
       "name": "รางวัล 3 ตัวตรง",
-      "number": "640",
-      "prize": 6330,
-      "prizeText": "6,330 บาท",
+      "number": "701",
+      "prize": 6021,
+      "prizeText": "6,021 บาท",
       "description": "เลขตรงกันทุกหลักและตรงตำแหน่ง"
     },
     "shuffle3": {
       "name": "รางวัล 3 ตัวโต๊ด",
       "numbers": [
-        "046",
-        "064",
-        "406",
-        "460",
-        "604"
+        "017",
+        "071",
+        "107",
+        "170",
+        "710"
       ],
-      "prize": 979,
-      "prizeText": "979 บาท",
+      "prize": 997,
+      "prizeText": "997 บาท",
       "description": "เลขตรงกัน 3 ตัว แต่สลับตำแหน่งกันได้"
     },
     "straight2": {
       "name": "รางวัล 2 ตัวตรง",
-      "number": "64",
-      "prize": 478,
-      "prizeText": "478 บาท",
+      "number": "70",
+      "prize": 443,
+      "prizeText": "443 บาท",
       "description": "เลขท้าย 2 ตัวตรงกันทุกหลัก"
     },
     "specialJackpot": {
       "name": "รางวัลพิเศษ (Jackpot)",
-      "ticketNumber": "640000000349",
-      "prize": 775136,
-      "prizeText": "775,136 บาท",
+      "ticketNumber": "701000001140",
+      "prize": 740490,
+      "prizeText": "740,490 บาท",
       "description": "สุ่มจากผู้ถูกรางวัล 3 ตัวตรงในงวดนี้"
     }
   },
   "gloStandard": {
     "firstPrize": {
       "name": "รางวัลที่ 1",
-      "number": "730640",
+      "number": "402701",
       "prize": 6000000,
       "prizeText": "6,000,000 บาท"
     },
     "last2": {
       "name": "เลขท้าย 2 ตัว",
-      "number": "64",
+      "number": "70",
       "prize": 2000,
       "prizeText": "2,000 บาท"
     },
     "last3Front": {
       "name": "เลขหน้า 3 ตัว",
       "numbers": [
-        "060",
-        "521"
+        "791",
+        "912"
       ],
       "prize": 4000,
       "prizeText": "4,000 บาท"
@@ -66,12 +66,12 @@
     "last3Back": {
       "name": "เลขท้าย 3 ตัว",
       "numbers": [
-        "041",
-        "266"
+        "058",
+        "396"
       ],
       "prize": 4000,
       "prizeText": "4,000 บาท"
     }
   },
-  "updatedAt": "2026-09-16T15:24:06.175Z"
+  "updatedAt": "2026-10-01T14:58:58.859Z"
 }

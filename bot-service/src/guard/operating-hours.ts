@@ -1,4 +1,6 @@
 import { CONFIG } from '../config';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface OperatingHoursStatus {
   isOpen: boolean;
@@ -22,7 +24,18 @@ export class OperatingHoursGuard {
     const minutes = bkkTime.getMinutes();
     const currentDecimalHour = hours + (minutes / 60);
 
-    const isDrawDay = CONFIG.SALES_HOURS.DRAW_DATES.includes(dayOfMonth);
+    const dateKey = `${bkkTime.getFullYear()}-${String(bkkTime.getMonth() + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
+    let isDrawDay = CONFIG.SALES_HOURS.DRAW_DATES.includes(dayOfMonth);
+    try {
+      const schedule = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../data/official-draw-schedule.json'), 'utf8'));
+      const dates: string[] = schedule.schedules.map((entry: { drawDate: string }) => entry.drawDate);
+      // A dated entry overrides the normal date only for its own draw period.
+      const period = dayOfMonth <= 15 ? 0 : 1;
+      const periodDates = dates.filter(date => date.startsWith(dateKey.slice(0, 7)) && (Number(date.slice(8)) <= 15 ? 0 : 1) === period);
+      if (periodDates.length) isDrawDay = periodDates.includes(dateKey);
+    } catch (error) {
+      console.warn('[SALES SCHEDULE] Calendar unavailable; using configured draw dates');
+    }
     const openHour = CONFIG.SALES_HOURS.NORMAL_OPEN; // 6
     const closeHour = isDrawDay ? CONFIG.SALES_HOURS.DRAW_DAY_CLOSE : CONFIG.SALES_HOURS.NORMAL_CLOSE; // 14 หรือ 23
 
@@ -47,8 +60,8 @@ export class OperatingHoursGuard {
       nextOpenText = 'เปิดจำหน่ายวันนี้ เวลา 06:00 น.';
     } else {
       if (isDrawDay) {
-        reason = `สลาก N3 งวดนี้ปิดรับคำสั่งซื้อแล้วเนื่องจากเป็นวันออกรางวัล (ปิดเวลา 14:00 น.)`;
-        nextOpenText = 'เปิดจำหน่ายงวดถัดไป เวลา 06:00 น.';
+        reason = 'งวดนี้ปิดรับแล้ว กรุณาสั่งซื้ออีกครั้งในวันถัดไป';
+        nextOpenText = 'เปิดจำหน่ายวันถัดไป เวลา 06:00 น.';
       } else {
         reason = `ขณะนี้อยู่นอกเวลาจำหน่ายสลาก N3 ประจำวันแล้ว (ปิดเวลา 23:00 น.)`;
         nextOpenText = 'เปิดจำหน่ายวันพรุ่งนี้ เวลา 06:00 น.';
