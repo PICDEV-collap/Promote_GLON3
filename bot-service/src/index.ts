@@ -908,7 +908,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     const rawQuantity = String(it.quantity ?? '1').trim();
     const qty = /^\d+$/.test(rawQuantity) ? Number(rawQuantity) : 0;
     if (/^\d{3}$/.test(num) && Number.isSafeInteger(qty) && qty >= 1) {
-      validItems.push({ number: num, quantity: Math.min(qty, 100) });
+      validItems.push({ number: num, quantity: qty });
     }
   }
 
@@ -940,8 +940,8 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   }
 
   const totalQuantity = validItems.reduce((sum, it) => sum + it.quantity, 0);
-  if (totalQuantity > 100) {
-    res.status(400).json({ success: false, error: `GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${totalQuantity} ใบ กรุณาแบ่งคำสั่งซื้อให้ไม่เกิน 100 ใบต่อครั้ง` });
+  if (new Set(validItems.map(it => it.number)).size > 100) {
+    res.status(400).json({ success: false, error: `เลือกได้ไม่เกิน 100 เลขที่ไม่ซ้ำกันต่อออเดอร์ กรุณาลดจำนวนเลข` });
     return;
   }
   const totalPrice = totalQuantity * 20;
@@ -1608,7 +1608,7 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
   if (eachMatch) {
     const rawNums = eachMatch[1].match(/\d{3}/g);
     const qty = parseInt(eachMatch[2], 10);
-    if (rawNums && rawNums.length > 0 && qty > 0 && qty <= 100) {
+    if (rawNums && rawNums.length > 0 && Number.isSafeInteger(qty) && qty > 0) {
       const itemsMap = new Map<string, number>();
       for (const num of rawNums) {
         itemsMap.set(num, (itemsMap.get(num) || 0) + qty);
@@ -1639,7 +1639,7 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
       if (m) {
         const num = m[1];
         const qty = m[2] ? parseInt(m[2], 10) : 1;
-        if (qty > 0 && qty <= 100) {
+        if (Number.isSafeInteger(qty) && qty > 0) {
           itemsMap.set(num, (itemsMap.get(num) || 0) + qty);
           validCount++;
         }
@@ -1666,7 +1666,7 @@ export function parseOrderMessage(text: string): OrderItem[] | null {
     }
     const num = m2[1];
     const qty = m2[2] ? parseInt(m2[2], 10) : 1;
-    if (qty > 0 && qty <= 100) {
+    if (Number.isSafeInteger(qty) && qty > 0) {
       pairs.push({ num, qty });
     } else {
       fullMatch = false;
@@ -2155,8 +2155,8 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       const totalQuantity = parsedItems.reduce((sum, it) => sum + it.quantity, 0);
-      if (totalQuantity > 100) {
-        await lineHandler.reply(replyToken, [{ type: 'text', text: `GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${totalQuantity} ใบ กรุณาแบ่งคำสั่งซื้อครับ` }]);
+      if (new Set(parsedItems.map(it => it.number)).size > 100) {
+        await lineHandler.reply(replyToken, [{ type: 'text', text: `เลือกได้ไม่เกิน 100 เลขที่ไม่ซ้ำกันต่อออเดอร์ กรุณาลดจำนวนเลขครับ` }]);
         continue;
       }
       const totalPrice = totalQuantity * 20;
