@@ -17,16 +17,16 @@ const ROW_H = Math.round(HEIGHT / 2); // 843
 const RICH_MENU_SPEC = {
   size: { width: WIDTH, height: HEIGHT },
   selected: true,
-  name: 'N3_Thanakit_MainMenu_v7',
+  name: 'N3_Thanakit_MainMenu_v8_LIFF',
   chatBarText: '🏠 เมนูหลัก',
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/line?openExternalBrowser=1' }
+      action: { type: 'uri', uri: 'https://liff.line.me/2011462211-WVsuHFk4' }
     },
     {
       bounds: { x: 833, y: 0, width: 834, height: ROW_H },
-      action: { type: 'uri', uri: 'https://promote-glon-3.vercel.app/line?mode=6pack&openExternalBrowser=1' }
+      action: { type: 'uri', uri: 'https://liff.line.me/2011462211-WVsuHFk4?mode=6pack' }
     },
     {
       bounds: { x: 1667, y: 0, width: 833, height: ROW_H },

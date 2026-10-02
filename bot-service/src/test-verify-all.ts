@@ -1802,11 +1802,12 @@ async function runTests() {
     const routeEnd = source.indexOf('let context:', routeStart);
     const orderRoute = source.slice(routeStart, routeEnd);
     const page = fs.readFileSync(path.join(__dirname, '../../line.html'), 'utf-8');
-    const expectedOrigin = new URL(CONFIG.ORDER_FORM_URL).origin;
+    const expectedOrigin = new URL(CONFIG.ORDER_WEB_ORIGIN).origin;
 
     assert.strictEqual(isAllowedOrderOrigin(expectedOrigin), true, 'Configured order page origin must be allowed');
     assert.strictEqual(isAllowedOrderOrigin('http://localhost:3333'), true, 'Local development page must be allowed');
     assert.strictEqual(isAllowedOrderOrigin('https://attacker.example'), false, 'Untrusted page origin must be rejected');
+    assert.strictEqual(isAllowedOrderOrigin('https://liff.line.me'), false, 'LIFF launcher is not the order page origin');
     assert(orderRoute.includes("let effectiveUserId = 'anonymous_web_user'"), 'No-token web orders must use the anonymous polling path');
     assert(orderRoute.includes('applyDirectOrderCors(req, res)'), 'Direct orders must validate the request origin');
     assert(orderRoute.includes('direct-order-hour:'), 'Anonymous direct orders must be rate limited');

@@ -88,7 +88,9 @@ export function isAllowedOrderOrigin(origin: string): boolean {
   ]);
 
   try {
-    allowedOrigins.add(new URL(CONFIG.ORDER_FORM_URL).origin);
+    const formUrl = new URL(CONFIG.ORDER_FORM_URL);
+    if (formUrl.hostname !== 'liff.line.me') allowedOrigins.add(formUrl.origin);
+    allowedOrigins.add(new URL(CONFIG.ORDER_WEB_ORIGIN).origin);
   } catch {}
 
   return allowedOrigins.has(origin);
