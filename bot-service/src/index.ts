@@ -22,10 +22,12 @@ import { CampaignService } from './automation/campaign-service';
 import { LuckyDistributor } from './dream/lucky-distributor';
 import { DailyScheduleService } from './guard/daily-schedule-service';
 import { GloSessionWatchdog } from './guard/session-watchdog';
+import { BOT_SERVICE_ID, probeProjectTunnel, TunnelHealthMonitor } from './guard/tunnel-health';
 import { TelegramService } from './notify/telegram-service';
 import { CyberJailManager, MultiTierRateLimiter, createCyberGuardMiddleware, extractClientIp } from './guard/cyber-guard';
 
 const app = express();
+const serviceInstanceId = randomUUID();
 
 function suppliedAdminApiKey(req: Request): string {
   const candidates: unknown[] = [
@@ -432,12 +434,19 @@ const securityGuard = new SecurityGuard();
 const customerRegistry = CustomerRegistry.getInstance();
 const campaignService = CampaignService.getInstance();
 
+app.get('/health/instance', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ status: 'ok', service: BOT_SERVICE_ID, instanceId: serviceInstanceId });
+});
+
 // Health Check API สำหรับตรวจสอบสถานะและ Telemetry ของระบบ
 app.get('/health', async (_req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   const lineQuota = await lineHandler.getQuotaStatus().catch(() => null);
   res.json({
     status: 'ok',
+    service: BOT_SERVICE_ID,
+    instanceId: serviceInstanceId,
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
     quota: quotaManager.getStatus(),
@@ -898,7 +907,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   if (!salesStatus.isOpen) {
     res.status(400).json({
       success: false,
-      error: 'ไม่อยู่ในเวลาจำหน่ายสลาก N3 (เปิดจำหน่าย 06:00 - 23:00 น.)',
+      error: salesStatus.reason,
       reason: salesStatus.reason
     });
     return;
@@ -1057,7 +1066,7 @@ let lastAdminQrTime: number = 0;
 async function triggerAdminLoginQR(reason: string, replyToken?: string, forceQrCreation: boolean = false): Promise<void> {
   // forceQrCreation บังคับเริ่ม flow สร้าง QR เท่านั้น ไม่ได้สั่ง Logoff หรือล้างเซสชัน
   // หากมีภาพ QR ที่ยังไม่หมดอายุ (< 4 นาที) และไม่ได้บังคับสร้างใหม่ ให้ส่งภาพนั้นทันที
-  if (!forceQrCreation && replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
+  if (isLoggingIn && !forceQrCreation && replyToken && lastAdminQrUrl && (Date.now() - lastAdminQrTime < 240000)) {
     console.log(`[ADMIN AUTH INSTANT REPLY] ส่งภาพ QR Code เดิมที่กำลังรอสแกนให้แอดมินผ่าน ReplyToken ทันที`);
     const adminMessages: any[] = [
       {
@@ -1077,7 +1086,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceQrC
   // 2. หากกำลังอยู่ในกระบวนการสร้าง/รอล็อกอินอยู่แล้ว
   if (isLoggingIn) {
     if (replyToken) {
-      if (lastAdminQrUrl) {
+      if (lastAdminQrUrl && Date.now() - lastAdminQrTime < 240000) {
         await lineHandler.reply(replyToken, [
           {
             type: 'text',
@@ -1115,7 +1124,7 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceQrC
 
     // 3. ตรวจสอบว่าระบบล็อกอินอยู่แล้วหรือไม่ (หากไม่ได้บังคับสร้าง QR ใหม่)
     if (!forceQrCreation) {
-      const isValid = await N3Auth.isSessionValid(currentPage).catch(() => false);
+      const isValid = await N3Auth.isSessionValid(currentPage, true).catch(() => false);
       if (isValid) {
         await quotaManager.syncQuotaFromLivePortal(currentPage, false).catch(() => {});
         const liveQuota = quotaManager.getStatus();
@@ -1243,6 +1252,8 @@ async function triggerAdminLoginQR(reason: string, replyToken?: string, forceQrC
     }
     lastAdminQrUrl = '';
   } finally {
+    lastAdminQrUrl = '';
+    lastAdminQrTime = 0;
     isLoggingIn = false;
     GloSessionWatchdog.getInstance().setAuthFlowActive(false);
   }
@@ -1286,7 +1297,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
       orderStatusStore.set(task.orderId, {
         orderId: task.orderId,
         status: 'failed',
-        error: 'ไม่อยู่ในเวลาจำหน่ายสลาก N3 (เปิดจำหน่าย 06:00 - 23:00 น.)',
+        error: timeStatus.reason,
         createdAt: task.timestamp || Date.now()
       });
       await sendCustomerMessage([
@@ -2049,8 +2060,8 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       // 1. ตรวจสอบคำสั่งล็อกอิน Admin (ครอบคลุม Q, q, qr, QR, login, ล็อกอิน ทุกรูปแบบ)
-      const isAdminLoginCmd = /^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|relogin|ล็อกอิน|เข้าสู่ระบบ|ขอคิว|ขอ\s*qr|ขอ\s*qr\s*login|ขอคิวอาร์|ขอคิวอาร์โค้ด)$/i.test(userText);
       const isForceRelogin = /^(?:relogin|ขอ\s*qr\s*ใหม่|บังคับล็อกอิน|รีล็อกอิน|ขอคิวใหม่)$/i.test(userText);
+      const isAdminLoginCmd = isForceRelogin || /^(?:q|qr|qrcode|qr\s*code|login|log\s*in|signin|ล็อกอิน|เข้าสู่ระบบ|ขอคิว|ขอ\s*qr|ขอ\s*qr\s*login|ขอคิวอาร์|ขอคิวอาร์โค้ด)$/i.test(userText);
       if (isAdminLoginCmd) {
         if (isAdmin) {
           await lineHandler.showLoading(userId, 30);
@@ -2423,31 +2434,23 @@ function startServerWithPort(targetPort: number) {
     // Tunnel Watchdog: ตรวจสอบความพร้อมของ Cloudflare Tunnel เป็นระยะเพื่อป้องกันกรณีบอทหยุดเงียบ
     const isTunnelExpected = process.env.ENGINE_NOTIFIES_START === 'true' || fs.existsSync(path.resolve(__dirname, '../../webhook-url.txt'));
     if (isTunnelExpected) {
-      let hasAlertedTunnelDown = false;
-      const watchdog = setInterval(() => {
+      const tunnelMonitor = new TunnelHealthMonitor(() => probeProjectTunnel(getStoredWebhookUrl(), serviceInstanceId));
+      const watchdog = setInterval(async () => {
         if (isStopIntentional()) {
           clearInterval(watchdog);
           return;
         }
-        import('child_process').then(({ exec }) => {
-          exec('tasklist /FI "IMAGENAME eq cloudflared.exe" /NH', (err, stdout) => {
-            if (!err && stdout) {
-              const isTunnelAlive = stdout.toLowerCase().includes('cloudflared.exe');
-              if (!isTunnelAlive && !hasAlertedTunnelDown && !isStopIntentional()) {
-                hasAlertedTunnelDown = true;
-                console.warn('[WATCHDOG ALERT] ไม่พบโปรเซส cloudflared.exe กำลังแจ้งเตือนแอดมิน...');
-                const timeStr = getThaiTime();
-                lineHandler.pushToAdmin([{
-                  type: 'text',
-                  text: `⚠️ [แจ้งเตือนด่วน] Cloudflare Tunnel ของบอทสลาก N3 หยุดทำงานแล้ว (Tunnel Process Down) เมื่อเวลา ${timeStr} กรุณาเปิดบอทใหม่เพื่อรับออเดอร์`
-                }]).catch(() => {});
-              } else if (isTunnelAlive && hasAlertedTunnelDown) {
-                hasAlertedTunnelDown = false;
-                console.log('[WATCHDOG RECOVERED] Cloudflare Tunnel กลับมาทำงานตามปกติแล้ว');
-              }
-            }
-          });
-        }).catch(() => {});
+        const event = await tunnelMonitor.checkNow();
+        if (isStopIntentional()) return;
+        if (event === 'down') {
+          console.warn('[WATCHDOG ALERT] ติดต่อบอทผ่าน Tunnel ของโปรเจคไม่สำเร็จ 3 รอบติดต่อกัน');
+          lineHandler.pushToAdmin([{
+            type: 'text',
+            text: `⚠️ ติดต่อบอทสลาก N3 ผ่าน Cloudflare Tunnel ไม่สำเร็จ เมื่อเวลา ${getThaiTime()} กรุณาตรวจสอบการเชื่อมต่อร้านค้า`
+          }]).catch(() => {});
+        } else if (event === 'recovered') {
+          console.log('[WATCHDOG RECOVERED] Tunnel ของโปรเจคกลับมาเชื่อมต่อบอทตัวนี้ได้แล้ว');
+        }
       }, 60000);
       watchdog.unref();
     }
@@ -2466,8 +2469,10 @@ function startServerWithPort(targetPort: number) {
 
   server.on('error', async (err: any) => {
     if (err.code === 'EADDRINUSE') {
-      console.warn(`[PORT WARNING] พอร์ต ${targetPort} ไม่ว่าง กำลังสลับพอร์ต...`);
-      startServerWithPort(targetPort + 1);
+      hasNotifiedShutdown = true;
+      console.error(`[PORT CONFLICT] ไม่สามารถเปิดบอทบนพอร์ตที่ตั้งไว้ ${targetPort} ได้ กรุณาตรวจสอบ process ของโปรเจคนี้`);
+      // Stop this failed instance. Never bind another project's next port.
+      if (require.main === module) process.exit(1);
     } else {
       console.error('[SERVER ERROR]', err);
       if (!hasNotifiedShutdown && !isStopIntentional()) {

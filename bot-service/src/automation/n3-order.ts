@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import { Page, Locator } from 'playwright';
 import { CONFIG } from '../config';
 import path from 'path';
 import fs from 'fs';
@@ -6,6 +6,34 @@ import { OrderItem } from '../queue/order-queue';
 import { N3Auth } from './n3-auth';
 
 export class N3OrderService {
+  public static async clickSearchControl(page: Page, control: Locator): Promise<void> {
+    await this.waitForPortalReady(page);
+    await control.waitFor({ state: 'visible', timeout: 10000 });
+    // GLO's smooth scrolling makes pointer clicks wait ~2s for each search control.
+    // These reversible controls can use their native click without scrolling.
+    await control.evaluate(element => {
+      if (element.matches(':disabled, [aria-disabled="true"]')) {
+        throw new Error('ปุ่มค้นหาสลากยังไม่พร้อมใช้งาน');
+      }
+      (element as HTMLElement).click();
+    });
+  }
+  public static async waitForPortalReady(page: Page, timeout = 30000): Promise<void> {
+    // GLO leaves the inputs visible while its full-screen loading layer blocks clicks.
+    // Wait for every visible loader; never force a click through a payment/session dialog.
+    await page.waitForFunction(() => {
+      return !Array.from(document.querySelectorAll('div.absolute, div.fixed'))
+        .some(element => {
+          if (!element.querySelector('.loader')) return false;
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden'
+            && rect.width > 0 && rect.height > 0 && style.pointerEvents !== 'none';
+        });
+    }, undefined, { timeout }).catch(() => {
+      throw new Error('ระบบ GLO กำลังโหลดข้อมูลนานกว่าปกติ จึงยังสร้าง QR Code ไม่ได้ กรุณาลองใหม่อีกครั้ง');
+    });
+  }
   /**
    * สั่งซื้อสลาก N3 ตาม Flow จริง (รองรับทั้งเลขเดียวและหลายเลขในบิลเดียว):
    * 1. วนลูปค้นหาและเลือกแต่ละสลากเข้าตะกร้าเดียวกัน พร้อมปรับจำนวนใบตามจริง (รองรับ Stepper img[src*="plus-icon"])
@@ -57,7 +85,7 @@ export class N3OrderService {
         console.log('[N3 ORDER] หน้าเว็บอยู่ที่หน้าค้นหาสลากอยู่แล้ว ข้ามการโหลดหน้าใหม่เพื่อความรวดเร็ว');
         const clearBtn = page.locator('p:has-text("ล้างค่า"), button:has-text("ล้างค่า"), [role="button"]:has-text("ล้างค่า")').first();
         if (await clearBtn.isVisible().catch(() => false)) {
-          await clearBtn.click().catch(() => {});
+          await this.clickSearchControl(page, clearBtn);
           await page.waitForTimeout(150);
         }
       }
@@ -104,7 +132,7 @@ export class N3OrderService {
           const clearBtn = page.locator('p:has-text("ล้างค่า"), button:has-text("ล้างค่า"), [role="button"]:has-text("ล้างค่า")').first();
           if (await clearBtn.isVisible().catch(() => false)) {
             console.log('[N3 ORDER] กดปุ่ม "ล้างค่า" เพื่อเคลียร์ช่องค้นหาเลขเดิม...');
-            await clearBtn.click().catch(() => {});
+            await this.clickSearchControl(page, clearBtn);
             await page.waitForTimeout(100);
           } else {
             // สำรอง: ลองปุ่มเพิ่มรายการหรือแท็บตำแหน่งถัดไป
@@ -129,6 +157,7 @@ export class N3OrderService {
         }
 
         // ล้างและกรอกตัวเลข 3 ตัว (ใช้ Playwright fill ตรงกับ #digit-input-0/1/2 เพื่อกระตุ้น React Synthetic Event อย่างแม่นยำ)
+        await this.waitForPortalReady(page);
         const digits = item.number.split('');
         const d0 = page.locator('#digit-input-0');
         const d1 = page.locator('#digit-input-1');
@@ -174,14 +203,15 @@ export class N3OrderService {
         }
 
         // กดปุ่ม "เลือกเลข" เพื่อค้นหาสลาก
+        await this.waitForPortalReady(page);
         const selectBtn = page.locator('button:visible').filter({ hasText: /^เลือกเลข$/ }).first();
         try {
           if (await selectBtn.isVisible().catch(() => false)) {
-            await selectBtn.click({ timeout: 10000 });
+            await this.clickSearchControl(page, selectBtn);
           } else {
             const fallbackBtn = page.locator('button:has-text("เลือกเลข"):visible, button:has-text("ค้นหา"):visible').first();
             if (await fallbackBtn.isVisible().catch(() => false)) {
-              await fallbackBtn.click({ timeout: 10000 });
+              await this.clickSearchControl(page, fallbackBtn);
             } else {
               await page.evaluate(() => {
                 const btns = Array.from(document.querySelectorAll('button'));
@@ -197,11 +227,16 @@ export class N3OrderService {
           throw clickErr;
         }
 
-        // รอผลลัพธ์ปรากฏ (ปุ่มเลือกสลาก หรือข้อความไม่พบสลาก) แทนการหน่วงเวลาคงที่
-        await Promise.race([
-          page.locator('button:has-text("เลือก"):visible').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {}),
-          page.locator('text=ไม่พบสลาก, text=ไม่พบข้อมูล, text=ปิดการขาย').first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
-        ]);
+        // Wait for real results, not the search button whose text also contains "เลือก".
+        await this.waitForPortalReady(page);
+        await page.waitForFunction(() => {
+          const visiblePick = Array.from(document.querySelectorAll('button')).some(button => {
+            const text = button.innerText.trim();
+            return /^(เลือก|เลือกสลาก|เลือกสลากฯ|เลือกซื้อ)$/.test(text)
+              && !button.disabled && button.getBoundingClientRect().width > 0;
+          });
+          return visiblePick || /ไม่พบสลาก|ไม่พบข้อมูล|ปิดการขาย/.test(document.body.innerText);
+        }, undefined, { timeout: 10000 });
         await page.waitForTimeout(50);
 
         if (page.isClosed()) {
@@ -684,7 +719,7 @@ export class N3OrderService {
       let cleanErrorMsg = 'เกิดข้อผิดพลาดในการสร้าง QR Code บนหน้าเว็บ';
       if (err?.message) {
         if (err.message.includes('intercepts pointer events') || (err.message.includes('Timeout') && err.message.includes('button'))) {
-          cleanErrorMsg = 'Session หมดอายุหรือมีป๊อปอัปขัดจังหวะ กรุณาสแกนเป๋าตังเพื่อเข้าสู่ระบบใหม่';
+          cleanErrorMsg = 'หน้าเว็บ GLO ยังไม่พร้อมหรือมีหน้าต่างบังปุ่ม จึงยังสร้าง QR Code ไม่ได้ กรุณาลองใหม่อีกครั้ง';
         } else if (err.message.includes('Timeout')) {
           cleanErrorMsg = 'หมดเวลาการเชื่อมต่อหน้าเว็บ (Timeout)';
         } else {
@@ -803,5 +838,3 @@ export async function upscaleQrImageToHD(page: Page, filePath: string, targetSiz
   }
   return false;
 }
-
-

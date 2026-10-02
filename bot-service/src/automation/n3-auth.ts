@@ -52,7 +52,7 @@ export class N3Auth {
   /**
    * ตรวจสอบว่า Session ที่บันทึกไว้ยังใช้งานได้อยู่หรือไม่
    */
-  public static async isSessionValid(page: Page): Promise<boolean> {
+  public static async isSessionValid(page: Page, refresh: boolean = false): Promise<boolean> {
     try {
       if (page.isClosed()) return false;
 
@@ -68,7 +68,7 @@ export class N3Auth {
       }
 
       // หากอยู่ในหน้าค้นหาสลากหรือยืนยัน ให้ตรวจสอบว่าปุ่มเลือกเลขหรือช่องกรอกใช้งานได้จริง
-      if (currentUrl.includes('/lotto-search/') || currentUrl.includes('/lotto-confirm/')) {
+      if (!refresh && (currentUrl.includes('/lotto-search/') || currentUrl.includes('/lotto-confirm/'))) {
         const hasInputs = await page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[maxlength="1"]:visible, input[inputmode="numeric"]:visible').count().catch(() => 0);
         const hasSelectBtn = await page.locator('button:visible').filter({ hasText: /^เลือกเลข$/ }).count().catch(() => 0);
         if (hasInputs >= 1 && hasSelectBtn >= 1) {
@@ -86,8 +86,8 @@ export class N3Auth {
         const hasLoginPrompt = await page.getByText(/เข้าสู่ระบบด้วยแอปฯ|กรุณาเข้าสู่ระบบ/).first().isVisible().catch(() => false);
         if (hasLoginPrompt) return false;
 
-        const isDealerUiPresent = await page.getByText(/ยอดขายร้านค้า|คุณขายสลาก|สลากตัวเลขสามหลัก|บริการจำหน่ายสลาก/).first().isVisible().catch(() => false);
-        if (isDealerUiPresent) return true;
+        // Home/landing can remain visible after the server expires authentication.
+        // Only a fresh protected search page proves that this session can sell.
       }
 
       console.log('[N3 AUTH] กำลังตรวจสอบ Session ผ่านหน้าค้นหาสลาก...');
@@ -124,14 +124,14 @@ export class N3Auth {
       }
 
       // ตรวจสอบว่าหน้าเว็บมีองค์ประกอบของระบบค้นหาหรือหน้าหลัก N3 จริง
-      const isSearchPage = newUrl.includes('/lotto-search') || newUrl.includes('/landing') || newUrl.includes('/home');
+      const isSearchPage = newUrl.includes('/lotto-search');
       if (!isSearchPage) return false;
 
       // ตรวจสอบความพร้อมของอินพุตหรือองค์ประกอบร้านค้า (รอให้ React DOM Mount สมบูรณ์)
       await page.locator('input[type="text"], input[type="tel"], input[inputmode="numeric"]').first().waitFor({ state: 'visible', timeout: 4000 }).catch(() => {});
       const readyInputs = await page.locator('input[type="text"]:visible, input[type="tel"]:visible, input[inputmode="numeric"]:visible').count().catch(() => 0);
-      const isShopOpen = await page.getByText(/เลือกเลขสลากฯ ในร้าน|บริการจำหน่ายสลาก|ยอดขายร้านค้า|สลากตัวเลขสามหลัก/).first().isVisible().catch(() => false);
-      return readyInputs > 0 || isShopOpen;
+      const hasSelectButton = await page.getByRole('button', { name: 'เลือกเลข', exact: true }).isVisible().catch(() => false);
+      return readyInputs > 0 && hasSelectButton && !page.url().includes('/login');
     } catch {
       return false;
     }
@@ -143,20 +143,18 @@ export class N3Auth {
    */
   public static async generatePaotangLoginQR(page: Page): Promise<{ qrImagePath: string; qrBase64?: string; alreadyLoggedIn?: boolean }> {
     console.log('[N3 AUTH] กำลังนำทางไปหน้าเข้าสู่ระบบ N3...');
-    await page.goto(CONFIG.N3_LOGIN_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(CONFIG.N3_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     const redirectedUrl = page.url();
     // หากเข้าสู่ระบบอยู่แล้ว GLO จะ Redirect ไปยัง /landing/ หรือ /home/ ทันที
     if (redirectedUrl.includes('/landing') || redirectedUrl.includes('/home') || (redirectedUrl.includes('glolotteryshop.com') && !redirectedUrl.includes('/login'))) {
-      console.log(`[N3 AUTH] หน้าเว็บถูกเปลี่ยนเส้นทางไปหน้าตัวแทนจำหน่ายแล้ว (${redirectedUrl}) แสดงว่าเซสชันยังคง Active อยู่`);
-      if (redirectedUrl.includes('/home')) {
-        const n3Card = page.locator('text=สลากตัวเลข').or(page.locator('text=สามหลัก')).first();
-        if (await n3Card.isVisible().catch(() => false)) {
-          await n3Card.click().catch(() => {});
-          await page.waitForTimeout(1000);
-        }
+      console.log(`[N3 AUTH] หน้า Login เปลี่ยนเส้นทางไป ${redirectedUrl}; กำลังตรวจสอบเซสชันจากหน้าที่ต้องล็อกอิน`);
+      if (await this.isSessionValid(page, true)) {
+        return { qrImagePath: '', qrBase64: undefined, alreadyLoggedIn: true };
       }
-      return { qrImagePath: '', qrBase64: undefined, alreadyLoggedIn: true };
+      // An expired session may redirect through a cached home page before login.
+      await this.checkAndDismissSessionModal(page);
+      await page.goto(CONFIG.N3_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     }
 
     console.log('[N3 AUTH] กำลังคลิกปุ่ม "เข้าสู่ระบบด้วยแอปฯ เป๋าตัง"...');
@@ -196,7 +194,7 @@ export class N3Auth {
       // รอจน URL เปลี่ยนกลับมาที่ n3.glolotteryshop.com และไม่อยู่ใน /login
       await page.waitForURL(url => {
         const u = url.toString();
-        return u.includes('n3.glolotteryshop.com') && !u.includes('/login');
+        return u.includes('n3.glolotteryshop.com') && /\/(home|landing|lotto-search|lotto-confirm|qr)(\/|\?|$)/.test(new URL(u).pathname);
       }, { timeout: timeoutMs });
 
       console.log(`[N3 AUTH SUCCESS] ล็อกอินสำเร็จ! URL ปัจจุบัน: ${page.url()}`);

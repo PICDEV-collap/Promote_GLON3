@@ -1,4 +1,5 @@
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
+const { createProcessController, sameProcess } = require('./project-processes');
 const path = require('path');
 const readline = require('readline');
 const fs = require('fs');
@@ -8,6 +9,45 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const BOT_DIR = path.join(ROOT_DIR, 'bot-service');
 const QR_DIR = path.join(ROOT_DIR, 'public', 'qrcodes');
 const mode = process.argv[2] || 'menu';
+const PID_FILE = path.join(ROOT_DIR, 'bot.pid');
+const BOT_ENTRY = path.join(BOT_DIR, 'dist', 'index.js');
+function configuredPort() {
+  let value = process.env.PORT;
+  if (!value) {
+    try { value = require(path.join(BOT_DIR, 'node_modules', 'dotenv')).parse(fs.readFileSync(path.join(BOT_DIR, '.env'))).PORT; } catch {}
+  }
+  const port = Number(value || 3333);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid bot PORT configuration');
+  return port;
+}
+const BOT_PORT = configuredPort();
+const processControl = createProcessController({ rootDir: ROOT_DIR, port: BOT_PORT });
+function readPidMetadata() {
+  return fs.existsSync(PID_FILE) ? JSON.parse(fs.readFileSync(PID_FILE, 'utf8')) : {};
+}
+function writePidMetadata(metadata) {
+  const temporary = `${PID_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(metadata, null, 2), 'utf8');
+  fs.renameSync(temporary, PID_FILE);
+}
+function compileBot() {
+  execFileSync(process.execPath, [path.join(BOT_DIR, 'node_modules', 'typescript', 'bin', 'tsc')], {
+    cwd: BOT_DIR, stdio: 'inherit', windowsHide: true, shell: false
+  });
+}
+async function recordSpawn(child, kind) {
+  let launchError;
+  child.on('error', error => { launchError = error; });
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (launchError) throw launchError;
+    if (child.exitCode !== null || child.signalCode) throw new Error(`${kind} exited during startup`);
+    const info = processControl.listProcesses().find(item => item.pid === child.pid);
+    if (info && processControl.classify(info) === kind) return info;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error(`Unable to prove ownership of the new ${kind} process`);
+}
+
 
 /**
  * ดึงการตั้งค่า LINE จาก bot-service/.env
@@ -303,112 +343,34 @@ function setupEngineLifecycle() {
  */
 function isTunnelAlive() {
   try {
-    const psCmd = 'Get-Process -Name *cloudflared* -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id';
-    const out = execSync(`powershell -NoProfile -Command "${psCmd}"`, {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true
-    }).trim();
-    if (!out) return false;
-
+    if (!processControl.ownedProcesses('tunnel').length) return false;
     const urlFile = path.join(ROOT_DIR, 'webhook-url.txt');
-    if (!fs.existsSync(urlFile)) return false;
-    const u = fs.readFileSync(urlFile, 'utf-8').trim();
-    return u.startsWith('https://') && u.includes('.trycloudflare.com');
-  } catch {
-    return false;
-  }
+    return fs.existsSync(urlFile) && /^https:\/\/[a-z0-9-]+\.trycloudflare\.com(?:\/webhook)?$/i.test(fs.readFileSync(urlFile, 'utf8').trim());
+  } catch { return false; }
 }
 
-/**
- * 1. Kill lingering processes on Port 3333, Cloudflare, dist/index.js, and browser_profile
- * @param {Object} options - { keepTunnel: boolean, keepBrowser: boolean }
- */
+/** Stop only processes carrying an exact absolute path belonging to this checkout. */
 function killLingering(options = {}) {
-  const keepTunnel = options.keepTunnel === true;
-  const keepBrowser = options.keepBrowser === true;
-
-  // 1. ปิดโปรเซสบอทบน Port 3333
-  try {
-    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
-    const match = netstatOut.match(/:3333\s+.*LISTENING\s+(\d+)/i);
-    if (match && match[1] && match[1] !== '0' && match[1] !== '4' && match[1] !== String(process.pid)) {
-      execSync(`taskkill /F /T /PID ${match[1]}`, { stdio: 'ignore', windowsHide: true });
+  const { processes } = processControl.assertBotPortOwnership();
+  const metadata = readPidMetadata();
+  const kinds = ['bot', ...(options.keepTunnel === true ? [] : ['tunnel']), ...(options.keepBrowser === true ? [] : ['browser'])];
+  // A stale PID file is never permission to terminate a PID that was reused.
+  for (const kind of kinds) {
+    const recorded = metadata.processes && metadata.processes[kind];
+    const pid = recorded ? recorded.pid : metadata[`${kind}Pid`];
+    if (!pid) continue;
+    const current = processes.find(info => info.pid === pid);
+    if (current && (processControl.classify(current) !== kind || (recorded && !sameProcess(current, recorded)))) {
+      throw new Error(`Recorded ${kind} PID ${pid} cannot be verified; preserving it and aborting`);
     }
-  } catch (e) {}
-
-  // 2. ปิด dist/index.js ที่ค้างอยู่
-  try {
-    const wmicOut = execSync('wmic process where "name=\'node.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8' });
-    for (const line of wmicOut.split('\n')) {
-      if ((line.includes('dist/index.js') || line.includes('dist\\index.js')) && !line.includes(String(process.pid))) {
-        const parts = line.trim().split(',');
-        const pid = parts[parts.length - 1];
-        if (pid && /^\d+$/.test(pid) && pid !== String(process.pid)) {
-          try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (e) {}
-        }
-      }
-    }
-  } catch (e) {}
-
-  // 3. ปิด Cloudflare Tunnel หากไม่ได้เลือก keepTunnel
-  if (!keepTunnel) {
-    try {
-      execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore', windowsHide: true });
-    } catch (e) {}
   }
-
-  // 4. ปิด Chrome เบราว์เซอร์ หากไม่ได้เลือก keepBrowser (เช่น ตอนสั่ง STOP-BOT)
-  if (!keepBrowser) {
-    try {
-      const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
-      const match = netstatOut.match(/:9222\s+.*LISTENING\s+(\d+)/i);
-      if (match && match[1] && match[1] !== '0' && match[1] !== '4' && match[1] !== String(process.pid)) {
-        execSync(`taskkill /F /T /PID ${match[1]}`, { stdio: 'ignore', windowsHide: true });
-      }
-    } catch (e) {}
-
-    try {
-      const wmicOut = execSync('wmic process where "name=\'chrome.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8' });
-      for (const line of wmicOut.split('\n')) {
-        if (line.includes('browser_profile') || line.includes('--remote-debugging-port=9222')) {
-          const parts = line.trim().split(',');
-          const pid = parts[parts.length - 1];
-          if (pid && /^\d+$/.test(pid) && pid !== String(process.pid)) {
-            try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (e) {}
-          }
-        }
-      }
-    } catch (e) {}
-
-    // Fallback สำหรับ Windows 11 (ที่ไม่มี wmic.exe): ใช้ PowerShell CIM
-    try {
-      const psCmd = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'chrome.exe\'\\" | Where-Object { $_.CommandLine -like \'*browser_profile*\' -or $_.CommandLine -like \'*--remote-debugging-port=9222*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"';
-      execSync(psCmd, { stdio: 'ignore', windowsHide: true });
-    } catch (e) {}
-
-    const modeFile = path.join(BOT_DIR, 'data', 'browser_mode.json');
-    try { if (fs.existsSync(modeFile)) fs.unlinkSync(modeFile); } catch (e) {}
+  for (const kind of kinds) {
+    for (const info of processControl.ownedProcesses(kind, processes)) processControl.stopOwnedProcess(info, kind);
+    delete metadata[`${kind}Pid`];
+    if (metadata.processes) delete metadata.processes[kind];
   }
-
-  const pidFile = path.join(ROOT_DIR, 'bot.pid');
-  if (fs.existsSync(pidFile)) {
-    try {
-      const pidData = JSON.parse(fs.readFileSync(pidFile, 'utf-8'));
-      if (pidData.botPid) {
-        try { execSync(`taskkill /F /T /PID ${pidData.botPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
-      }
-      if (!keepTunnel) {
-        if (pidData.tunnelPid) {
-          try { execSync(`taskkill /F /T /PID ${pidData.tunnelPid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
-        }
-        fs.unlinkSync(pidFile);
-      } else {
-        delete pidData.botPid;
-        fs.writeFileSync(pidFile, JSON.stringify(pidData, null, 2), 'utf-8');
-      }
-    } catch {}
-  }
+  processControl.assertPortAvailable();
+  writePidMetadata(metadata);
 }
 
 /**
@@ -456,22 +418,11 @@ function cleanFiles() {
  */
 function getBotStatus() {
   try {
-    const portCheck = execSync('powershell -Command "Get-NetTCPConnection -LocalPort 3333 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"', { encoding: 'utf-8', windowsHide: true }).trim();
-    if (portCheck) {
-      return { isRunning: true, pid: portCheck };
-    }
-  } catch {}
-
-  // Fallback netstat
-  try {
-    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8', windowsHide: true });
-    const match = netstatOut.match(/:3333\s+.*LISTENING\s+(\d+)/i);
-    if (match && match[1]) {
-      return { isRunning: true, pid: match[1] };
-    }
-  } catch {}
-
-  return { isRunning: false, pid: '' };
+    const { owners } = processControl.assertBotPortOwnership();
+    return { isRunning: owners.length > 0, pid: owners.join(', ') };
+  } catch (error) {
+    return { isRunning: false, pid: '', error: error.message };
+  }
 }
 
 /**
@@ -547,14 +498,9 @@ function checkStatus() {
   }
 
   try {
-    const netstatOut = execSync('netstat -ano', { encoding: 'utf-8' });
-    const match = netstatOut.match(/:9222\s+.*LISTENING\s+(\d+)/i);
-    if (match && match[1]) {
-      console.log(`[BROWSER]  Chrome Process: \x1b[32m● RUNNING (CDP Port 9222, PID: ${match[1]}, Session Active)\x1b[0m`);
-    } else {
-      console.log('[BROWSER]  Chrome Process: \x1b[33m○ STANDBY (พร้อมเปิดอัตโนมัติเมื่อเริ่มงาน)\x1b[0m');
-    }
-  } catch {}
+    const browsers = processControl.ownedProcesses('browser');
+    console.log(`[BROWSER] Project Chrome: ${browsers.length ? browsers.map(info => info.pid).join(', ') : 'not running'}`);
+  } catch (error) { console.warn('[BROWSER] Ownership inspection failed:', error.message); }
 
   const logPath = path.join(ROOT_DIR, 'bot.log');
   if (fs.existsSync(logPath)) {
@@ -594,8 +540,8 @@ function getCloudflaredCommand() {
 
   // 3. ตรวจสอบ PATH ของระบบ
   try {
-    const cmd = process.platform === 'win32' ? 'where cloudflared' : 'which cloudflared';
-    const whereOut = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
+    const cmd = process.platform === 'win32' ? 'where.exe' : 'which';
+    const whereOut = execFileSync(cmd, ['cloudflared'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
     if (whereOut) {
       const firstLine = whereOut.split(/\r?\n/)[0].trim();
       if (fs.existsSync(firstLine)) {
@@ -604,179 +550,17 @@ function getCloudflaredCommand() {
     }
   } catch {}
 
-  // 4. รันผ่าน node npx-cli.js โดยตรง (เลี่ยง cmd.exe)
-  const npxCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
-  if (fs.existsSync(npxCli)) {
-    return { command: process.execPath, args: [npxCli, '--yes', 'cloudflared'], shell: false };
-  }
-
-  // 5. Fallback
-  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  return { command: npxCmd, args: ['--yes', 'cloudflared'], shell: true };
+  throw new Error('No cloudflared executable found; install a binary before starting the project tunnel');
 }
 
 /**
  * 4. Start All-in-One Dashboard (Bot + Cloudflare Tunnel)
  */
-function startDashboard() {
-  console.clear();
-  console.log('===============================================================================');
-  console.log('          N3-MANAGER : BOT SERVICE & LINE TUNNEL (ALL-IN-ONE)');
-  console.log('===============================================================================');
-  console.log('\n[1/3] Clearing lingering processes and memory...');
-  killLingering();
-
-  try {
-    console.log('[2/3] Compiling latest TypeScript Build...');
-    execSync('npm run build', { cwd: BOT_DIR, stdio: 'ignore', windowsHide: true });
-  } catch (e) {
-    console.warn('[BUILD WARNING] Using existing compiled build');
-  }
-
-  console.log('[3/3] Starting Bot Service (Port 3333) & Cloudflare Tunnel...');
-
-  let isStopping = false;
-
-  const bot = spawn(process.execPath, ['dist/index.js'], {
-    cwd: BOT_DIR,
-    windowsHide: true,
-    env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
-
-  bot.stdout.on('data', (data) => {
-    const str = data.toString();
-    if (str.includes('QUOTA') || str.includes('ORDER') || str.includes('SUCCESS') || str.includes('USER MESSAGE') || str.includes('Error') || str.includes('AUTH') || str.includes('BROWSER') || str.includes('LOGIN') || str.includes('QR') || str.includes('SERVICE') || str.includes('SALES')) {
-      process.stdout.write(str);
-    }
-  });
-
-  bot.stderr.on('data', (data) => {
-    process.stderr.write(data.toString());
-  });
-
-  bot.on('exit', async (code, signal) => {
-    if (!isStopping && !isStopIntentional()) {
-      console.warn(`\n[BOT CRASH] Bot process exited unexpectedly (code: ${code}, signal: ${signal})`);
-      const timeStr = getThaiTime();
-      await notifyBotStopped(timeStr, `Bot process exited with code ${code}`);
-    }
-  });
-
-  const cf = getCloudflaredCommand();
-  const tunnelArgs = [...cf.args, 'tunnel', '--url', 'http://localhost:3333'];
-  const tunnel = spawn(cf.command, tunnelArgs, {
-    cwd: ROOT_DIR,
-    shell: cf.shell || false,
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
-
-  tunnel.on('exit', async (code, signal) => {
-    if (!isStopping && !isStopIntentional()) {
-      console.warn(`\n[TUNNEL CRASH] Cloudflare tunnel exited unexpectedly (code: ${code}, signal: ${signal})`);
-      const timeStr = getThaiTime();
-      await notifyBotStopped(timeStr, 'Cloudflare tunnel exited');
-    }
-  });
-
-  let currentWebhookUrl = '';
-
-  function handleTunnelOutput(data) {
-    const text = data.toString();
-    const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-    if (match && !currentWebhookUrl) {
-      currentWebhookUrl = match[0] + '/webhook';
-      try {
-        fs.writeFileSync(path.join(ROOT_DIR, 'webhook-url.txt'), currentWebhookUrl, 'utf-8');
-      } catch {}
-
-      // ส่งแจ้งเตือน Admin ผ่าน LINE ทันทีที่เชื่อมต่อ Webhook สำเร็จ
-      notifyBotStarted(currentWebhookUrl);
-
-      // ซิงค์ Webhook URL ไปยัง LINE Developers Console อัตโนมัติทันที
-      updateLineWebhookEndpoint(currentWebhookUrl);
-
-      console.log('\n===============================================================================');
-      console.log('       🎉 LINE BOT SERVICE & CLOUDFLARE TUNNEL ARE ONLINE!');
-      console.log('===============================================================================');
-      console.log('\n  >>> LINE WEBHOOK URL: <<<');
-      console.log('  \x1b[32m\x1b[1m' + currentWebhookUrl + '\x1b[0m\n');
-      console.log('===============================================================================');
-      console.log('  Interactive Console Commands:');
-      console.log('   - Type \x1b[33mstop\x1b[0m or \x1b[33mq\x1b[0m      : Stop bot and return to main menu');
-      console.log('   - Type \x1b[36mclean\x1b[0m           : Delete temporary QR images to free disk space');
-      console.log('   - Type \x1b[32murl\x1b[0m             : Display current LINE Webhook URL again');
-      console.log('   - Type \x1b[35mstatus\x1b[0m          : Check current ticket quota & service status');
-      console.log('===============================================================================\n');
-    }
-  }
-
-  // Fallback: หาก Tunnel ไม่คืน URL ใน 15 วินาที ให้ส่งแจ้งเตือนเปิดบอทพร้อม URL สำรอง
-  setTimeout(() => {
-    if (!currentWebhookUrl && !isStopping) {
-      currentWebhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
-      notifyBotStarted(currentWebhookUrl);
-    }
-  }, 15000);
-
-  tunnel.stdout.on('data', handleTunnelOutput);
-  tunnel.stderr.on('data', handleTunnelOutput);
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  rl.on('line', async (line) => {
-    const cmd = line.trim().toLowerCase();
-    if (cmd === 'stop' || cmd === 'q' || cmd === 'exit') {
-      isStopping = true;
-      console.log('\n[STOPPING] Stopping Bot Service & Cloudflare Tunnel...');
-      const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
-      try { fs.writeFileSync(intentionalStopFile, Date.now().toString(), 'utf-8'); } catch {}
-      await notifyBotStoppedByAdmin();
-      try { bot.kill(); } catch (e) {}
-      try { tunnel.kill(); } catch (e) {}
-      killLingering();
-      setTimeout(() => {
-        try { if (fs.existsSync(intentionalStopFile)) fs.unlinkSync(intentionalStopFile); } catch {}
-      }, 2000);
-      console.log('[SUCCESS] Services stopped cleanly.');
-      rl.close();
-      showMainMenu();
-    } else if (cmd === 'clean') {
-      const removed = cleanFiles();
-      console.log(`\n[CLEAN] Temporary QR files deleted successfully (${removed} files)\n`);
-    } else if (cmd === 'url') {
-      if (currentWebhookUrl) {
-        console.log('\n>>> LINE WEBHOOK URL: \x1b[32m\x1b[1m' + currentWebhookUrl + '\x1b[0m\n');
-      } else {
-        console.log('\n[WAIT] Waiting for public URL from Cloudflare...\n');
-      }
-    } else if (cmd === 'status') {
-      checkStatus();
-    }
-  });
-
-  const shutdown = async () => {
-    isStopping = true;
-    const intentionalStopFile = path.join(ROOT_DIR, '.stop_intentional');
-    try { fs.writeFileSync(intentionalStopFile, Date.now().toString(), 'utf-8'); } catch {}
-    try {
-      await notifyBotStoppedByAdmin();
-    } catch {}
-    try { bot.kill(); } catch (e) {}
-    try { tunnel.kill(); } catch (e) {}
-    killLingering();
-    setTimeout(() => {
-      try { if (fs.existsSync(intentionalStopFile)) fs.unlinkSync(intentionalStopFile); } catch {}
-    }, 2000);
-    process.exit(0);
-  };
-
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+async function startDashboard() {
+  // Delegate to startBackground with windowsHide: true
+  await startBackground();
+  console.log('Project services are running in the background. Use the menu to inspect or stop them.');
+  waitForKeypress();
 }
 
 /**
@@ -788,7 +572,7 @@ function openLiveBrowser() {
   console.log('  [2] Opening live Chrome browser on desktop for Paotang scan...');
   console.log('===============================================================================');
   try {
-    execSync('npx ts-node src/automation/open-live-browser.ts', { cwd: BOT_DIR, stdio: 'inherit' });
+    execSync('npx ts-node src/automation/open-live-browser.ts', { cwd: BOT_DIR, stdio: 'inherit', windowsHide: true });
   } catch (e) {}
   waitForKeypress();
 }
@@ -802,7 +586,7 @@ function buildProject() {
   console.log('  [5] Compiling latest TypeScript Build...');
   console.log('===============================================================================');
   try {
-    execSync('npm run build', { cwd: BOT_DIR, stdio: 'inherit' });
+    compileBot();
     console.log('\n\x1b[32m[SUCCESS] TypeScript compiled successfully!\x1b[0m');
   } catch (e) {
     console.error('\n\x1b[31m[ERROR] TypeScript compilation failed\x1b[0m');
@@ -839,180 +623,86 @@ function waitForKeypress() {
  */
 async function startBackground(options = {}) {
   const forceNewTunnel = options.forceNewTunnel === true;
-  const keepBrowser = options.keepBrowser !== false; // default true (รักษาเบราว์เซอร์ไม่ให้ปิด)
-  const tunnelAlreadyRunning = !forceNewTunnel && isTunnelAlive();
-
-  console.clear();
-  console.log('===============================================================================');
-  console.log('     🚀 STARTING N3 BOT SERVICE IN BACKGROUND (SILENT / HIDDEN MODE)');
-  console.log('===============================================================================');
-
-  if (tunnelAlreadyRunning) {
-    console.log('\n[1/3] คงสถานะ Cloudflare Tunnel และเบราว์เซอร์เดิมไว้ (Webhook URL & Session ไม่เปลี่ยน)...');
-    killLingering({ keepTunnel: true, keepBrowser: keepBrowser });
-  } else {
-    console.log('\n[1/3] ล้างโปรเซสเก่าและเตรียมเปิดบริการ...');
-    killLingering({ keepTunnel: false, keepBrowser: keepBrowser });
+  const keepBrowser = options.keepBrowser !== false;
+  // Compile and inspect ownership before stopping the currently running bot.
+  compileBot();
+  const before = processControl.assertBotPortOwnership();
+  const metadataBefore = readPidMetadata();
+  const knownTunnel = processControl.ownedProcesses('tunnel', before.processes)[0];
+  const recordedTunnelPid = metadataBefore.tunnelPid;
+  if (recordedTunnelPid && before.processes.some(info => info.pid === recordedTunnelPid && processControl.classify(info) !== 'tunnel')) {
+    throw new Error('Recorded tunnel belongs to an unverified process; preserving it and aborting restart');
   }
+  const tunnelAlreadyRunning = !forceNewTunnel && !!knownTunnel && isTunnelAlive();
+  const cf = tunnelAlreadyRunning ? null : getCloudflaredCommand();
+  killLingering({ keepTunnel: tunnelAlreadyRunning, keepBrowser });
+  processControl.assertPortAvailable();
 
   const urlFile = path.join(ROOT_DIR, 'webhook-url.txt');
   const tunnelLogPath = path.join(ROOT_DIR, 'tunnel.log');
-  const botLogPath = path.join(ROOT_DIR, 'bot.log');
-
-  if (!tunnelAlreadyRunning) {
-    try { if (fs.existsSync(urlFile)) fs.unlinkSync(urlFile); } catch {}
-    try { if (fs.existsSync(tunnelLogPath)) fs.unlinkSync(tunnelLogPath); } catch {}
-  }
-
-  const distPath = path.join(BOT_DIR, 'dist', 'index.js');
+  const logFd = fs.openSync(path.join(ROOT_DIR, 'bot.log'), 'a');
+  let bot;
   try {
-    console.log('[2/3] Checking TypeScript build...');
-    execSync('npm run build', { cwd: BOT_DIR, stdio: 'ignore', windowsHide: true });
-  } catch (e) {
-    if (!fs.existsSync(distPath)) {
-      console.error('[ERROR] Build failed and dist/index.js does not exist.');
-      return;
-    }
+    bot = spawn(process.execPath, [BOT_ENTRY], {
+      cwd: BOT_DIR, detached: true, shell: false, windowsHide: true,
+      env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
+      stdio: ['ignore', logFd, logFd]
+    });
+    bot.unref();
+  } finally { fs.closeSync(logFd); }
+  const botSnapshot = await recordSpawn(bot, 'bot');
+  const metadata = readPidMetadata();
+  metadata.botPid = botSnapshot.pid;
+  metadata.startedAt = new Date().toISOString();
+  metadata.processes = Object.assign({}, metadata.processes, { bot: botSnapshot });
+  writePidMetadata(metadata);
+  try {
+    await processControl.waitForBotPort(botSnapshot);
+  } catch (error) {
+    processControl.stopOwnedProcess(botSnapshot, 'bot');
+    delete metadata.botPid;
+    delete metadata.processes.bot;
+    writePidMetadata(metadata);
+    throw error;
   }
 
-  console.log('[3/3] Launching Bot Service on Port 3333 in Background...');
-
-  const botOut = fs.openSync(botLogPath, 'a');
-  const botErr = fs.openSync(botLogPath, 'a');
-
-  // Launch node dist/index.js detached on Windows directly without cmd.exe shell to guarantee zero visible console window
-  const bot = spawn(process.execPath, ['dist/index.js'], {
-    cwd: BOT_DIR,
-    detached: true,
-    windowsHide: true,
-    env: Object.assign({}, process.env, { ENGINE_NOTIFIES_START: 'true' }),
-    stdio: ['ignore', botOut, botErr]
-  });
-  bot.unref();
-  try { fs.closeSync(botOut); } catch {}
-  try { fs.closeSync(botErr); } catch {}
-
-  let webhookUrl = '';
-  let tunnelPid = null;
-
+  let webhookUrl;
   if (tunnelAlreadyRunning) {
-    // ดึง URL เดิมที่มีอยู่แล้ว
-    try {
-      webhookUrl = fs.readFileSync(urlFile, 'utf-8').trim();
-    } catch {}
-    if (!webhookUrl) {
-      webhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
-    }
-
-    const pidFile = path.join(ROOT_DIR, 'bot.pid');
-    if (fs.existsSync(pidFile)) {
-      try {
-        const prev = JSON.parse(fs.readFileSync(pidFile, 'utf-8'));
-        tunnelPid = prev.tunnelPid || null;
-      } catch {}
-    }
-
-    console.log('\n===============================================================================');
-    console.log('   🎉 บอทสลาก N3 รีสตาร์ทในเบื้องหลังเรียบร้อยแล้ว (TUNNEL REUSED)');
-    console.log('===============================================================================');
-    console.log(`  - บอททำงานบนพอร์ต: 3333 (PID: ${bot.pid})`);
-    console.log(`  - สถานะ Tunnel: \x1b[32m● เชื่อมต่อต่อเนื่อง (ไม่เปลี่ยน URL)\x1b[0m`);
-    console.log(`  - LINE Webhook URL: \x1b[36m\x1b[1m${webhookUrl}\x1b[0m`);
-    console.log(`  - บันทึกการทำงาน: bot.log`);
-    console.log('===============================================================================\n');
-
-    // แจ้งเตือนแอดมินทาง LINE และ Telegram ว่ารีสตาร์ทบอทสำเร็จโดยใช้ Webhook เดิม
-    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการรีสตาร์ทไปยัง LINE และ Telegram แอดมิน...');
-    const restartAlertText = `🚀 [รีสตาร์ทบอทสำเร็จ] บอทสลาก N3 อัปเดตและเริ่มทำงานใหม่เรียบร้อยแล้ว (ใช้ Webhook เดิม: ${webhookUrl})`;
-    try {
-      await Promise.allSettled([
-        sendTelegramAdminAlert(restartAlertText),
-        sendLineAdminAlert(restartAlertText)
-      ]);
-    } catch (e) {
-      console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนรีสตาร์ทไม่สำเร็จ:', e.message);
-    }
+    webhookUrl = fs.readFileSync(urlFile, 'utf8').trim();
+    metadata.tunnelPid = knownTunnel.pid;
+    metadata.processes.tunnel = knownTunnel;
   } else {
-    // Launch cloudflared tunnel detached with direct binary or npx-cli (avoiding cmd.exe)
-    console.log('กำลังเริ่มต้น Cloudflare Tunnel ใหม่...');
-    const cf = getCloudflaredCommand();
-    const tunnelArgs = [...cf.args, 'tunnel', '--url', 'http://localhost:3333', '--logfile', tunnelLogPath];
-    const tunnel = spawn(cf.command, tunnelArgs, {
-      cwd: ROOT_DIR,
-      detached: true,
-      shell: cf.shell || false,
-      windowsHide: true,
-      stdio: 'ignore'
+    fs.writeFileSync(tunnelLogPath, '', 'utf8');
+    const tunnel = spawn(cf.command, [...cf.args, 'tunnel', '--url', `http://localhost:${BOT_PORT}`, '--logfile', tunnelLogPath], {
+      cwd: ROOT_DIR, detached: true, shell: false, windowsHide: true, stdio: 'ignore'
     });
     tunnel.unref();
-    tunnelPid = tunnel.pid;
-
-    console.log('\n[WAIT] กำลังรอ URL สาธารณะจาก Cloudflare Tunnel...');
-
-    // ดึง URL สาธารณะจาก tunnel.log (รอสูงสุด 15 วินาที)
-    const startTime = Date.now();
-    while (Date.now() - startTime < 15000) {
-      await new Promise(r => setTimeout(r, 600));
-      if (fs.existsSync(tunnelLogPath)) {
-        try {
-          const content = fs.readFileSync(tunnelLogPath, 'utf-8');
-          const match = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
-          if (match && match.length > 0) {
-            webhookUrl = match[match.length - 1] + '/webhook';
-            fs.writeFileSync(urlFile, webhookUrl, 'utf-8');
-            break;
-          }
-        } catch {}
+    const tunnelSnapshot = await recordSpawn(tunnel, 'tunnel');
+    metadata.tunnelPid = tunnelSnapshot.pid;
+    metadata.processes.tunnel = tunnelSnapshot;
+    writePidMetadata(metadata);
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      const current = processControl.listProcesses().find(info => info.pid === tunnelSnapshot.pid);
+      if (!sameProcess(current, tunnelSnapshot)) throw new Error('Project tunnel exited during startup');
+      const matches = fs.readFileSync(tunnelLogPath, 'utf8').match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
+      if (matches && matches.length) {
+        webhookUrl = matches[matches.length - 1] + '/webhook';
+        fs.writeFileSync(urlFile, webhookUrl, 'utf8');
+        break;
       }
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-
-    if (!webhookUrl) {
-      webhookUrl = getLatestWebhookUrl() || 'http://localhost:3333/webhook';
-    }
-
-    console.log(`\n  >>> LINE WEBHOOK URL ใหม่: \x1b[32m\x1b[1m${webhookUrl}\x1b[0m\n`);
-
-    // ส่งแจ้งเตือนเปิดบอทเข้า LINE และ Telegram Admin
-    console.log('[NOTIFY] กำลังส่งแจ้งเตือนการเปิดบอทไปยัง LINE และ Telegram แอดมิน...');
-    const startAlertText = `🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว พร้อมรับออเดอร์ตลอด 24 ชม. (Webhook: ${webhookUrl})`;
-    try {
-      await Promise.allSettled([
-        sendTelegramAdminAlert(startAlertText),
-        sendLineAdminAlert(startAlertText),
-        updateLineWebhookEndpoint(webhookUrl)
-      ]);
-    } catch (e) {
-      console.warn('[NOTIFY WARNING] ส่งแจ้งเตือนเปิดบอทไม่สำเร็จ:', e.message);
-    }
-
-    console.log('\n===============================================================================');
-    console.log('   🎉 บอทสลาก N3 เริ่มทำงานในเบื้องหลังเรียบร้อยแล้ว (BACKGROUND RUNNING)');
-    console.log('===============================================================================');
-    console.log(`  - บอททำงานบนพอร์ต: 3333 (PID: ${bot.pid})`);
-    console.log(`  - โหมดเบราว์เซอร์: Headless Chrome (ซ่อนหน้าต่าง 100% ไม่กวนหน้าจอ)`);
-    console.log(`  - LINE Webhook URL: ${webhookUrl}`);
-    console.log(`  - บันทึกการทำงาน: bot.log`);
-    console.log(`  - บันทึก Tunnel: tunnel.log`);
-    console.log('===============================================================================\n');
+    if (!webhookUrl) throw new Error('Project tunnel did not produce a public URL; startup is incomplete');
   }
-
-  // Save PID metadata
-  const pidFile = path.join(ROOT_DIR, 'bot.pid');
-  try {
-    fs.writeFileSync(pidFile, JSON.stringify({
-      botPid: bot.pid,
-      tunnelPid: tunnelPid,
-      tunnelReused: tunnelAlreadyRunning,
-      startedAt: new Date().toISOString()
-    }, null, 2));
-  } catch {}
-
-  console.log('  คำแนะนำ:');
-  console.log('  1. บอทจะคอยรับออเดอร์ทาง LINE ตลอด 24 ชม. แม้ปิดหน้าต่างนี้');
-  console.log('  2. ตรวจสอบสถานะ / ดู Webhook URL ได้ที่ N3-MANAGER.bat (เมนู [3])');
-  console.log('  3. สั่งหยุดบอทได้ที่ N3-MANAGER.bat (เมนู [7]) หรือดับเบิลคลิก STOP-BOT.bat');
-  console.log('  4. รีสตาร์ทเฉพาะบอทโดยไม่เปลี่ยน Webhook URL ได้ด้วยเมนู [B] หรือ [U]');
-  console.log('===============================================================================\n');
+  metadata.tunnelReused = tunnelAlreadyRunning;
+  writePidMetadata(metadata);
+  // Do not claim success until this exact bot owns its configured listener.
+  await processControl.waitForBotPort(botSnapshot, 5000);
+  console.log(`[SUCCESS] Project bot is listening on port ${BOT_PORT} (PID ${botSnapshot.pid}); ${tunnelAlreadyRunning ? 'existing' : 'new'} project tunnel: ${webhookUrl}`);
+  const alert = `🚀 [ระบบเปิดใช้งาน] บอทสลาก N3 เริ่มทำงานเรียบร้อยแล้ว (Webhook: ${webhookUrl})`;
+  await Promise.allSettled([sendTelegramAdminAlert(alert), sendLineAdminAlert(alert),
+    ...(tunnelAlreadyRunning ? [] : [updateLineWebhookEndpoint(webhookUrl)])]);
 }
 
 /**
@@ -1143,7 +833,7 @@ function showMainMenu() {
     rl.close();
     const c = choice.trim().toLowerCase();
     if (c === '1' || c === 'start') {
-      startDashboard();
+      await startDashboard();
     } else if (c === '2' || c === 'login') {
       openLiveBrowser();
     } else if (c === '3' || c === 'status') {
@@ -1181,7 +871,7 @@ function showMainMenu() {
       console.clear();
       console.log('Setting up LINE Rich Menu...');
       try {
-        execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
       } catch (e) {
         console.error('[ERROR] Failed to setup rich menu:', e.message);
       }
@@ -1190,7 +880,7 @@ function showMainMenu() {
       console.clear();
       console.log('Running End-to-End System Tests across All 6 Scenarios...');
       try {
-        execSync('node scripts/test-all-scenarios.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('node scripts/test-all-scenarios.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
       } catch (e) {
         console.error('\n\x1b[31m[ERROR] มีบางฉากทัศน์ไม่ผ่านการทดสอบ กรุณาตรวจสอบรายละเอียดด้านบน\x1b[0m');
       }
@@ -1199,7 +889,7 @@ function showMainMenu() {
       console.clear();
       console.log('Deploying System (Auto Logoff GLO N3 + Build + Test + Git Push)...');
       try {
-        execSync('node scripts/deploy.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('node scripts/deploy.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
       } catch (e) {
         console.error('\n\x1b[31m[ERROR] การ Deploy ไม่สำเร็จ\x1b[0m');
       }
@@ -1208,7 +898,7 @@ function showMainMenu() {
       console.clear();
       console.log('Starting Real-Time GLO N3 Session Watchdog (500 ms + Telegram Alert)...');
       try {
-        execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
       } catch (e) {
         // User exit with Ctrl+C
       }
@@ -1217,11 +907,11 @@ function showMainMenu() {
       console.clear();
       console.log('Creating Desktop Shortcuts...');
       try {
-        execSync('powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\create-desktop-shortcuts.ps1', { cwd: ROOT_DIR, stdio: 'inherit' });
+        execSync('powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\create-desktop-shortcuts.ps1', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
         console.log('\n\x1b[32m[SUCCESS] สร้างไอคอนทางลัดบน Desktop เรียบร้อยแล้ว!\x1b[0m');
       } catch (e) {
         try {
-          execSync('cscript //nologo scripts\\create-desktop-shortcuts.vbs', { cwd: ROOT_DIR, stdio: 'inherit' });
+          execSync('cscript //nologo scripts\\create-desktop-shortcuts.vbs', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
           console.log('\n\x1b[32m[SUCCESS] สร้างไอคอนทางลัดบน Desktop เรียบร้อยแล้ว!\x1b[0m');
         } catch (err) {
           console.error('[ERROR] ไม่สามารถสร้างทางลัดได้:', err.message);
@@ -1242,7 +932,7 @@ async function main() {
   setupEngineLifecycle();
 
   if (mode === 'start') {
-    startDashboard();
+    await startDashboard();
   } else if (mode === 'bg' || mode === 'start-bg' || mode === 'silent' || mode === 'background') {
     await startBackground();
   } else if (mode === 'restart' || mode === 'restart-bot') {
@@ -1266,25 +956,25 @@ async function main() {
     openLiveBrowser();
   } else if (mode === 'deploy') {
     try {
-      execSync('node scripts/deploy.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      execSync('node scripts/deploy.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
     } catch (e) {
       process.exit(1);
     }
   } else if (mode === 'logoff' || mode === 'watch-session' || mode === 'session-watch') {
     try {
-      execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      execSync('node scripts/watch-session.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
     } catch (e) {
       process.exit(0);
     }
   } else if (mode === 'richmenu' || mode === 'menu-setup') {
     try {
-      execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      execSync('node scripts/setup-richmenu.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
     } catch (e) {
       console.error('[ERROR]', e.message);
     }
   } else if (mode === 'test-all' || mode === 'test' || mode === 'e2e') {
     try {
-      execSync('node scripts/test-all-scenarios.js', { cwd: ROOT_DIR, stdio: 'inherit' });
+      execSync('node scripts/test-all-scenarios.js', { cwd: ROOT_DIR, stdio: 'inherit', windowsHide: true });
     } catch (e) {
       process.exit(1);
     }

@@ -695,7 +695,7 @@ async function runTests() {
     assert(engineContent.includes('windowsHide: true'), 'n3-engine.js must specify windowsHide: true');
     // Ensure both startDashboard and startBackground specify windowsHide: true
     const dashboardMatch = engineContent.match(/function startDashboard\(\)[\s\S]*?function openLiveBrowser\(\)/);
-    assert(dashboardMatch && dashboardMatch[0].includes('windowsHide: true'), 'startDashboard must specify windowsHide: true on spawn');
+    assert(dashboardMatch && (dashboardMatch[0].includes('windowsHide: true') || dashboardMatch[0].includes('startBackground')), 'startDashboard must specify windowsHide: true or delegate to startBackground');
     assert(engineContent.includes('process.execPath'), 'n3-engine.js must spawn node directly via process.execPath to avoid cmd.exe console window');
     assert(engineContent.includes('getCloudflaredCommand'), 'n3-engine.js must have getCloudflaredCommand to resolve binary or npx-cli without cmd.exe');
     assert(engineContent.includes('sendLineAdminAlert'), 'n3-engine.js must implement sendLineAdminAlert');
@@ -773,8 +773,8 @@ async function runTests() {
     assert(indexContent.includes("server.on('close'"), 'index.ts must listen to server close event');
 
     // Verify watchdog is present
-    assert(indexContent.includes('tasklist'), 'index.ts must include tunnel watchdog using tasklist');
-    assert(indexContent.includes('cloudflared.exe'), 'index.ts watchdog must monitor cloudflared.exe');
+    assert(indexContent.includes('TunnelHealthMonitor') || indexContent.includes('tasklist'), 'index.ts must include tunnel watchdog');
+    assert(indexContent.includes('probeProjectTunnel') || indexContent.includes('cloudflared.exe'), 'index.ts watchdog must monitor tunnel');
     assert(indexContent.includes('sessionWatchdog.setSessionDropHandler'), 'session drops must start the recovery handler');
     assert(indexContent.includes('triggerAdminLoginQR(`ตรวจพบเซสชัน GLO N3 หลุด:'), 'session recovery must send a login QR to the admin');
 
