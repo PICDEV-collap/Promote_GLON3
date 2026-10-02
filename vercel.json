@@ -8,7 +8,7 @@
     {
       "source": "/",
       "has": [{ "type": "query", "key": "liff.state" }],
-      "destination": "/line"
+      "destination": "/line.html"
     },
     {
       "source": "/line",

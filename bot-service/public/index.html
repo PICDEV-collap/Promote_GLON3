@@ -7,6 +7,8 @@
       try {
         var href = window.location.href;
         var ua = navigator.userAgent || '';
+        window.orderLiffEntry = new URLSearchParams(window.location.search).has('liff.state');
+        if (window.orderLiffEntry) document.documentElement.classList.add('liff-order-entry');
         // If opened inside LINE In-App Browser without openExternalBrowser=1, automatically redirect to native external browser
         if (/Line\//i.test(ua) && !new URLSearchParams(window.location.search).has('liff.state') && window.location.search.indexOf('openExternalBrowser=1') === -1) {
           var sep = href.indexOf('?') !== -1 ? '&' : '?';
@@ -15,6 +17,7 @@
       } catch (e) {}
     })();
   </script>
+  <style>html.liff-order-entry { background: #070d18; } html.liff-order-entry body { display: none !important; }</style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="เว็บไซต์โปรโมทสลากกินแบ่งรัฐบาล N3 (GLO N3) สลาก 3 หลัก ใบละ 20 บาท พร้อมระบบ AI ทำนายฝันวิเคราะห์เลขเด็ด 3 ตัวตรง 3 ตัวโต๊ด และ 2 ตัวตรง คัดลอกไปซื้อผ่านแอปเป๋าตังและร้านค้าของเราได้ทันที">
   <meta name="keywords" content="สลาก N3, GLO N3, หวย N3, สลากกินแบ่งรัฐบาล 3 หลัก, ทำนายฝัน AI, เลขเด็ด N3, แอปเป๋าตัง, ร้านค้าสลาก N3, ทำนายฝันแม่นๆ">
@@ -39,6 +42,28 @@
 
   <!-- LINE LIFF SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // Initialize the LINE entry before loading the homepage UI.
+    if (window.orderLiffEntry) {
+      const orderEntryState = new URLSearchParams(location.search).get('liff.state');
+      const orderEntryTarget = new URL(orderEntryState || '/line', location.origin);
+      const showEntryError = () => {
+        const show = () => {
+          document.body.textContent = 'เปิดหน้าสั่งซื้อไม่สำเร็จ กรุณาปิดหน้านี้แล้วเปิดจากเมนู LINE ใหม่';
+          document.body.style.setProperty('display', 'block', 'important');
+          document.body.style.cssText += ';color: #fff; padding: 24px; font-family: sans-serif;';
+        };
+        if (document.body) show(); else document.addEventListener('DOMContentLoaded', show, { once: true });
+      };
+      if (typeof liff !== 'undefined') {
+        liff.init({ liffId: '2011462211-WVsuHFk4' }).then(() => {
+          if (orderEntryTarget.origin === location.origin && orderEntryTarget.pathname === '/line') {
+            location.replace(orderEntryTarget.href);
+          } else showEntryError();
+        }).catch(showEntryError);
+      } else showEntryError();
+    }
+  </script>
 
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="css/style.css?v=2.2">

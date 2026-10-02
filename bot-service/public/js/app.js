@@ -12,6 +12,7 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function () {
+  if (window.orderLiffEntry) return;
   // -------------------------------------------------------------------------
   // 0. Direct Deep-Link & LIFF Direct Order Utilities
   // -------------------------------------------------------------------------
