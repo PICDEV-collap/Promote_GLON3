@@ -3275,6 +3275,8 @@
           return;
         }
 
+        const verifiedAccessToken = typeof liff !== 'undefined' && isLiffReady && liff.isLoggedIn() ? liff.getAccessToken() : null;
+        if (!verifiedAccessToken) throw new Error('กรุณาเข้าสู่ระบบ LINE ใหม่เพื่อยืนยันผู้สั่งซื้อ');
         // Send order to bot backend API
         if (currentOrderData !== submittedOrder) return;
         currentOrderData.clientRequestId ||= (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
@@ -3285,7 +3287,7 @@
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            userId: currentUserId,
+            accessToken: verifiedAccessToken,
             clientRequestId: currentOrderData.clientRequestId,
             items: currentOrderData.aggregatedItems,
             command: currentOrderData.orderCommand

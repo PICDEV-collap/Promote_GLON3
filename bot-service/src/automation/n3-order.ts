@@ -7,6 +7,25 @@ import { OrderItem } from '../queue/order-queue';
 import { N3Auth } from './n3-auth';
 
 export class N3OrderService {
+  public static async verifyCartQuantities(page: Page, items: OrderItem[]): Promise<void> {
+    const cart = await page.evaluate(() => {
+      try { return JSON.parse(sessionStorage.getItem('cart-store') || 'null')?.state; }
+      catch { return null; }
+    });
+    if (!cart || !Array.isArray(cart.lottoList)) throw new Error('ไม่สามารถตรวจจำนวนสลากในตะกร้า GLO ได้ จึงยังไม่สร้าง QR');
+    const expected = new Map<string, number>();
+    for (const item of items) expected.set(item.number, (expected.get(item.number) || 0) + item.quantity);
+    const actual = new Map<string, number>();
+    for (const row of cart.lottoList) {
+      if (!Number.isSafeInteger(row.ltQuantity) || row.ltQuantity < 1) throw new Error('จำนวนในตะกร้า GLO ไม่ถูกต้อง');
+      actual.set(row.ltNumber, (actual.get(row.ltNumber) || 0) + row.ltQuantity);
+    }
+    if (actual.size !== expected.size || [...expected].some(([number, quantity]) => actual.get(number) !== quantity)) {
+      throw new Error('รายการหรือจำนวนใบในตะกร้า GLO ไม่ตรงกับคำสั่งซื้อ จึงยังไม่สร้าง QR');
+    }
+    const total = items.reduce((sum, item) => sum + item.quantity, 0);
+    if (cart.totalQuantity !== total) throw new Error('จำนวนใบรวมในตะกร้า GLO ไม่ตรงกับคำสั่งซื้อ จึงยังไม่สร้าง QR');
+  }
   public static async ensureItemQuantity(page: Page, item: OrderItem): Promise<void> {
     const numberPattern = new RegExp(`(?:^|\\D)${item.number.split('').join('\\s*')}(?:\\D|$)`);
     const card = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
@@ -384,12 +403,9 @@ export class N3OrderService {
         };
       }
 
-      const hasMultiQty = fulfilledItems.some(it => it.quantity > 1);
-      if (hasMultiQty) {
-        for (const item of fulfilledItems) {
-          if (item.quantity > 1) await this.ensureItemQuantity(page, item);
-        }
-      }
+      // Search controls only represent the last number. Audit the complete cart
+      // without touching quantities or looking up previous search cards again.
+      await this.verifyCartQuantities(page, fulfilledItems);
 
       // 2. กดปุ่ม "ตรวจสอบสลากฯ" (cw.COMMON_CEHCK_LOTTO_BUTTON) รวมทุกรายการในตะกร้า
       if (onProgress) {

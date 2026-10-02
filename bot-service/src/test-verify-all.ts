@@ -1796,7 +1796,7 @@ async function runTests() {
     assert(customerDelivery.includes("task.customerDeliveryChannel === 'web-polling'"));
   });
 
-  test('Order API: Rich Menu web orders need no LIFF login and restrict the order origin', () => {
+  test('Order API: Rich Menu orders submit verified LINE identity and restrict the order origin', () => {
     const source = fs.readFileSync(path.join(__dirname, 'index.ts'), 'utf-8');
     const routeStart = source.indexOf("app.post('/api/order-direct'");
     const routeEnd = source.indexOf('let context:', routeStart);
@@ -1811,9 +1811,9 @@ async function runTests() {
     assert(orderRoute.includes('applyDirectOrderCors(req, res)'), 'Direct orders must validate the request origin');
     assert(orderRoute.includes('direct-order-hour:'), 'Anonymous direct orders must be rate limited');
     assert(orderRoute.includes('randomUUID()'), 'Polling IDs must be unguessable');
-    assert(!/liff/i.test(page), 'The Rich Menu order page must not load or call LIFF');
+    assert(page.includes('getVerifiedOrderToken'), 'Rich Menu orders must verify LINE identity');
     assert(page.includes("fetch('/api/order-direct'"), 'Confirming the order must call the direct web order API');
-    assert(!page.includes('accessToken:'), 'The Rich Menu order page must not require a LINE access token');
+    assert(page.includes('accessToken: verifiedAccessToken'), 'Orders must send the verified LINE token');
   });
 
   test('LineReplyHandler: getQuotaStatus and isPushAvailable support Telemetry & Fallback', async () => {

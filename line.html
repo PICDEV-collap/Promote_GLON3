@@ -1626,6 +1626,7 @@
   </div>
 
   <!-- Application Scripts -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="js/image-saver.js?v=2.2"></script>
   <script>
     // Configuration
@@ -2766,6 +2767,22 @@
       showToast('กรุณาเปิดแอป "เป๋าตัง" บนโทรศัพท์มือถือ เพื่อสแกน QR Code นี้ครับ', 'info');
     }
 
+    let orderAccountInit;
+    async function getVerifiedOrderToken() {
+      if (typeof liff === 'undefined') throw new Error('ไม่สามารถเชื่อมต่อ LINE ได้ กรุณาโหลดหน้าใหม่');
+      orderAccountInit ||= liff.init({ liffId: '2011462211-WVsuHFk4' }).catch(error => { orderAccountInit = null; throw error; });
+      await orderAccountInit;
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return null;
+      }
+      const token = liff.getAccessToken();
+      if (!token) throw new Error('ไม่พบข้อมูลยืนยันบัญชี LINE กรุณาเข้าสู่ระบบใหม่');
+      return token;
+    }
+    // Sign in before editing so an authentication redirect never loses a bill.
+    getVerifiedOrderToken().catch(() => {});
+
     // Execute direct order against bot-service backend
     async function executeDirectOrder() {
       const submittedOrder = currentOrderData;
@@ -2864,6 +2881,8 @@
       }, 300);
 
       try {
+        const verifiedAccessToken = await getVerifiedOrderToken();
+        if (!verifiedAccessToken) return;
         if (currentOrderData !== submittedOrder) return;
         currentOrderData.clientRequestId ||= (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
         const response = await fetch('/api/order-direct', {
@@ -2873,6 +2892,7 @@
             'Accept': 'application/json'
           },
           body: JSON.stringify({
+            accessToken: verifiedAccessToken,
             clientRequestId: currentOrderData.clientRequestId,
             items: currentOrderData.aggregatedItems,
             command: currentOrderData.orderCommand
