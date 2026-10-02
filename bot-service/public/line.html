@@ -99,29 +99,10 @@
     .header-bar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       margin-bottom: 1rem;
       padding-bottom: 0.75rem;
       border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .btn-back-home {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.85rem;
-      padding: 0.45rem 0.85rem;
-      border-radius: var(--radius-sm);
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-subtle);
-      transition: all 0.2s ease;
-    }
-
-    .btn-back-home:hover {
-      color: var(--color-gold-light);
-      border-color: var(--border-gold);
     }
 
     .shop-brand {
@@ -1227,9 +1208,6 @@
   <div class="container">
     <!-- Top Navigation Bar -->
     <div class="header-bar">
-      <a href="index.html" class="btn-back-home">
-        <i class="fas fa-arrow-left"></i> กลับหน้าแรก
-      </a>
       <span class="shop-badge">
         <i class="fas fa-shield-alt"></i> สลากถูกกฎหมาย 100%
       </span>
@@ -3162,14 +3140,6 @@
     let hasPushedInitialState = false;
 
     function setupMobileBackInterceptor() {
-      const backNavBtn = document.querySelector('.btn-back-home');
-      if (backNavBtn) {
-        backNavBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          handleExitOrBack();
-        });
-      }
-
       if (hasPushedInitialState) return;
       try {
         if (isLineBrowser()) {
