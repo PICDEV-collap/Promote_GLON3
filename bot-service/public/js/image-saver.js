@@ -314,7 +314,7 @@ const ImageSaver = (function () {
 
     // External browser button handler
     if (btnExternal) {
-      btnExternal.style.display = externalUrl || !/^GLO-N3-Payment-QR-/.test(filename) ? 'inline-flex' : 'none';
+      btnExternal.style.display = /^GLO-N3-Payment-QR-/.test(filename) ? 'none' : 'inline-flex';
       btnExternal.onclick = () => {
         try {
           if (typeof window.SoundEngine !== 'undefined' && window.SoundEngine.playClick) {
@@ -443,39 +443,6 @@ const ImageSaver = (function () {
   /**
    * Top Smart Bar for LINE Users
    */
-  function initLineBanner() {
-    if (!isLineWebview()) return;
-    if (document.getElementById('line-external-bar')) return;
-
-    const bar = document.createElement('div');
-    bar.id = 'line-external-bar';
-    bar.className = 'line-external-bar';
-    bar.innerHTML = `
-      <div class="line-external-content">
-        <i class="fab fa-line" style="font-size: 1.1rem; color: #fff;"></i>
-        <span>เปิดบน <strong>Chrome / Safari</strong> เพื่อบันทึกภาพลงเครื่องได้สะดวก</span>
-      </div>
-      <button type="button" class="btn-line-open-ext" onclick="ImageSaver.openInExternalBrowser()">
-        เปิดในเบราว์เซอร์ <i class="fas fa-external-link-alt"></i>
-      </button>
-    `;
-
-    if (document.body) {
-      document.body.prepend(bar);
-    } else {
-      document.addEventListener('DOMContentLoaded', () => document.body.prepend(bar));
-    }
-  }
-
-  // Auto initialize LINE smart bar on page ready
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initLineBanner);
-    } else {
-      initLineBanner();
-    }
-  }
-
   return {
     isMobile,
     isLineWebview,

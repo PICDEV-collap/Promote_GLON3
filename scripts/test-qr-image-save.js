@@ -34,6 +34,7 @@ test('Android LINE opens an image sheet without a blocked download or false succ
   await context.window.ImageSaver.saveImage(options);
   assert.equal(element('image-saver-img').src, options.dataUrl);
   assert.equal(element('btn-image-saver-dl').style.display, 'none');
+  assert.equal(element('btn-image-saver-external').style.display, 'none');
   assert.equal(calls.download, 0);
   await element('btn-image-saver-share').onclick();
   assert.equal(calls.download, 0);
@@ -65,7 +66,7 @@ test('all order pages use the same image saver and clear the download URL on exi
     assert.equal(html, fs.readFileSync('bot-service/public/' + name, 'utf8'));
     assert.match(html, /externalUrl: window.currentQrDownloadUrl/);
     assert.match(html, /window.currentQrDownloadUrl = null/);
-    assert.match(html, /image-saver.js\?v=2.3/);
+    assert.match(html, /image-saver.js\?v=2.4/);
   }
   assert.equal(fs.readFileSync('js/image-saver.js', 'utf8'), fs.readFileSync('bot-service/public/js/image-saver.js', 'utf8'));
 });
