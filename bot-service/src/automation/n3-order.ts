@@ -75,11 +75,6 @@ export class N3OrderService {
       const items: OrderItem[] = Array.isArray(lotteryNumberOrItems)
         ? lotteryNumberOrItems
         : [{ number: lotteryNumberOrItems, quantity }];
-      const requestedTotal = items.reduce((sum, item) => sum + item.quantity, 0);
-      if (requestedTotal > 100) {
-        return { success: false, error: `GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${requestedTotal} ใบ กรุณาแบ่งคำสั่งซื้อ` };
-      }
-
       const fulfilledItems: OrderItem[] = [];
       const outOfStockItems: string[] = [];
 
