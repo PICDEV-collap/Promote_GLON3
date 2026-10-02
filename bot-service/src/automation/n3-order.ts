@@ -2,10 +2,15 @@ import { Page, Locator } from 'playwright';
 import { CONFIG } from '../config';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 import { OrderItem } from '../queue/order-queue';
 import { N3Auth } from './n3-auth';
 
 export class N3OrderService {
+  public static createPaymentQrFileName(): string {
+    // Listing every number exceeds Windows filename limits for large orders.
+    return `payment-${randomUUID()}.png`;
+  }
   public static async checkCartLimitModal(page: Page): Promise<void> {
     const modal = page.locator('div.fixed, [role="dialog"], .modal').filter({ hasText: /สูงสุด\s*100\s*ใบ/ }).first();
     if (await modal.isVisible().catch(() => false)) {
@@ -538,8 +543,7 @@ export class N3OrderService {
       await page.waitForTimeout(100); // รอรูป QR Canvas โหลดสมบูรณ์
 
       // 7. ดึงภาพ QR Code ชำระเงิน คมชัดระดับ Retina HD 800x800px ตัดเฉพาะกรอบ QR Code จัตุรัส 1:1 พร้อม Quiet Zone นิรภัย
-      const fileSummary = fulfilledItems.map(i => i.number).join('-');
-      const qrFileName = `payment-${fileSummary}-${Date.now()}.png`;
+      const qrFileName = this.createPaymentQrFileName();
       const qrFilePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
       console.log('[N3 ORDER STEP 7] กำลังดึงภาพ QR Code ชำระเงิน (ความละเอียดสูงระดับ HD 800x800px จัตุรัส 1:1 พร้อม Quiet Zone)...');
