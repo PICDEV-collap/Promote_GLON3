@@ -1075,6 +1075,24 @@
       color: var(--color-emerald-light);
       margin-top: 0.15rem;
     }
+    /* Keep quantity controls inside equal-width cards on small screens. */
+    #preview-card .permutations-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.55rem; align-items: start; }
+    #preview-card .permutations-header > span:first-child { line-height: 1.5; }
+    #perm-count-label { justify-self: start; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 8px; background: rgba(212,175,55,0.1); }
+    .perm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+    .perm-card { min-width: 0; padding: 0.85rem 0.65rem; display: flex; flex-direction: column; gap: 0.35rem; }
+    .perm-badge { min-height: 1.3rem; line-height: 1.5; }
+    .perm-qty { display: grid; grid-template-columns: minmax(28px,1fr) minmax(32px,1.2fr) minmax(28px,1fr); gap: 4px; margin-top: 0.4rem; width: 100%; }
+    .perm-qty button, .perm-qty input { width: 100%; min-width: 0; height: 40px; margin: 0; box-sizing: border-box; font-size: 16px; border-radius: 8px; }
+    .perm-qty button { cursor: pointer; font-weight: 700; }
+    .perm-qty input { appearance: textfield; -moz-appearance: textfield; }
+    .perm-qty input::-webkit-inner-spin-button, .perm-qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    @media (max-width: 480px) {
+      .perm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+      .perm-num { font-size: 1.65rem; }
+      .perm-badge { font-size: 0.8rem; }
+    }
+
     .stepper-box {
       display: flex;
       align-items: center;
