@@ -1055,6 +1055,9 @@
       text-align: center;
       position: relative;
     }
+    .perm-card { cursor: pointer; font-family: inherit; width: 100%; }
+    .perm-card.unselected { opacity: 0.55; border-color: var(--border-subtle); }
+    .btn-submit-order:disabled { opacity: 0.45; cursor: not-allowed; }
     .perm-num {
       font-family: var(--font-heading);
       font-size: 1.4rem;
@@ -1359,7 +1362,7 @@
     <div id="view-6pack">
       <!-- Hero Banner -->
       <div class="hero-card">
-        <div class="hero-title"><i class="fa-solid fa-bullseye"></i> สูตรเลขชุด 6 กลับ (คอมโบ 3 รางวัล)</div>
+        <div class="hero-title"><i class="fa-solid fa-bullseye"></i> สูตรเลขกลับ (เลือกได้อิสระ)</div>
         <div class="hero-subtitle">เลือก 3 เลขไม่ซ้ำ • สลับตำแหน่งให้อัตโนมัติครบ 6 ประตู (ชุดละ 120 บาท)</div>
         <div class="hero-payout-box">
           <div class="payout-item">
@@ -1382,7 +1385,7 @@
       <!-- Section 1: 3-Digit Picker -->
       <div class="card-6pack">
         <div class="card-title">
-          <span><i class="fa-solid fa-arrow-pointer" style="color: var(--color-gold-light);"></i> 1. เลือกเลขเด่น 3 ตัวไม่ซ้ำกัน</span>
+          <span><i class="fa-solid fa-arrow-pointer" style="color: var(--color-gold-light);"></i> 1. เลือกเลขเด่น 3 ตัวที่ต้องการ</span>
           <span style="font-size: 0.78rem; color: var(--text-secondary);" id="digit-step-label">เลือกตำแหน่งที่ 1</span>
         </div>
 
@@ -1418,7 +1421,7 @@
       <!-- Section 2: Generated 6-Permutations Preview -->
       <div class="card-6pack" id="preview-card" style="display: none;">
         <div class="permutations-header">
-          <span><i class="fa-solid fa-layer-group" style="color: var(--color-emerald-light);"></i> รายการสลาก 6 กลับที่จะได้รับ</span>
+          <span><i class="fa-solid fa-layer-group" style="color: var(--color-emerald-light);"></i> เลขกลับที่ต้องการ (แตะเพื่อเลือก)</span>
           <span style="color: var(--color-gold-light); font-weight: 700;" id="perm-count-label">6 ใบ (120 บาท)</span>
         </div>
 
@@ -1431,7 +1434,7 @@
           <span class="stepper-label">จำนวนชุดของเลขนี้:</span>
           <div class="stepper-ctrl">
             <button class="step-btn" onclick="adjustSetQty(-1)"><i class="fa-solid fa-minus"></i></button>
-            <span class="step-val" id="set-qty-val">1</span>
+            <input type="number" min="1" value="1" class="step-val" id="set-qty-val" aria-label="จำนวนชุดของเลขนี้" onchange="setSetQuantity(this.value)" style="width:4rem;background:transparent;border:1px solid var(--border-gold);border-radius:8px;padding:0.3rem;">
             <button class="step-btn" onclick="adjustSetQty(1)"><i class="fa-solid fa-plus"></i></button>
           </div>
         </div>
@@ -1459,7 +1462,7 @@
           <span>ยอดรวมสลาก 6 กลับทั้งหมด:</span>
           <span class="summary-val-emerald" id="grand-total-qty" style="font-size: 1.15rem;">0 ใบ (0 บาท)</span>
         </div>
-        <button type="button" class="btn-submit-order" style="margin-top: 0.75rem;" onclick="submitSixPackOrder()">
+        <button type="button" class="btn-submit-order" style="margin-top: 0.75rem;" id="btn-submit-sixpack" onclick="submitSixPackOrder()">
           <i class="fas fa-shopping-cart"></i> 🛒 สั่งซื้อสลาก
         </button>
         <div class="paotang-alert" style="margin-top: 0.75rem; margin-bottom: 0;">
@@ -1757,6 +1760,8 @@
 
     // Keep the limit visible while the customer edits the order.
     function updateSelectionLimit(total, anchor, warningId) {
+      const submit = document.getElementById(warningId === 'normal-selection-limit' ? 'btn-submit-order' : 'btn-submit-sixpack');
+      if (submit) submit.disabled = total > 100;
       if (!anchor) return;
       let warning = document.getElementById(warningId);
       if (!warning) {
@@ -1767,7 +1772,7 @@
         warning.style.cssText = 'margin:0.75rem 0;font-size:0.95rem;font-weight:600;line-height:1.5;';
         anchor.parentElement.insertAdjacentElement('afterend', warning);
       }
-      warning.hidden = total < 100;
+      warning.hidden = total <= 100;
       warning.style.color = total > 100 ? '#fca5a5' : '#fcd34d';
       warning.textContent = total > 100
         ? `เลือกแล้ว ${total} เลข เกินกำหนด 100 เลข กรุณาลดอย่างน้อย ${total - 100} เลขก่อนสั่งซื้อ`
@@ -2176,6 +2181,41 @@
     let selectedDigits = ['', '', ''];
     let currentSetQty = 1;
     let addedSets = [];
+    let permutationKey = '';
+    let excludedPermutations = new Set();
+
+    function getSelectedPermutations() {
+      if (selectedDigits.includes('')) {
+        permutationKey = '';
+        excludedPermutations.clear();
+        return [];
+      }
+      const key = selectedDigits.join('');
+      if (key !== permutationKey) {
+        permutationKey = key;
+        excludedPermutations.clear();
+      }
+      return Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))))
+        .filter(number => !excludedPermutations.has(number));
+    }
+
+    function togglePermutation(number) {
+      getSelectedPermutations();
+      if (excludedPermutations.has(number)) excludedPermutations.delete(number);
+      else excludedPermutations.add(number);
+      checkAndGeneratePermutations();
+    }
+
+    function setSetQuantity(value) {
+      const quantity = Number(toArabicDigits(value));
+      if (!Number.isSafeInteger(quantity) || quantity < 1) {
+        showToast('กรุณาระบุจำนวนชุดเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป', 'error');
+        document.getElementById('set-qty-val').value = currentSetQty;
+        return;
+      }
+      currentSetQty = quantity;
+      checkAndGeneratePermutations();
+    }
 
     function setActiveBox(idx) {
       activeBoxIndex = idx;
@@ -2205,26 +2245,12 @@
         }
       }
 
-      const keyBtns = document.querySelectorAll('.key-btn');
-      keyBtns.forEach(btn => {
-        const numStr = btn.innerText.trim();
-        if (selectedDigits.includes(numStr) && selectedDigits[activeBoxIndex] !== numStr) {
-          btn.classList.add('disabled');
-        } else {
-          btn.classList.remove('disabled');
-        }
-      });
-
+      document.querySelectorAll('.key-btn').forEach(btn => btn.classList.remove('disabled'));
       checkAndGeneratePermutations();
     }
 
     function pressDigit(num) {
       const numStr = String(num);
-
-      if (selectedDigits.includes(numStr) && selectedDigits[activeBoxIndex] !== numStr) {
-        showToast(`เลข ${numStr} ถูกเลือกไปแล้วครับ (สูตร 6 กลับต้องใช้ 3 ตัวไม่ซ้ำกัน)`, 'info');
-        return;
-      }
 
       selectedDigits[activeBoxIndex] = numStr;
 
@@ -2240,7 +2266,7 @@
       activeBoxIndex = 0;
       currentSetQty = 1;
       const setValElem = document.getElementById('set-qty-val');
-      if (setValElem) setValElem.innerText = '1';
+      if (setValElem) setValElem.value = '1';
       const prevElem = document.getElementById('preview-card');
       if (prevElem) prevElem.style.display = 'none';
       updateDigitDisplay();
@@ -2257,7 +2283,7 @@
       activeBoxIndex = 2;
       currentSetQty = 1;
       const setValElem = document.getElementById('set-qty-val');
-      if (setValElem) setValElem.innerText = '1';
+      if (setValElem) setValElem.value = '1';
       updateDigitDisplay();
     }
 
@@ -2280,6 +2306,7 @@
       if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
         const perms = getPermutations(selectedDigits).map(p => p.join(''));
         const uniquePerms = Array.from(new Set(perms));
+        getSelectedPermutations();
 
         renderPermutationPreview(uniquePerms);
         if (prevElem) prevElem.style.display = 'block';
@@ -2295,16 +2322,21 @@
       container.innerHTML = '';
 
       perms.forEach((numStr) => {
-        const card = document.createElement('div');
-        card.className = 'perm-card';
+        const card = document.createElement('button');
+        const chosen = !excludedPermutations.has(numStr);
+        card.type = 'button';
+        card.className = chosen ? 'perm-card' : 'perm-card unselected';
+        card.setAttribute('aria-pressed', String(chosen));
+        card.setAttribute('aria-label', 'เลข ' + numStr);
+        card.addEventListener('click', () => togglePermutation(numStr));
         card.innerHTML = `
           <div class="perm-num">${numStr}</div>
-          <div class="perm-badge">${currentSetQty} ใบ (${currentSetQty * 20} บ.)</div>
+          <div class="perm-badge">${chosen ? currentSetQty + ' ใบ (' + currentSetQty * 20 + ' บ.)' : 'ไม่เลือก'}</div>
         `;
         container.appendChild(card);
       });
 
-      const totalItems = perms.length * currentSetQty;
+      const totalItems = getSelectedPermutations().length * currentSetQty;
       const totalPrice = totalItems * 20;
       const labelElem = document.getElementById('perm-count-label');
       if (labelElem) labelElem.innerText = `${totalItems} ใบ (${totalPrice.toLocaleString()} บาท)`;
@@ -2313,14 +2345,18 @@
     function adjustSetQty(delta) {
       currentSetQty = Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, currentSetQty + delta));
       const setValElem = document.getElementById('set-qty-val');
-      if (setValElem) setValElem.innerText = currentSetQty;
+      if (setValElem) setValElem.value = currentSetQty;
       checkAndGeneratePermutations();
     }
 
     function addCurrentSetToList() {
       if (selectedDigits.includes('')) return;
 
-      const perms = Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))));
+      const perms = getSelectedPermutations();
+      if (perms.length === 0) {
+        showToast('กรุณาเลือกเลขกลับอย่างน้อย 1 เลข', 'error');
+        return;
+      }
       addedSets.push({
         digits: [...selectedDigits],
         perms: perms,
@@ -2376,7 +2412,7 @@
     function updateGrandTotal() {
       let pendingQty = 0;
       if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
-        const perms = Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))));
+        const perms = getSelectedPermutations();
         pendingQty = perms.length * currentSetQty;
       }
 
@@ -2392,7 +2428,7 @@
       if (grandElem) grandElem.innerText = `${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
       const selectedNumbers = new Set(addedSets.flatMap(set => set.perms));
       if (!selectedDigits.includes('')) {
-        getPermutations(selectedDigits).forEach(digits => selectedNumbers.add(digits.join('')));
+        getSelectedPermutations().forEach(number => selectedNumbers.add(number));
       }
       updateSelectionLimit(selectedNumbers.size, grandElem, 'sixpack-selection-limit');
     }
@@ -2972,7 +3008,7 @@
       let finalItems = [];
 
       if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
-        const perms = Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))));
+        const perms = getSelectedPermutations();
         perms.forEach(num => {
           finalItems.push({ number: num, quantity: currentSetQty });
         });
@@ -3037,13 +3073,12 @@
       if (is6Pack) {
         if (singleNum && /^\d{3}$/.test(singleNum.trim())) {
           const digits = singleNum.trim().split('');
-          const uniqueDigits = new Set(digits);
-          if (uniqueDigits.size === 3) {
+          if (digits.length === 3) {
             selectedDigits = digits;
             activeBoxIndex = 2;
             currentSetQty = Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, singleQty));
             const setValElem = document.getElementById('set-qty-val');
-            if (setValElem) setValElem.innerText = currentSetQty;
+            if (setValElem) setValElem.value = currentSetQty;
             updateDigitDisplay();
             showToast(`นำเข้าสูตร 6 กลับเลข ${singleNum} (${currentSetQty} ชุด) แล้ว`, 'success');
             return;
@@ -3056,7 +3091,7 @@
             const m = p.trim().match(/^(\d{3})(?:[:=xX\-]?(\d+))?$/);
             if (m) {
               const digits = m[1].split('');
-              if (new Set(digits).size === 3) {
+              if (digits.length === 3) {
                 const qty = parseInt(m[2] || '1', 10);
                 const perms = Array.from(new Set(getPermutations(digits).map(x => x.join(''))));
                 parsedSets.push({
