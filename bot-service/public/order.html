@@ -3759,18 +3759,14 @@
 
     function handleExitOrBack() {
       clearOrderBrowserData();
-      if (isLineBrowser() && typeof liff !== 'undefined') {
-        try { liff.closeWindow(); } catch (_) {}
+      if (typeof liff !== 'undefined') {
+        try {
+          if (liff.isInClient()) { liff.closeWindow(); return; }
+        } catch (_) {}
       }
-      if (window.opener || isLineBrowser()) {
-        try { window.close(); } catch (_) {}
-      }
-      // A normal browser tab may refuse close(); navigation still leaves a clean page.
-      setTimeout(() => {
-        if (window.closed) return;
-        if (window.history.length > 1) window.history.back();
-        else window.location.replace('./');
-      }, 100);
+      // Universal LINE link opens the shop chat; replacing avoids returning
+      // to the order page through this exit action.
+      window.location.replace('https://line.me/R/oaMessage/%40586xxhlx/');
     }
 
     // Start Page

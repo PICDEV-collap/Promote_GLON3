@@ -3,13 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { chromium } = require('../bot-service/node_modules/playwright');
 
-test('Done and Back clear order data and QR without skipping browser history', async () => {
+test('Done returns to LINE and Back clears order data without skipping history', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     for (const file of ['order.html', 'order-6pack.html', 'line.html', 'bot-service/public/order.html', 'bot-service/public/order-6pack.html', 'bot-service/public/line.html']) {
       const page = await browser.newPage();
       await page.route('**/*', route => {
         const url = new URL(route.request().url());
+        if (url.hostname === 'line.me') return route.fulfill({ contentType: 'text/html', body: '<h1>LINE chat</h1>' });
         if (url.hostname !== 'order.test') return route.abort();
         return route.fulfill({ contentType: 'text/html', body: url.pathname === '/order' ? fs.readFileSync(file, 'utf8') : '<h1>Previous page</h1>' });
       });
@@ -33,9 +34,7 @@ test('Done and Back clear order data and QR without skipping browser history', a
         btnModalClose.textContent = 'เสร็จสิ้น / ออกจากหน้านี้';
       });
       await page.locator('#btn-modal-close').click();
-      await page.waitForURL('http://order.test/home');
-      await page.goForward();
-      assert.equal(await page.evaluate(() => rowsData[0].number), '', 'Forward must not restore imported lottery data');
+      await page.waitForURL('https://line.me/R/oaMessage/%40586xxhlx/');
       await page.goto('http://order.test/middle');
       await page.goto('http://order.test/order');
       await page.goBack();
