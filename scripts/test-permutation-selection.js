@@ -22,24 +22,29 @@ test('all order pages disable excess-number confirmation and preserve chosen per
         switchOrderMode('6pack', false);
         selectedDigits = ['9', '4', '3']; updateDigitDisplay();
       });
-      assert.equal(await page.locator('.perm-card[aria-pressed="true"]').count(), 6);
+      assert.equal(await page.locator('.perm-select[aria-pressed="true"]').count(), 6);
       await page.getByRole('button', { name: 'เลข 943', exact: true }).click();
       await page.getByRole('button', { name: 'เลข 934', exact: true }).click();
-      assert.equal(await page.locator('.perm-card[aria-pressed="true"]').count(), 4);
-      await page.locator('#set-qty-val').fill('25');
-      await page.locator('#set-qty-val').dispatchEvent('change');
-      assert.equal(await page.locator('.perm-card[aria-pressed="true"]').count(), 4);
+      assert.equal(await page.locator('.perm-select[aria-pressed="true"]').count(), 4);
+      await page.evaluate(() => setSetQuantity(25));
+      assert.equal(await page.locator('.perm-select[aria-pressed="true"]').count(), 4);
       assert.match(await page.locator('#grand-total-qty').textContent(), /100 ใบ/);
+      await page.getByRole('spinbutton', { name: 'จำนวนใบเลข 493', exact: true }).fill('2');
+      await page.getByRole('spinbutton', { name: 'จำนวนใบเลข 439', exact: true }).fill('5');
+      await page.getByRole('button', { name: 'เพิ่มจำนวนเลข 493', exact: true }).click();
+      assert.match(await page.locator('#grand-total-qty').textContent(), /58 ใบ/);
       await page.evaluate(() => addCurrentSetToList());
       const saved = await page.evaluate(() => addedSets[0]);
       assert.equal(saved.perms.length, 4);
       assert.equal(saved.qty, 25);
+      assert.equal(saved.quantities['493'], 3);
+      assert.equal(saved.quantities['439'], 5);
       assert.equal(saved.perms.includes('943'), false);
       await page.evaluate(() => {
         dispatchAggregatedOrder = (command, items) => { window.testCheckout = items; };
         submitSixPackOrder();
       });
-      assert.deepEqual(await page.evaluate(() => window.testCheckout), saved.perms.map(number => ({ number, quantity: 25 })));
+      assert.deepEqual(await page.evaluate(() => window.testCheckout), saved.perms.map(number => ({ number, quantity: saved.quantities[number] })));
       await page.evaluate(() => {
         addedSets = [{ digits: ['0','0','0'], perms: Array.from({ length: 101 }, (_, i) => String(i).padStart(3,'0')), qty: 1 }];
         updateGrandTotal();
@@ -47,7 +52,7 @@ test('all order pages disable excess-number confirmation and preserve chosen per
       assert.equal(await page.locator('#btn-submit-sixpack').isDisabled(), true);
       await page.evaluate(() => { addedSets = []; selectedDigits = ['0','0','1']; updateDigitDisplay(); });
       assert.equal(await page.locator('#btn-submit-sixpack').isDisabled(), false);
-      assert.equal(await page.locator('.perm-card[aria-pressed="true"]').count(), 3);
+      assert.equal(await page.locator('.perm-select[aria-pressed="true"]').count(), 3);
       assert.deepEqual(await page.evaluate(() => getSelectedPermutations()), ['001', '010', '100']);
       await page.close();
     }

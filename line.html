@@ -1058,6 +1058,11 @@
     .perm-card { cursor: pointer; font-family: inherit; width: 100%; }
     .perm-card.unselected { opacity: 0.55; border-color: var(--border-subtle); }
     .btn-submit-order:disabled { opacity: 0.45; cursor: not-allowed; }
+    .perm-select { background: transparent; border: none; width: 100%; cursor: pointer; padding: 0; }
+    .perm-qty { display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: 8px; }
+    .perm-qty button { background: var(--bg-card-alt); color: var(--color-gold-light); border: 1px solid var(--border-gold); border-radius: 6px; width: 25px; height: 32px; }
+    .perm-qty input { width: 36px; min-width: 0; padding: 4px 0; text-align: center; background: transparent; color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px; }
+    .perm-qty button:disabled { opacity: 0.4; }
     .perm-num {
       font-family: var(--font-heading);
       font-size: 1.4rem;
@@ -1429,15 +1434,7 @@
           <!-- 6 Permutation Cards rendered via JS -->
         </div>
 
-        <!-- Quantity Stepper for this set -->
-        <div class="stepper-box">
-          <span class="stepper-label">จำนวนชุดของเลขนี้:</span>
-          <div class="stepper-ctrl">
-            <button class="step-btn" onclick="adjustSetQty(-1)"><i class="fa-solid fa-minus"></i></button>
-            <input type="number" min="1" value="1" class="step-val" id="set-qty-val" aria-label="จำนวนชุดของเลขนี้" onchange="setSetQuantity(this.value)" style="width:4rem;background:transparent;border:1px solid var(--border-gold);border-radius:8px;padding:0.3rem;">
-            <button class="step-btn" onclick="adjustSetQty(1)"><i class="fa-solid fa-plus"></i></button>
-          </div>
-        </div>
+        <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:1rem;">ปรับจำนวนใบแต่ละเลขได้ด้วยปุ่ม + / − หรือกรอกจำนวนโดยตรง</p>
 
         <button class="btn-submit-order" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); margin-top: 0.5rem;" onclick="addCurrentSetToList()">
           <i class="fa-solid fa-plus-circle"></i> บันทึกชุดนี้เข้าบิล
@@ -2183,17 +2180,53 @@
     let addedSets = [];
     let permutationKey = '';
     let excludedPermutations = new Set();
+    let permutationQuantities = {};
+
+    function getPermutationQuantity(number) {
+      return permutationQuantities[number] ?? currentSetQty;
+    }
+
+    function getSavedQuantity(set, number) {
+      return set.quantities?.[number] ?? set.qty;
+    }
+
+    function setPermutationQuantity(number, value, render = true) {
+      const quantity = Number(toArabicDigits(value));
+      if (!Number.isSafeInteger(quantity) || quantity < 1) {
+        if (!render) return;
+        showToast('กรุณาระบุจำนวนใบเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป', 'error');
+        checkAndGeneratePermutations();
+        return;
+      }
+      if (quantity === getPermutationQuantity(number)) return;
+      permutationQuantities[number] = quantity;
+      if (render) checkAndGeneratePermutations();
+      else {
+        const badge = document.querySelector(`[data-permutation="${number}"] .perm-badge`);
+        if (badge) badge.textContent = `${quantity} ใบ (${quantity * 20} บ.)`;
+        const total = getSelectedPermutations().reduce((sum, num) => sum + getPermutationQuantity(num), 0);
+        const label = document.getElementById('perm-count-label');
+        if (label) label.textContent = `${total} ใบ (${(total * 20).toLocaleString()} บาท)`;
+        updateGrandTotal();
+      }
+    }
+
+    function adjustPermutationQuantity(number, delta) {
+      setPermutationQuantity(number, Math.max(1, getPermutationQuantity(number) + delta));
+    }
 
     function getSelectedPermutations() {
       if (selectedDigits.includes('')) {
         permutationKey = '';
         excludedPermutations.clear();
+        permutationQuantities = {};
         return [];
       }
       const key = selectedDigits.join('');
       if (key !== permutationKey) {
         permutationKey = key;
         excludedPermutations.clear();
+        permutationQuantities = {};
       }
       return Array.from(new Set(getPermutations(selectedDigits).map(p => p.join(''))))
         .filter(number => !excludedPermutations.has(number));
@@ -2210,10 +2243,13 @@
       const quantity = Number(toArabicDigits(value));
       if (!Number.isSafeInteger(quantity) || quantity < 1) {
         showToast('กรุณาระบุจำนวนชุดเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป', 'error');
-        document.getElementById('set-qty-val').value = currentSetQty;
+        const qtyInput = document.getElementById('set-qty-val');
+        if (qtyInput) qtyInput.value = currentSetQty;
         return;
       }
+      if (quantity === currentSetQty) return;
       currentSetQty = quantity;
+      permutationQuantities = {};
       checkAndGeneratePermutations();
     }
 
@@ -2322,21 +2358,26 @@
       container.innerHTML = '';
 
       perms.forEach((numStr) => {
-        const card = document.createElement('button');
+        const card = document.createElement('div');
         const chosen = !excludedPermutations.has(numStr);
-        card.type = 'button';
+        const quantity = getPermutationQuantity(numStr);
+        card.dataset.permutation = numStr;
         card.className = chosen ? 'perm-card' : 'perm-card unselected';
-        card.setAttribute('aria-pressed', String(chosen));
-        card.setAttribute('aria-label', 'เลข ' + numStr);
-        card.addEventListener('click', () => togglePermutation(numStr));
         card.innerHTML = `
-          <div class="perm-num">${numStr}</div>
-          <div class="perm-badge">${chosen ? currentSetQty + ' ใบ (' + currentSetQty * 20 + ' บ.)' : 'ไม่เลือก'}</div>
+          <button type="button" class="perm-select" aria-pressed="${chosen}" aria-label="เลข ${numStr}" onclick="togglePermutation('${numStr}')">
+            <span class="perm-num">${numStr}</span>
+          </button>
+          <div class="perm-badge">${chosen ? quantity + ' ใบ (' + quantity * 20 + ' บ.)' : 'ไม่เลือก'}</div>
+          <div class="perm-qty">
+            <button type="button" aria-label="ลดจำนวนเลข ${numStr}" onclick="adjustPermutationQuantity('${numStr}', -1)" ${quantity <= 1 || !chosen ? 'disabled' : ''}>−</button>
+            <input type="number" min="1" value="${quantity}" aria-label="จำนวนใบเลข ${numStr}" oninput="setPermutationQuantity('${numStr}', this.value, false)" onchange="setPermutationQuantity('${numStr}', this.value)" ${!chosen ? 'disabled' : ''}>
+            <button type="button" aria-label="เพิ่มจำนวนเลข ${numStr}" onclick="adjustPermutationQuantity('${numStr}', 1)" ${!chosen ? 'disabled' : ''}>+</button>
+          </div>
         `;
         container.appendChild(card);
       });
 
-      const totalItems = getSelectedPermutations().length * currentSetQty;
+      const totalItems = getSelectedPermutations().reduce((sum, number) => sum + getPermutationQuantity(number), 0);
       const totalPrice = totalItems * 20;
       const labelElem = document.getElementById('perm-count-label');
       if (labelElem) labelElem.innerText = `${totalItems} ใบ (${totalPrice.toLocaleString()} บาท)`;
@@ -2344,6 +2385,7 @@
 
     function adjustSetQty(delta) {
       currentSetQty = Math.max(1, Math.min(CONFIG.MAX_QUANTITY_PER_ROW, currentSetQty + delta));
+      permutationQuantities = {};
       const setValElem = document.getElementById('set-qty-val');
       if (setValElem) setValElem.value = currentSetQty;
       checkAndGeneratePermutations();
@@ -2360,7 +2402,8 @@
       addedSets.push({
         digits: [...selectedDigits],
         perms: perms,
-        qty: currentSetQty
+        qty: currentSetQty,
+        quantities: Object.fromEntries(perms.map(number => [number, getPermutationQuantity(number)]))
       });
 
       clearSelectedDigits();
@@ -2393,13 +2436,13 @@
       addedSets.forEach((setObj, idx) => {
         const item = document.createElement('div');
         item.className = 'added-set-item';
-        const totalSetQty = setObj.perms.length * setObj.qty;
+        const totalSetQty = setObj.perms.reduce((sum, number) => sum + getSavedQuantity(setObj, number), 0);
         const totalSetPrice = totalSetQty * 20;
 
         item.innerHTML = `
           <div>
             <div class="set-info-title">ชุดเลข ${setObj.digits.join('-')} (${setObj.perms.length} กลับ)</div>
-            <div class="set-info-sub">${setObj.perms.join(', ')} (อย่างละ ${setObj.qty} ใบ = รวม ${totalSetQty} ใบ / ${totalSetPrice} บ.)</div>
+            <div class="set-info-sub">${setObj.perms.map(number => number + ' (' + getSavedQuantity(setObj, number) + ' ใบ)').join(', ')} รวม ${totalSetQty} ใบ / ${totalSetPrice} บ.</div>
           </div>
           <button class="btn-del-set" onclick="removeSet(${idx})">
             <i class="fa-solid fa-trash-can"></i>
@@ -2413,12 +2456,12 @@
       let pendingQty = 0;
       if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
         const perms = getSelectedPermutations();
-        pendingQty = perms.length * currentSetQty;
+        pendingQty = perms.reduce((sum, number) => sum + getPermutationQuantity(number), 0);
       }
 
       let addedQty = 0;
       addedSets.forEach(s => {
-        addedQty += s.perms.length * s.qty;
+        addedQty += s.perms.reduce((sum, number) => sum + getSavedQuantity(s, number), 0);
       });
 
       const totalQty = pendingQty + addedQty;
@@ -3010,13 +3053,13 @@
       if (selectedDigits[0] !== '' && selectedDigits[1] !== '' && selectedDigits[2] !== '') {
         const perms = getSelectedPermutations();
         perms.forEach(num => {
-          finalItems.push({ number: num, quantity: currentSetQty });
+          finalItems.push({ number: num, quantity: getPermutationQuantity(num) });
         });
       }
 
       addedSets.forEach(s => {
         s.perms.forEach(num => {
-          finalItems.push({ number: num, quantity: s.qty });
+          finalItems.push({ number: num, quantity: getSavedQuantity(s, num) });
         });
       });
 

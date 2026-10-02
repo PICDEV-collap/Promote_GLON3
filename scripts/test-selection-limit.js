@@ -9,7 +9,7 @@ for (const file of ['order.html', 'order-6pack.html', 'line.html', 'bot-service/
     const html = fs.readFileSync(file, 'utf8');
     const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join('\n');
     const ast = ts.createSourceFile(file, scripts, ts.ScriptTarget.Latest, true);
-    const names = ['updateSelectionLimit', 'updateSummary', 'updateGrandTotal', 'getPermutations', 'getSelectedPermutations'];
+    const names = ['updateSelectionLimit', 'updateSummary', 'updateGrandTotal', 'getPermutations', 'getSelectedPermutations', 'getPermutationQuantity', 'getSavedQuantity'];
     const functions = ast.statements.filter(n => ts.isFunctionDeclaration(n) && names.includes(n.name?.text)).map(n => n.getText(ast));
     assert.equal(functions.length, names.length);
     const elements = new Map();
@@ -18,7 +18,7 @@ for (const file of ['order.html', 'order-6pack.html', 'line.html', 'bot-service/
     elements.set('grand-total-qty', element());
     elements.set('btn-submit-order', element());
     elements.set('btn-submit-sixpack', element());
-    const context = vm.createContext({ document: { getElementById: id => elements.get(id), createElement: element }, summaryTickets, summaryItems: element(), summaryTotal: element(), CONFIG: { PRICE_PER_TICKET: 20 }, rowsData: [{ number: '123', quantity: 99 }], selectedDigits: ['1', '2', '3'], currentSetQty: 1, addedSets: [], permutationKey: '', excludedPermutations: new Set() });
+    const context = vm.createContext({ document: { getElementById: id => elements.get(id), createElement: element }, summaryTickets, summaryItems: element(), summaryTotal: element(), CONFIG: { PRICE_PER_TICKET: 20 }, rowsData: [{ number: '123', quantity: 99 }], selectedDigits: ['1', '2', '3'], currentSetQty: 1, addedSets: [], permutationKey: '', excludedPermutations: new Set(), permutationQuantities: {} });
     vm.runInContext(functions.join('\n'), context);
     vm.runInContext('updateSummary()', context);
     const normal = elements.get('normal-selection-limit');
