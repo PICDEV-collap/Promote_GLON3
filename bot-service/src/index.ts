@@ -940,6 +940,10 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   }
 
   const totalQuantity = validItems.reduce((sum, it) => sum + it.quantity, 0);
+  if (totalQuantity > 100) {
+    res.status(400).json({ success: false, error: `GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${totalQuantity} ใบ กรุณาแบ่งคำสั่งซื้อให้ไม่เกิน 100 ใบต่อครั้ง` });
+    return;
+  }
   const totalPrice = totalQuantity * 20;
 
   // 1. ตรวจสอบระเบียบเวลาจำหน่าย
@@ -2151,6 +2155,10 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       const totalQuantity = parsedItems.reduce((sum, it) => sum + it.quantity, 0);
+      if (totalQuantity > 100) {
+        await lineHandler.reply(replyToken, [{ type: 'text', text: `GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${totalQuantity} ใบ กรุณาแบ่งคำสั่งซื้อครับ` }]);
+        continue;
+      }
       const totalPrice = totalQuantity * 20;
       const summaryNumbers = parsedItems.map(i => `${i.number}x${i.quantity}`).join(', ');
       const formattedSummary = parsedItems.map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
