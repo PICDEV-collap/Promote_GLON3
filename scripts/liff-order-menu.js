@@ -6,8 +6,8 @@ function buildOrderMenu(existing, liffId) {
     const action = areas[index].action;
     if (action.type !== 'uri' || !/^https:\/\/(promote-glon-3\.vercel\.app|liff\.line\.me)\//.test(action.uri)) throw Error('Unexpected order menu link; preserving the current menu');
   }
-  areas[0].action = { type: 'uri', uri: `https://liff.line.me/${liffId}` };
-  areas[1].action = { type: 'uri', uri: `https://liff.line.me/${liffId}?mode=6pack` };
+  areas[0].action = { type: 'uri', uri: `https://liff.line.me/${liffId}/line` };
+  areas[1].action = { type: 'uri', uri: `https://liff.line.me/${liffId}/line?mode=6pack` };
   return { size: existing.size, selected: existing.selected, name: 'N3_Thanakit_MainMenu_v8_LIFF', chatBarText: existing.chatBarText, areas };
 }
 module.exports = { buildOrderMenu };

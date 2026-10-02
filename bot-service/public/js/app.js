@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // 0. Direct Deep-Link & LIFF Direct Order Utilities
   // -------------------------------------------------------------------------
   const LIFF_ID = '2011462211-WVsuHFk4';
-  const LIFF_BASE_URL = `https://liff.line.me/${LIFF_ID}`;
+  const LIFF_BASE_URL = `https://liff.line.me/${LIFF_ID}/line`;
   let isLiffReady = false;
 
   async function initIndexLiff() {
@@ -1263,7 +1263,7 @@ document.addEventListener('DOMContentLoaded', function () {
       : (typeof AgentSystem !== 'undefined' && AgentSystem.getAgentInfo ? AgentSystem.getAgentInfo().line : '@586xxhlx');
     const dynamicLineOaId = currentAgentLine || '@586xxhlx';
 
-    const LIFF_BASE_URL = 'https://liff.line.me/2011462211-WVsuHFk4';
+    const LIFF_BASE_URL = 'https://liff.line.me/2011462211-WVsuHFk4/line';
 
     // 3. Setup Primary LINE Order Button (Redirect to LIFF / Direct API)
     const btnOrderLine = document.getElementById('btn-order-dream-line');

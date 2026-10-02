@@ -9,8 +9,8 @@ test('opens orders in LIFF and preserves every other button and the previous men
   ] };
   const before = structuredClone(existing);
   const result = buildOrderMenu(existing, '2011462211-WVsuHFk4');
-  assert.equal(result.areas[0].action.uri, 'https://liff.line.me/2011462211-WVsuHFk4');
-  assert.equal(result.areas[1].action.uri, 'https://liff.line.me/2011462211-WVsuHFk4?mode=6pack');
+  assert.equal(result.areas[0].action.uri, 'https://liff.line.me/2011462211-WVsuHFk4/line');
+  assert.equal(result.areas[1].action.uri, 'https://liff.line.me/2011462211-WVsuHFk4/line?mode=6pack');
   assert.deepEqual(result.areas.slice(2), existing.areas.slice(2));
   assert.deepEqual(existing, before);
   assert.throws(() => buildOrderMenu({ ...existing, areas: [] }, '2011462211-WVsuHFk4'));

@@ -7,13 +7,7 @@
       try {
         var href = window.location.href;
         var ua = navigator.userAgent || '';
-        // If opened inside LINE In-App Browser without openExternalBrowser=1, automatically redirect to native external browser
-        if (/Line\//i.test(ua) && window.location.search.indexOf('openExternalBrowser=1') === -1) {
-          var sep = href.indexOf('?') !== -1 ? '&' : '?';
-          window.location.replace(href + sep + 'openExternalBrowser=1');
-          return;
-        }
-
+        // Keep order pages inside LINE so LIFF can close them.
         var params = new URLSearchParams(window.location.search);
         var is6Pack = false;
 

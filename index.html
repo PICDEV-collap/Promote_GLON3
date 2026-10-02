@@ -8,7 +8,7 @@
         var href = window.location.href;
         var ua = navigator.userAgent || '';
         // If opened inside LINE In-App Browser without openExternalBrowser=1, automatically redirect to native external browser
-        if (/Line\//i.test(ua) && window.location.search.indexOf('openExternalBrowser=1') === -1) {
+        if (/Line\//i.test(ua) && !new URLSearchParams(window.location.search).has('liff.state') && window.location.search.indexOf('openExternalBrowser=1') === -1) {
           var sep = href.indexOf('?') !== -1 ? '&' : '?';
           window.location.replace(href + sep + 'openExternalBrowser=1');
         }
@@ -1105,7 +1105,7 @@
         <button type="button" id="btn-modal-permute" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem; color: var(--color-gold-light);" title="กระจายโต๊ด 6 กลับ">
           <i class="fas fa-sync-alt"></i> กระจายโต๊ด
         </button>
-        <a href="https://liff.line.me/2011462211-WVsuHFk4" target="_blank" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem; color: var(--color-cyan); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.25rem;" title="เปิดตารางสั่งซื้อใน LINE (LIFF)">
+        <a href="https://liff.line.me/2011462211-WVsuHFk4/line" target="_blank" class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 0.5rem; color: var(--color-cyan); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.25rem;" title="เปิดตารางสั่งซื้อใน LINE (LIFF)">
           <i class="fas fa-expand"></i> เต็มจอ (LIFF)
         </a>
       </div>
