@@ -2254,7 +2254,7 @@
         if (badge) badge.textContent = `${quantity} ใบ (${quantity * 20} บ.)`;
         const total = getSelectedPermutations().reduce((sum, num) => sum + getPermutationQuantity(num), 0);
         const label = document.getElementById('perm-count-label');
-        if (label) label.textContent = `${total} ใบ (${(total * 20).toLocaleString()} บาท)`;
+        if (label) label.textContent = `${getSelectedPermutations().length} เลข • ${total} ใบ (${(total * 20).toLocaleString()} บาท)`;
         updateGrandTotal();
       }
     }
@@ -2428,7 +2428,7 @@
       const totalItems = getSelectedPermutations().reduce((sum, number) => sum + getPermutationQuantity(number), 0);
       const totalPrice = totalItems * 20;
       const labelElem = document.getElementById('perm-count-label');
-      if (labelElem) labelElem.innerText = `${totalItems} ใบ (${totalPrice.toLocaleString()} บาท)`;
+      if (labelElem) labelElem.innerText = `${getSelectedPermutations().length} เลข • ${totalItems} ใบ (${totalPrice.toLocaleString()} บาท)`;
     }
 
     function adjustSetQty(delta) {
@@ -2516,11 +2516,12 @@
       const totalPrice = totalQty * 20;
 
       const grandElem = document.getElementById('grand-total-qty');
-      if (grandElem) grandElem.innerText = `${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
+
       const selectedNumbers = new Set(addedSets.flatMap(set => set.perms));
       if (!selectedDigits.includes('')) {
         getSelectedPermutations().forEach(number => selectedNumbers.add(number));
       }
+      if (grandElem) grandElem.innerText = `${selectedNumbers.size} เลข • ${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
       updateSelectionLimit(selectedNumbers.size, grandElem, 'sixpack-selection-limit');
     }
 
