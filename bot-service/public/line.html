@@ -2149,15 +2149,7 @@
     }
 
     // Completed orders are cleared before closing or navigating back.
-    btnModalClose.addEventListener('click', () => {
-      const qrArea = document.getElementById('modal-qr-area');
-      const finished = qrArea && qrArea.style.display !== 'none';
-      if (finished) handleExitOrBack();
-      else {
-        modalConfirm.classList.remove('active');
-        resetModalState();
-      }
-    });
+    btnModalClose.addEventListener('click', handleExitOrBack);
 
     modalConfirm.addEventListener('click', (e) => {
       if (e.target === modalConfirm) {
@@ -3304,9 +3296,10 @@
           if (liff.isInClient()) { liff.closeWindow(); return; }
         } catch (_) {}
       }
-      // Universal LINE link opens the shop chat; replacing avoids returning
-      // to the order page through this exit action.
-      window.location.replace('https://line.me/R/oaMessage/%40586xxhlx/');
+      try { window.close(); } catch (_) {}
+      setTimeout(() => {
+        if (!window.closed) showToast('ล้างข้อมูลแล้ว กรุณาปิดแท็บนี้ด้วยปุ่มของเบราว์เซอร์', 'info');
+      }, 250);
     }
 
     // Start Page

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { chromium } = require('../bot-service/node_modules/playwright');
 
-test('Done returns to LINE and Back clears order data without skipping history', async () => {
+test('Done closes the tab without redirecting and Back clears order data', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     for (const file of ['order.html', 'order-6pack.html', 'line.html', 'bot-service/public/order.html', 'bot-service/public/order-6pack.html', 'bot-service/public/line.html']) {
@@ -33,8 +33,10 @@ test('Done returns to LINE and Back clears order data without skipping history',
         document.getElementById('modal-qr-area').style.display = 'block';
         btnModalClose.textContent = 'เสร็จสิ้น / ออกจากหน้านี้';
       });
+      await page.evaluate(() => { window.close = () => { window.closeRequested = true; }; });
       await page.locator('#btn-modal-close').click();
-      await page.waitForURL('https://line.me/R/oaMessage/%40586xxhlx/');
+      assert.equal(await page.evaluate(() => window.closeRequested), true);
+      assert.equal(new URL(page.url()).pathname, '/order', 'Blocked tab close must not redirect to login or another page');
       await page.goto('http://order.test/middle');
       await page.goto('http://order.test/order');
       await page.goBack();
