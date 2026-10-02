@@ -1622,14 +1622,15 @@
         </div>
 
         <div style="background: rgba(212, 175, 55, 0.15); border: 1.5px solid #d4af37; border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 0.78rem; color: #fef08a; text-align: left; line-height: 1.4;">
-          📸 <b>ขั้นตอนชำระเงิน:</b><br>
-          1. แตะปุ่ม <b>"📥 บันทึกรูปภาพ QR Code"</b> ด้านล่าง หรือแคปหน้าจอ<br>
-          2. เปิดแอป <b>"เป๋าตัง"</b> เข้าเมนู <b>"สแกน"</b> แล้วเลือกรูปภาพ QR เพื่อชำระเงิน
+          <b>วิธีบันทึก QR และชำระเงิน</b>
+          <ol style="margin: 0.5rem 0; padding-left: 1.25rem; line-height: 1.6;">
+            <li style="margin-bottom: 0.4rem;"><b>แตะค้างที่ภาพ QR ด้านบน</b> จนเมนูปรากฏ แล้วเลือก <b>“บันทึกรูปภาพ”</b> หรือ <b>“Save Image”</b> รูปจะอยู่ในแกลเลอรี / แอปรูปภาพของเครื่อง</li>
+            <li style="margin-bottom: 0.4rem;">เปิดแอป <b>“เป๋าตัง”</b> เข้าเมนู <b>“สแกน”</b> แล้วเลือกรูป QR ที่บันทึกไว้จากรูปภาพในเครื่อง</li>
+            <li>ตรวจสอบยอดเงินและยืนยันชำระเงิน <b>ก่อนเวลานับถอยหลังหมด</b></li>
+          </ol>
+          <div style="padding-top: 0.4rem; border-top: 1px solid rgba(212,175,55,0.3);"><b>หากแตะค้างแล้วไม่มีเมนู:</b> ให้แคปหน้าจอ โดยเก็บภาพ QR ให้ครบทั้งสี่มุม แล้วใช้ภาพแคปหน้าจอในขั้นตอนที่ 2<br><b>บันทึกภาพให้เรียบร้อยก่อนกด “เสร็จสิ้น / ออกจากหน้านี้”</b></div>
         </div>
 
-        <button type="button" id="btn-modal-save-qr" class="btn-modal-line" style="width: 100%; margin-top: 8px; cursor: pointer; border: none; font-size: 0.92rem; padding: 0.65rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 700; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);" onclick="downloadModalQr()">
-          <i class="fas fa-download"></i> 📥 บันทึกรูปภาพ QR Code
-        </button>
       </div>
 
       <!-- Action Buttons -->
@@ -3248,7 +3249,7 @@
                   modalTitle.style.marginBottom = '0.2rem';
                 }
                 if (modalDesc) {
-                  modalDesc.textContent = 'แคปหน้าจอหรือแตะค้างที่รูปภาพเพื่อบันทึก แล้วเปิดแอปเป๋าตังเพื่อสแกนจ่ายเงิน';
+                  modalDesc.textContent = 'บันทึกภาพ QR ก่อนออกจากหน้านี้ แล้วชำระเงินตามขั้นตอนด้านล่าง';
                   modalDesc.style.fontSize = '0.8rem';
                   modalDesc.style.marginBottom = '0.4rem';
                 }
