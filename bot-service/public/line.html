@@ -2142,7 +2142,7 @@
       updateGrandTotal();
       try {
         const url = new URL(window.location.href);
-        ['n', 'number', 'q', 'qty', 'order', 'numbers', 'liff.state'].forEach(key => url.searchParams.delete(key));
+        ['n', 'number', 'q', 'qty', 'order', 'numbers'].forEach(key => url.searchParams.delete(key));
         window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
       } catch (_) {}
     }
@@ -3267,8 +3267,8 @@
       window.addEventListener('popstate', () => {
         // Back already moved history once; never skip another page.
         clearOrderBrowserData();
-        if (isLineBrowser() && typeof liff !== 'undefined') {
-          try { liff.closeWindow(); } catch (_) {}
+        if (isLineBrowser()) {
+          try { window.close(); } catch (_) {}
         }
       });
       window.addEventListener('pagehide', clearOrderBrowserData);
@@ -3279,8 +3279,8 @@
 
     function handleExitOrBack() {
       clearOrderBrowserData();
-      if (isLineBrowser() && typeof liff !== 'undefined') {
-        try { liff.closeWindow(); } catch (_) {}
+      if (isLineBrowser()) {
+        try { window.close(); } catch (_) {}
       }
       if (window.opener || isLineBrowser()) {
         try { window.close(); } catch (_) {}

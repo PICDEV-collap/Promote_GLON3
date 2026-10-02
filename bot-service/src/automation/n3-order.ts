@@ -7,6 +7,40 @@ import { OrderItem } from '../queue/order-queue';
 import { N3Auth } from './n3-auth';
 
 export class N3OrderService {
+  public static async ensureItemQuantity(page: Page, item: OrderItem): Promise<void> {
+    const numberPattern = new RegExp(`(?:^|\\D)${item.number.split('').join('\\s*')}(?:\\D|$)`);
+    const card = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
+      .filter({ hasText: numberPattern })
+      .filter({ has: page.locator('img[src*="plus-icon"]') }).last();
+    const input = card.locator('input[type="number"]').first();
+    await input.waitFor({ state: 'visible', timeout: 4000 });
+    const maximum = Number(await input.getAttribute('max'));
+    if (maximum > 0 && item.quantity > maximum) {
+      throw new Error(`สลากเลข ${item.number} ระบบ GLO ให้เลือกได้สูงสุด ${maximum} ใบ แต่ขอ ${item.quantity} ใบ กรุณาปรับจำนวน`);
+    }
+    const readQuantity = async () => Number(await input.inputValue());
+    let actual = await readQuantity();
+    if (actual === item.quantity) return;
+    await input.fill(String(item.quantity)).catch(() => {});
+    await input.dispatchEvent('change');
+    await input.dispatchEvent('blur');
+    await page.waitForTimeout(150);
+    await this.checkCartLimitModal(page);
+    actual = await readQuantity();
+    // Re-read React's updated value before any fallback click; never add twice.
+    while (Number.isSafeInteger(actual) && actual >= 1 && actual < item.quantity) {
+      await this.waitForPortalReady(page);
+      await card.locator('img[src*="plus-icon"]').first().click();
+      await page.waitForTimeout(150);
+      await this.checkCartLimitModal(page);
+      const next = await readQuantity();
+      if (next <= actual) break;
+      actual = next;
+    }
+    if (actual !== item.quantity) {
+      throw new Error(`จำนวนสลากเลข ${item.number} ไม่ตรงกับคำสั่งซื้อ: ขอ ${item.quantity} ใบ แต่ GLO แสดง ${actual} ใบ จึงยังไม่สร้าง QR`);
+    }
+  }
   public static createPaymentQrFileName(): string {
     // Listing every number exceeds Windows filename limits for large orders.
     return `payment-${randomUUID()}.png`;
@@ -330,98 +364,9 @@ export class N3OrderService {
           continue;
         }
 
-        // ปรับจำนวนใบสำหรับรายการสลากเลขนี้ให้ตรงตาม item.quantity (หากสั่ง 1 ใบ สลากลงตะกร้าแล้ว ข้ามไปได้ทันที ไม่ต้องรอ Stepper)
         if (item.quantity > 1) {
-          // รอปุ่ม Stepper ปรากฏบนการ์ดหลังจากกดเลือกสลากสำเร็จ (GLO N3 แสดง img[src*="plus-icon"])
-          const plusStepperLoc = page.locator('img[src*="plus-icon"]').last();
-          await plusStepperLoc.waitFor({ state: 'visible', timeout: 4000 }).catch(() => {});
-          await page.waitForTimeout(150);
-
-          console.log(`[N3 ORDER QTY] กำลังปรับจำนวนใบเลข ${item.number} เป็น ${item.quantity} ใบ...`);
-
-          const numPattern = item.number.split('').join('\\s*');
-          const targetCard = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
-            .filter({ hasText: new RegExp(numPattern) })
-            .filter({ has: page.locator('img[src*="plus-icon"]') })
-            .last();
-
-          let currentCardQty = 1;
-
-          // 1. ตรวจสอบกล่อง input ตัวเลขจำนวนใบในแถวนี้
-          const qtyInput = targetCard.locator('input[type="number"], input[inputmode="numeric"]').first();
-          if (await qtyInput.isVisible().catch(() => false)) {
-            const rawVal = await qtyInput.inputValue().catch(() => '1');
-            currentCardQty = parseInt(rawVal, 10) || 1;
-
-            if (currentCardQty < item.quantity) {
-              // ลองใช้ Playwright fill เพื่อกระตุ้น Synthetic Event ของ React
-              await qtyInput.fill(String(item.quantity)).catch(() => {});
-              await qtyInput.dispatchEvent('change').catch(() => {});
-              await qtyInput.dispatchEvent('blur').catch(() => {});
-              await page.waitForTimeout(150);
-
-              const checkVal = await qtyInput.inputValue().catch(() => '1');
-              currentCardQty = parseInt(checkVal, 10) || 1;
-            }
-          }
-
-          // 2. หากจำนวนยังไม่ถึงเป้าหมาย ให้คลิกปุ่มบวก (img[src*="plus-icon"]) ตามจำนวนครั้งที่ขาดอยู่
-          if (currentCardQty < item.quantity) {
-            const plusEl = targetCard.locator('img[src*="plus-icon"]').first();
-            const neededClicks = item.quantity - currentCardQty;
-            console.log(`[N3 ORDER QTY] คลิกปุ่มบวก (+) สำหรับเลข ${item.number} อีก ${neededClicks} ครั้ง...`);
-
-            for (let c = 0; c < neededClicks; c++) {
-              if (page.isClosed()) break;
-              await plusEl.click({ force: true }).catch(() => {});
-              await page.waitForTimeout(120);
-            }
-          }
-
-          // 3. Fallback เสริมผ่าน DOM Evaluate และ React Native Descriptor Setter
-          await page.evaluate(({ num, targetQty }) => {
-            const cleanTarget = num.replace(/\s+/g, '');
-            const containers = Array.from(document.querySelectorAll('div, section, tr, li, [class*="card"], [class*="item"]'));
-            const matched = containers.filter(c => {
-              const text = (c.textContent || '').replace(/\s+/g, '');
-              return text.includes(cleanTarget) && (c.querySelector('img[src*="plus-icon"]') || c.querySelector('input[type="number"]'));
-            });
-            matched.sort((a, b) => a.innerHTML.length - b.innerHTML.length);
-
-            for (const container of matched) {
-              const qtyInput = container.querySelector('input[type="number"], input[inputmode="numeric"]') as HTMLInputElement | null;
-              const plusImg = container.querySelector('img[src*="plus-icon"]') as HTMLElement | null;
-              const plusClickable = (plusImg?.closest('div') || plusImg) as HTMLElement | null;
-
-              let cur = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
-              if (cur >= targetQty) return;
-
-              // เรียกใช้ native prototype setter เพื่อให้ React Controlled Input อัปเดต state
-              if (qtyInput) {
-                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-                if (nativeSetter) {
-                  nativeSetter.call(qtyInput, String(targetQty));
-                } else {
-                  qtyInput.value = String(targetQty);
-                }
-                qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
-                qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
-                qtyInput.dispatchEvent(new Event('blur', { bubbles: true }));
-              }
-
-              // หากมีปุ่มบวกให้กดซ้ำตามจำนวนที่ยังขาด
-              if (plusClickable) {
-                const diff = targetQty - cur;
-                for (let i = 0; i < diff; i++) {
-                  plusClickable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                  plusClickable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-                  plusClickable.click();
-                }
-              }
-            }
-          }, { num: item.number, targetQty: item.quantity }).catch(() => {});
-
-          await page.waitForTimeout(150);
+          console.log(`[N3 ORDER QTY] ตรวจสอบจำนวนใบเลข ${item.number} เป็น ${item.quantity} ใบ...`);
+          await this.ensureItemQuantity(page, item);
         }
 
         await this.checkCartLimitModal(page);
@@ -438,33 +383,11 @@ export class N3OrderService {
         };
       }
 
-      // ตรวจสอบและปรับปรุงจำนวนสลากในตะกร้าทั้งหมด (Pre-Checkout Cart Audit) ให้ครบถ้วนก่อนกดตรวจสอบสลากฯ (เฉพาะเมื่อมีรายการหลายใบ)
       const hasMultiQty = fulfilledItems.some(it => it.quantity > 1);
       if (hasMultiQty) {
-        console.log('[N3 ORDER STEP 1.5] กำลังตรวจสอบความถูกต้องของจำนวนใบในตะกร้าทั้งหมดก่อนยืนยัน...');
-        for (const it of fulfilledItems) {
-          if (it.quantity <= 1) continue;
-          const numPattern = it.number.split('').join('\\s*');
-          const row = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
-            .filter({ hasText: new RegExp(numPattern) })
-            .filter({ has: page.locator('img[src*="plus-icon"]') })
-            .last();
-
-          if (await row.isVisible().catch(() => false)) {
-            const inp = row.locator('input[type="number"], input[inputmode="numeric"]').first();
-            const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
-            if (curVal < it.quantity) {
-              const plus = row.locator('img[src*="plus-icon"]').first();
-              const diff = it.quantity - curVal;
-              console.log(`[N3 ORDER AUDIT 1.5] เลข ${it.number} ยังคงมี ${curVal} ใบ -> กดเพิ่มอีก ${diff} ครั้ง`);
-              for (let c = 0; c < diff; c++) {
-                await plus.click({ force: true }).catch(() => {});
-                await page.waitForTimeout(100);
-              }
-            }
-          }
+        for (const item of fulfilledItems) {
+          if (item.quantity > 1) await this.ensureItemQuantity(page, item);
         }
-        await page.waitForTimeout(150);
       }
 
       // 2. กดปุ่ม "ตรวจสอบสลากฯ" (cw.COMMON_CEHCK_LOTTO_BUTTON) รวมทุกรายการในตะกร้า
@@ -491,35 +414,8 @@ export class N3OrderService {
         await page.waitForTimeout(1000);
       }
 
-      // 3.5 ตรวจสอบความถูกต้องของจำนวนใบในหน้า lotto-confirm อีกครั้ง (Confirm Page Audit)
-      if (hasMultiQty) {
-        console.log('[N3 ORDER STEP 3.5] ตรวจสอบรายการในหน้า lotto-confirm...');
-        for (const it of fulfilledItems) {
-          if (it.quantity <= 1) continue;
-          const numPattern = it.number.split('').join('\\s*');
-          const confirmRow = page.locator('div, section, tr, li, [class*="card"], [class*="item"]')
-            .filter({ hasText: new RegExp(numPattern) })
-            .filter({ has: page.locator('img[src*="plus-icon"]') })
-            .last();
-
-          if (await confirmRow.isVisible().catch(() => false)) {
-            const inp = confirmRow.locator('input[type="number"], input[inputmode="numeric"]').first();
-            const curVal = parseInt(await inp.inputValue().catch(() => '1'), 10) || 1;
-            if (curVal < it.quantity) {
-              const plus = confirmRow.locator('img[src*="plus-icon"]').first();
-              const diff = it.quantity - curVal;
-              console.log(`[N3 ORDER AUDIT 3.5] ในหน้า lotto-confirm เลข ${it.number} ยังคงมี ${curVal} ใบ -> ปรับเพิ่มอีก ${diff} ครั้ง`);
-              for (let c = 0; c < diff; c++) {
-                await plus.click({ force: true }).catch(() => {});
-                await page.waitForTimeout(100);
-              }
-            }
-          }
-        }
-        await page.waitForTimeout(200);
-      } else {
-        await page.waitForTimeout(200);
-      }
+      // Quantities were verified before entering confirmation. Do not mutate them again.
+      await page.waitForTimeout(200);
 
       // 4. กดปุ่ม "สร้าง QR ซื้อ-ขายสลากฯ"
       console.log('[N3 ORDER STEP 4] กำลังกดปุ่ม สร้าง QR ซื้อ-ขายสลากฯ...');
