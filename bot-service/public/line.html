@@ -1621,7 +1621,7 @@
 
   <!-- Application Scripts -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="js/image-saver.js?v=2.2"></script>
+  <script src="js/image-saver.js?v=2.3"></script>
   <script>
     // Configuration
     const CONFIG = {
@@ -2108,6 +2108,7 @@
     function clearOrderBrowserData() {
       currentOrderData = null;
       window.currentQrData = null;
+      window.currentQrDownloadUrl = null;
       resetModalState();
       modalConfirm.classList.remove('active');
       const qrImage = document.getElementById('modal-qr-img');
@@ -2596,7 +2597,7 @@
       }, 1000);
     }
 
-    // QR Download Handler - Adaptive Multi-OS (iOS Web Share API & Long-Press / Android & Desktop Direct Blob)
+    // LINE webviews need an image save sheet instead of a blocked blob download.
     async function downloadModalQr() {
       const qrImg = document.getElementById('modal-qr-img');
       const qrSrc = window.currentQrData || (qrImg ? qrImg.src : '');
@@ -2604,116 +2605,13 @@
         showToast('ไม่พบรูปภาพ QR Code สำหรับบันทึก', 'error');
         return;
       }
-      const filename = `GLO-N3-Payment-QR-${Date.now()}.png`;
-      const ua = navigator.userAgent || '';
-      const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-      // 1. แปลง Data URL หรือ Image URL เป็น Blob
-      let blob = null;
-      try {
-        if (qrSrc.startsWith('data:')) {
-          const parts = qrSrc.split(';base64,');
-          const contentType = (parts[0].split(':')[1] || 'image/png').split(';')[0];
-          const raw = window.atob(parts[1] || '');
-          const uInt8 = new Uint8Array(raw.length);
-          for (let i = 0; i < raw.length; i++) uInt8[i] = raw.charCodeAt(i);
-          blob = new Blob([uInt8], { type: contentType });
-        } else {
-          try {
-            const res = await fetch(qrSrc, { mode: 'cors' });
-            if (res.ok) blob = await res.blob();
-          } catch (e) {}
-
-          if (!blob) {
-            try {
-              const canvas = document.createElement('canvas');
-              const img = new Image();
-              img.crossOrigin = 'anonymous';
-              await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = qrSrc;
-              });
-              canvas.width = img.naturalWidth || 400;
-              canvas.height = img.naturalHeight || 400;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0);
-              blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-            } catch (canvasErr) {
-              console.warn('Canvas blob fallback failed:', canvasErr);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Blob generation error:', err);
-      }
-
-      // 2. สำหรับ iPhone / iOS: ใช้ Web Share API Level 2 เพื่อให้เซฟตรงเข้าคลังรูปภาพ (Photos) ทันที
-      if (isIOS && blob) {
-        try {
-          const file = new File([blob], filename, { type: blob.type || 'image/png' });
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: 'QR Code ชำระเงินสลาก N3',
-              text: 'บันทึกรูปภาพเพื่อสแกนจ่ายผ่านแอปเป๋าตัง',
-              files: [file]
-            });
-            showToast('✅ เลือก "บันทึกภาพ (Save Image)" เพื่อนำไปสแกนในเป๋าตัง', 'success');
-            return;
-          }
-        } catch (shareErr) {
-          if (shareErr.name === 'AbortError') return; // ผู้ใช้กดยกเลิก
-          console.warn('iOS Web Share API failed, showing long-press guide:', shareErr);
-        }
-
-        // หาก Web Share API ไม่พร้อมทำงานบน iOS ให้ไฮไลต์รูปและแนะนำแตะค้าง
-        if (qrImg) {
-          qrImg.style.transition = 'box-shadow 0.3s ease';
-          qrImg.style.boxShadow = '0 0 0 4px #f59e0b, 0 0 20px rgba(245, 158, 11, 0.6)';
-          setTimeout(() => { if (qrImg) qrImg.style.boxShadow = ''; }, 3500);
-        }
-        showToast('👆 แตะค้างที่รูปภาพ QR Code แล้วเลือก "บันทึกรูปภาพ" (Save to Photos)', 'info');
-        return;
-      }
-
-      // 3. สำหรับ Android และ Desktop (คงเดิม 100%): ดาวน์โหลดตรงผ่าน Blob Object URL / <a download>
-      showToast('📥 กำลังบันทึกรูปภาพ QR Code ลงเครื่อง...', 'info');
-
-      if (blob) {
-        try {
-          const blobUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.download = filename;
-          link.href = blobUrl;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => {
-            if (document.body.contains(link)) document.body.removeChild(link);
-            URL.revokeObjectURL(blobUrl);
-          }, 2000);
-          showToast('✅ บันทึกรูปภาพ QR Code ลงเครื่องเรียบร้อยแล้ว!', 'success');
-          return;
-        } catch (err) {
-          console.warn('Blob direct download failed:', err);
-        }
-      }
-
-      // Fallback link click
-      try {
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = qrSrc;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          if (document.body.contains(link)) document.body.removeChild(link);
-        }, 500);
-        showToast('✅ กำลังบันทึกรูปภาพ QR Code...', 'success');
-      } catch (e) {
-        showToast('กรุณาแตะค้างที่รูปภาพ QR Code เพื่อเลือก "บันทึกรูปภาพ"', 'info');
-      }
+      await ImageSaver.saveImage({
+        dataUrl: qrSrc,
+        filename: `GLO-N3-Payment-QR-${Date.now()}.png`,
+        title: 'บันทึก QR Code ชำระเงิน',
+        text: 'บันทึกรูปภาพเพื่อสแกนจ่ายผ่านแอปเป๋าตัง',
+        externalUrl: window.currentQrDownloadUrl
+      });
     }
     window.downloadModalQr = downloadModalQr;
     window.saveCurrentModalQr = downloadModalQr;
@@ -2985,6 +2883,16 @@
 
                 const qrSrc = statusData.qrDataUrl || statusData.qrImageUrl || statusData.qrUrl || statusData.downloadUrl || statusData.qrImage;
                 window.currentQrData = qrSrc;
+                // Use the website proxy so only the image opens outside LINE.
+                window.currentQrDownloadUrl = null;
+                if (statusData.downloadUrl) {
+                  try {
+                    const download = new URL(statusData.downloadUrl, window.location.href);
+                    if (/^\/download-qr\/payment-[\w.-]+\.png$/i.test(download.pathname)) {
+                      window.currentQrDownloadUrl = new URL(download.pathname + '?action=dl', window.location.origin).href;
+                    }
+                  } catch (e) {}
+                }
                 if (modalQrImg && qrSrc) {
                   modalQrImg.crossOrigin = 'anonymous';
                   modalQrImg.src = qrSrc;

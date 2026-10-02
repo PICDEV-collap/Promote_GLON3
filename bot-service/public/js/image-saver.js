@@ -191,7 +191,8 @@ const ImageSaver = (function () {
       filename = `GLO-N3-${Date.now()}.png`,
       title = 'รูปภาพสลาก N3',
       text = 'บันทึกรูปภาพจากร้านสลาก N3 ธนกิจนำโชค',
-      forceModal = false
+      forceModal = false,
+      externalUrl = null
     } = options;
 
     if (!dataUrl) {
@@ -200,8 +201,9 @@ const ImageSaver = (function () {
     }
 
     // If explicit forceModal is requested, show modal
-    if (forceModal) {
-      openMobileSaveModal({ dataUrl, filename, title, text });
+    const inLiff = typeof liff !== 'undefined' && liff.isInClient();
+    if (forceModal || inLiff || isInAppBrowser() || /iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
+      openMobileSaveModal({ dataUrl, filename, title, text, externalUrl });
       return;
     }
 
@@ -214,7 +216,7 @@ const ImageSaver = (function () {
       const success = await triggerDirectDownload(dataUrl, filename);
       if (success) {
         if (typeof window.showToast === 'function') {
-          window.showToast('✅ ดาวน์โหลดรูปภาพลงเครื่องเรียบร้อยแล้ว!', 'success');
+          window.showToast('เริ่มดาวน์โหลดแล้ว กรุณาตรวจในรายการดาวน์โหลดของเบราว์เซอร์', 'info');
         }
         return true;
       }
@@ -234,7 +236,7 @@ const ImageSaver = (function () {
         if (document.body.contains(link)) document.body.removeChild(link);
       }, 500);
       if (typeof window.showToast === 'function') {
-        window.showToast('✅ ดาวน์โหลดรูปภาพเรียบร้อยแล้ว', 'success');
+        window.showToast('เริ่มดาวน์โหลดแล้ว กรุณาตรวจในรายการดาวน์โหลดของเบราว์เซอร์', 'info');
       }
       return true;
     } catch (e) {
@@ -245,7 +247,7 @@ const ImageSaver = (function () {
   /**
    * Open the dedicated Mobile Image Saver Modal
    */
-  function openMobileSaveModal({ dataUrl, filename, title, text }) {
+  function openMobileSaveModal({ dataUrl, filename, title, text, externalUrl }) {
     let modal = document.getElementById('modal-image-saver');
     if (!modal) {
       modal = createModalDOM();
@@ -268,7 +270,7 @@ const ImageSaver = (function () {
       imgEl.alt = title;
     }
 
-    const inLine = isLineWebview();
+    const inLine = isLineWebview() || (typeof liff !== 'undefined' && liff.isInClient());
 
     // Show LINE badge if opened inside LINE
     if (lineBadge) {
@@ -294,9 +296,6 @@ const ImageSaver = (function () {
               text: text,
               files: [file]
             });
-            if (typeof window.showToast === 'function') {
-              window.showToast('แชร์ / บันทึกรูปภาพสำเร็จ!', 'success');
-            }
           } catch (err) {
             if (err.name !== 'AbortError') {
               console.warn('[ImageSaver] Web Share failed, showing long-press tip:', err);
@@ -315,13 +314,25 @@ const ImageSaver = (function () {
 
     // External browser button handler
     if (btnExternal) {
+      btnExternal.style.display = externalUrl || !/^GLO-N3-Payment-QR-/.test(filename) ? 'inline-flex' : 'none';
       btnExternal.onclick = () => {
         try {
           if (typeof window.SoundEngine !== 'undefined' && window.SoundEngine.playClick) {
             window.SoundEngine.playClick();
           }
         } catch (e) {}
-        openInExternalBrowser();
+        if (externalUrl) {
+          const url = new URL(externalUrl, window.location.href);
+          if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+          if (typeof liff !== 'undefined' && liff.isInClient()) {
+            liff.openWindow({ url: url.href, external: true });
+          } else {
+            url.searchParams.set('openExternalBrowser', '1');
+            window.open(url.href, '_blank', 'noopener');
+          }
+        } else {
+          openInExternalBrowser();
+        }
       };
     }
 
