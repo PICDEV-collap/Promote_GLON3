@@ -6,6 +6,12 @@ import { OrderItem } from '../queue/order-queue';
 import { N3Auth } from './n3-auth';
 
 export class N3OrderService {
+  public static async checkCartLimitModal(page: Page): Promise<void> {
+    const modal = page.locator('div.fixed, [role="dialog"], .modal').filter({ hasText: /สูงสุด\s*100\s*ใบ/ }).first();
+    if (await modal.isVisible().catch(() => false)) {
+      throw new Error('GLO รองรับสูงสุด 100 ใบต่อรายการ กรุณาแบ่งคำสั่งซื้อให้ไม่เกิน 100 ใบต่อครั้ง');
+    }
+  }
   public static async clickSearchControl(page: Page, control: Locator): Promise<void> {
     await this.waitForPortalReady(page);
     await control.waitFor({ state: 'visible', timeout: 10000 });
@@ -64,6 +70,10 @@ export class N3OrderService {
       const items: OrderItem[] = Array.isArray(lotteryNumberOrItems)
         ? lotteryNumberOrItems
         : [{ number: lotteryNumberOrItems, quantity }];
+      const requestedTotal = items.reduce((sum, item) => sum + item.quantity, 0);
+      if (requestedTotal > 100) {
+        return { success: false, error: `GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${requestedTotal} ใบ กรุณาแบ่งคำสั่งซื้อ` };
+      }
 
       const fulfilledItems: OrderItem[] = [];
       const outOfStockItems: string[] = [];
@@ -71,15 +81,20 @@ export class N3OrderService {
       console.log(`[N3 ORDER] เริ่มสั่งซื้อสลากจำนวน ${items.length} รายการ: ${items.map(i => `${i.number}x${i.quantity}`).join(', ')}...`);
 
       // เคลียร์ตะกร้าที่ตกค้างใน sessionStorage ก่อนเริ่มคำสั่งซื้อใหม่เสมอ
-      await page.evaluate(() => {
-        try { sessionStorage.removeItem('cart-store'); } catch {}
-      }).catch(() => {});
+      const hadCart = await page.evaluate(() => {
+        try {
+          const existing = sessionStorage.getItem('cart-store');
+          sessionStorage.removeItem('cart-store');
+          return existing !== null;
+        } catch { return false; }
+      }).catch(() => false);
 
       // เข้าสู่หน้าค้นหาสลาก lotto-search เพื่อเริ่มต้นบิลใหม่ในตะกร้าเดียวกัน
       const searchUrl = 'https://n3.glolotteryshop.com/lotto-search/?position=1';
-      if (!page.url().includes('lotto-search')) {
+      if (!page.url().includes('lotto-search') || hadCart || (page as any).__n3OrderFailed) {
         console.log('[N3 ORDER] นำทางเข้าสู่หน้าค้นหาสลาก...');
         await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        (page as any).__n3OrderFailed = false;
         await page.locator('input[type="text"], input[type="tel"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
       } else {
         console.log('[N3 ORDER] หน้าเว็บอยู่ที่หน้าค้นหาสลากอยู่แล้ว ข้ามการโหลดหน้าใหม่เพื่อความรวดเร็ว');
@@ -404,6 +419,7 @@ export class N3OrderService {
           await page.waitForTimeout(150);
         }
 
+        await this.checkCartLimitModal(page);
         fulfilledItems.push(item);
         console.log(`[N3 ORDER ITEM ${idx + 1} SUCCESS] บรรจุเลข ${item.number} x ${item.quantity} ใบ ลงตะกร้าเรียบร้อยแล้ว`);
       }
@@ -689,6 +705,7 @@ export class N3OrderService {
       };
 
     } catch (err: any) {
+      (page as any).__n3OrderFailed = true;
       console.error('[N3 ORDER ERROR]', err);
       if (page && !page.isClosed()) {
         const diagnosticsDir = path.resolve(__dirname, '../../data/diagnostics');

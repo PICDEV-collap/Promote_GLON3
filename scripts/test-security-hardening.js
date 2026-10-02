@@ -52,7 +52,10 @@ test('anonymous direct retries reuse the order, altered payload conflicts, full 
     OperatingHoursGuard: { checkSalesStatus: () => ({ isOpen: true }) }, quotaManager: { canFulfill: () => ({ allowed: true }) },
     orderHeartbeat: { start() {} }, TelegramService: { getInstance: () => ({ notifyOrderCreated: () => Promise.resolve() }) }
   });
-  const body = { clientRequestId: randomUUID(), items: [{ number: '123', quantity: 1 }] };
+  const tooLarge = response();
+  await run({ body: { clientRequestId: randomUUID(), items: Array.from({ length: 96 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: i < 6 ? 2 : 1 })) } }, tooLarge);
+  assert.equal(tooLarge.code, 400); assert.equal(accepted, 0, '102 tickets must be rejected before entering GLO');
+  const body = { clientRequestId: randomUUID(), items: Array.from({ length: 100 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: 1 })) };
   const first = response(); await run({ body }, first); assert.equal(first.body.success, true);
   const retry = response(); await run({ body }, retry); assert.equal(retry.body.orderId, first.body.orderId); assert.equal(accepted, 1);
   const conflict = response(); await run({ body: { ...body, items: [{ number: '456', quantity: 1 }] } }, conflict); assert.equal(conflict.code, 409);

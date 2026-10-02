@@ -2622,6 +2622,11 @@
       }
       isDirectOrderSubmitting = true;
 
+      const requestedTickets = currentOrderData.aggregatedItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+      if (requestedTickets > 100) {
+        showToast(`GLO รองรับสูงสุด 100 ใบต่อรายการ แต่รายการนี้มี ${requestedTickets} ใบ กรุณาแบ่งคำสั่งซื้อ`, 'error');
+        return;
+      }
       // Activate Screen Wake Lock during active order processing
       requestScreenWakeLock();
 

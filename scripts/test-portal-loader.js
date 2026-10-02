@@ -25,6 +25,11 @@ const assert = require('node:assert/strict');
     await search.evaluate(element => { element.disabled = true; element.removeAttribute('data-clicked'); });
     await assert.rejects(N3OrderService.clickSearchControl(page, search), /ยังไม่พร้อมใช้งาน/);
     assert.equal(await search.getAttribute('data-clicked'), null, 'Disabled search must never be clicked');
+    const tooLarge = await N3OrderService.executeOrder(page, Array.from({ length: 96 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: i < 6 ? 2 : 1 })));
+    assert.equal(tooLarge.success, false);
+    assert.match(tooLarge.error, /102/);
+    await page.setContent('<div class="fixed">ไม่สามารถเลือกสลากฯ เพิ่มได้ เนื่องจากคุณสามารถเลือกสลากฯ ได้สูงสุด 100 ใบ ต่อการทำรายการ 1 ครั้ง<button>ตกลง</button></div>');
+    await assert.rejects(N3OrderService.checkCartLimitModal(page), /100 ใบ/);
     console.log('PASS: visible loader waits, hidden loader proceeds, stuck loader returns accurate error');
   } finally {
     await browser.close();
