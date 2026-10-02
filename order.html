@@ -1860,6 +1860,25 @@
       updateSummary();
     }
 
+    // Keep the limit visible while the customer edits the order.
+    function updateSelectionLimit(total, anchor, warningId) {
+      if (!anchor) return;
+      let warning = document.getElementById(warningId);
+      if (!warning) {
+        warning = document.createElement('p');
+        warning.id = warningId;
+        warning.setAttribute('role', 'status');
+        warning.setAttribute('aria-live', 'polite');
+        warning.style.cssText = 'margin:0.75rem 0;font-size:0.95rem;font-weight:600;line-height:1.5;';
+        anchor.parentElement.insertAdjacentElement('afterend', warning);
+      }
+      warning.hidden = total < 100;
+      warning.style.color = total > 100 ? '#fca5a5' : '#fcd34d';
+      warning.textContent = total > 100
+        ? `เลือกแล้ว ${total} ใบ เกินกำหนด 100 ใบ กรุณาลดจำนวนอย่างน้อย ${total - 100} ใบก่อนสั่งซื้อ`
+        : 'เลือกครบ 100 ใบแล้ว หากต้องการเพิ่ม กรุณาลดหรือลบรายการเดิมก่อน';
+    }
+
     // Update Summary Values
     function updateSummary() {
       const validRows = rowsData.filter(r => /^\d{3}$/.test(r.number));
@@ -1869,6 +1888,7 @@
       summaryItems.textContent = `${rowsData.length} ชุด (${validRows.length} ถูกต้อง)`;
       summaryTickets.textContent = `${totalTickets.toLocaleString()} ใบ`;
       summaryTotal.textContent = totalPrice.toLocaleString();
+      updateSelectionLimit(totalTickets, summaryTickets, 'normal-selection-limit');
     }
 
     // Add Row Handler
@@ -2773,6 +2793,7 @@
 
       const grandElem = document.getElementById('grand-total-qty');
       if (grandElem) grandElem.innerText = `${totalQty} ใบ (${totalPrice.toLocaleString()} บาท)`;
+      updateSelectionLimit(totalQty, grandElem, 'sixpack-selection-limit');
     }
 
     let currentOrderData = null;
