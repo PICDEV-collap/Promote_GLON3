@@ -14,10 +14,9 @@ export class N3OrderService {
       .filter({ has: page.locator('img[src*="plus-icon"]') }).last();
     const input = card.locator('input[type="number"]').first();
     await input.waitFor({ state: 'visible', timeout: 4000 });
-    const maximum = Number(await input.getAttribute('max'));
-    if (maximum > 0 && item.quantity > maximum) {
-      throw new Error(`สลากเลข ${item.number} ระบบ GLO ให้เลือกได้สูงสุด ${maximum} ใบ แต่ขอ ${item.quantity} ใบ กรุณาปรับจำนวน`);
-    }
+    // GLO renders max="3", but its native input handler accepts up to three
+    // digits (e.g. 60). This attribute is not the actual ticket limit.
+    // Let native handlers validate the quantity and check their modal/result.
     const readQuantity = async () => Number(await input.inputValue());
     let actual = await readQuantity();
     if (actual === item.quantity) return;
