@@ -11,6 +11,7 @@ import { N3Auth } from './automation/n3-auth';
 import { N3OrderService } from './automation/n3-order';
 import { PersistentBrowserManager, isCdpAlive } from './automation/browser-context';
 import { QuotaManager } from './quota/quota-manager';
+import { readLiveQuota } from './quota/live-quota-reader';
 import { OrderQueue, OrderTask, OrderItem } from './queue/order-queue';
 import { OrderHeartbeatManager } from './queue/order-heartbeat';
 import { LineReplyHandler, getThaiTime } from './line/reply-handler';
@@ -1067,6 +1068,16 @@ export function getPublicBaseUrl(): string {
  * ฟังก์ชันเปิดเบราว์เซอร์เฉพาะเมื่อมีงานเข้ามาจริง (On-Demand) ไม่เปิดค้างทิ้งไว้เบื้องหลัง
  * พร้อมระบบตรวจสอบหน้าต่างเบราว์เซอร์และกู้คืนอัตโนมัติหากถูกปิดหรือแครช
  */
+async function syncAvailableQuota() {
+  if (orderQueue.isBusy() || GloSessionWatchdog.getInstance().getIsAuthFlowActive()) return null;
+  let activePage = PersistentBrowserManager.getActivePage();
+  if (!activePage || activePage.isClosed()) {
+    if (!(await isCdpAlive())) return null;
+    activePage = (await PersistentBrowserManager.getPage()).page;
+  }
+  return readLiveQuota(quotaManager, activePage);
+}
+
 async function ensureBrowser(): Promise<{ context: BrowserContext; page: Page }> {
   const res = await PersistentBrowserManager.getPage(CONFIG.HEADLESS);
   context = res.context;
@@ -1852,23 +1863,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         let isLiveSynced = false;
         // หากเบราว์เซอร์เปิดอยู่และไม่ได้กำลังทำรายการ ให้ซิงค์สดจากหน้าเว็บ GLO ทันที เพื่อให้ยอดขายและโควต้าอัปเดตล่าสุดตรงกับกองสลาก 100%
         try {
-          if (!orderQueue.isBusy()) {
-            let activePage = PersistentBrowserManager.getActivePage();
-            if (!activePage) {
-              const isAlive = await isCdpAlive();
-              if (isAlive) {
-                const browserObj = await PersistentBrowserManager.getPage();
-                activePage = browserObj.page;
-              }
-            }
-            if (activePage && !activePage.isClosed()) {
-              const u = activePage.url();
-              if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login') && !u.includes('/qr/')) {
-                const syncRes = await quotaManager.syncQuotaFromLivePortal(activePage, true);
-                if (syncRes) isLiveSynced = true;
-              }
-            }
-          }
+          isLiveSynced = (await syncAvailableQuota()) !== null;
         } catch (e: any) {
           console.warn('[QUOTA CMD SYNC] ไม่สามารถซิงค์สดขณะเรียกเช็คโควต้าได้ ใช้ค่าแคชล่าสุด:', e?.message);
         }
@@ -1886,7 +1881,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
         const syncSourceNote = isLiveSynced
           ? '🟢 ซิงค์สดจากระบบกองสลาก GLO สำเร็จ'
-          : '📦 ข้อมูลจากระบบบันทึก (Session เว็บยังไม่ได้ล็อกอิน)';
+          : '📦 ยอดบันทึกล่าสุด (ยังอ่านยอดสดไม่ได้ หรือระบบกำลังทำรายการ)';
 
         const statusReply = `📊 สถานะโควต้าสลาก N3 (ร้านธนกิจนำโชค)\n\n` +
           `🎫 โควต้าคงเหลือ: ${qStatus.remainingQuota.toLocaleString()} / ${qStatus.maxQuota.toLocaleString()} ใบ\n` +
@@ -1905,8 +1900,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       if (isSyncCmd) {
         if (isAdmin) {
           try {
-            const { page: p } = await ensureBrowser();
-            const synced = await quotaManager.syncQuotaFromLivePortal(p, true);
+            const synced = await syncAvailableQuota();
             if (synced) {
               await lineHandler.reply(replyToken, [{
                 type: 'text',
@@ -2236,8 +2230,7 @@ app.post('/admin/login-qr', requireAdminAuth, async (_req: Request, res: Respons
 app.get('/admin/quota', requireAdminAuth, async (req: Request, res: Response) => {
   if (req.query.sync === 'true') {
     try {
-      const { page: p } = await ensureBrowser();
-      const synced = await quotaManager.syncQuotaFromLivePortal(p, true);
+      const synced = await syncAvailableQuota();
       res.json({ success: true, quota: quotaManager.getStatus(), liveSynced: synced !== null });
       return;
     } catch (e: any) {
@@ -2250,8 +2243,7 @@ app.get('/admin/quota', requireAdminAuth, async (req: Request, res: Response) =>
 
 app.post('/admin/quota/sync', requireAdminAuth, async (_req: Request, res: Response) => {
   try {
-    const { page: p } = await ensureBrowser();
-    const synced = await quotaManager.syncQuotaFromLivePortal(p, true);
+    const synced = await syncAvailableQuota();
     res.json({ success: true, quota: quotaManager.getStatus(), liveSynced: synced !== null });
   } catch (e: any) {
     res.status(500).json({ error: e.message, quota: quotaManager.getStatus() });
@@ -2430,32 +2422,10 @@ function startServerWithPort(targetPort: number) {
     console.log(`[DREAM]   Dream Prediction URL: ${CONFIG.DREAM_PREDICTION_URL}`);
     console.log(`====================================================`);
 
-    // Background Quota Sync: หากเบราว์เซอร์เปิดทำงานอยู่แล้ว ให้ซิงค์โควต้าสดเริ่มต้น
-    setTimeout(async () => {
-      try {
-        const activePage = PersistentBrowserManager.getActivePage();
-        if (activePage && !activePage.isClosed()) {
-          const valid = await N3Auth.isSessionValid(activePage);
-          if (valid) {
-            console.log('[QUOTA SYNC] ตรวจพบเบราว์เซอร์พร้อมใช้งาน เริ่มต้นซิงค์โควต้าสดจากหน้าเว็บ GLO N3...');
-            await quotaManager.syncQuotaFromLivePortal(activePage, false);
-          }
-        }
-      } catch {}
-    }, 3000);
-
-    // รอบ Background Sync ทุก 2 นาทีเมื่อเบราว์เซอร์เปิดอยู่ (Active) และไม่ได้กำลังประมวลผลออเดอร์
-    const quotaSyncTimer = setInterval(async () => {
-      try {
-        if (orderQueue.isBusy()) return;
-        const activePage = PersistentBrowserManager.getActivePage();
-        if (activePage && !activePage.isClosed()) {
-          const u = activePage.url();
-          if (!u.includes('/lotto-search') && !u.includes('/lotto-confirm') && !u.includes('/login') && !u.includes('/qr/')) {
-            await quotaManager.syncQuotaFromLivePortal(activePage, false);
-          }
-        }
-      } catch {}
+    // Fetch fresh quota without navigating the order/QR tab.
+    setTimeout(() => syncAvailableQuota().catch(() => {}), 3000);
+    const quotaSyncTimer = setInterval(() => {
+      syncAvailableQuota().catch(() => {});
     }, 2 * 60 * 1000);
     quotaSyncTimer.unref();
 
