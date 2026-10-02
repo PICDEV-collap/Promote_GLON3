@@ -6,6 +6,11 @@
   "buildCommand": null,
   "rewrites": [
     {
+      "source": "/",
+      "has": [{ "type": "query", "key": "liff.state" }],
+      "destination": "/line"
+    },
+    {
       "source": "/line",
       "destination": "/line.html"
     },

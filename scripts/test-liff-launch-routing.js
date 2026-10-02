@@ -12,6 +12,15 @@ function runHead(file, query) {
   return { redirects, classes };
 }
 test('LIFF primary redirect stays in LINE and both order modes avoid external-browser forcing', () => {
+  const config = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+  const entry = config.rewrites.find(route => route.source === '/' && route.has?.some(condition => condition.type === 'query' && condition.key === 'liff.state'));
+  assert.equal(entry.destination, '/line', 'Render the order form at the LIFF endpoint before its secondary redirect');
+  assert.equal(entry.has.length, 1);
+  for (const query of ['?liff.state=%2Fline', '?liff.state=%2Fline%3Fmode%3D6pack']) {
+    const primary = runHead('line.html', query);
+    assert.deepEqual(primary.redirects, []);
+    assert.equal(primary.classes.includes('mode-6pack'), query.includes('6pack'));
+  }
   for (const file of ['index.html', 'bot-service/public/index.html']) {
     assert.deepEqual(runHead(file, '?liff.state=%2Fline').redirects, []);
     assert.deepEqual(runHead(file, '?liff.state=%2Fline%3Fmode%3D6pack').redirects, []);
