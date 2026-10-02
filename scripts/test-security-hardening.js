@@ -55,13 +55,13 @@ test('anonymous direct retries reuse the order, altered payload conflicts, full 
   const tooLarge = response();
   await run({ body: { clientRequestId: randomUUID(), items: Array.from({ length: 108 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: 1 })) } }, tooLarge);
   assert.equal(tooLarge.code, 400); assert.equal(accepted, 0, '108 distinct numbers must be rejected before entering GLO');
-  const body = { clientRequestId: randomUUID(), items: Array.from({ length: 100 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: i === 0 ? 101 : 2 })) };
-  const first = response(); await run({ body }, first); assert.equal(first.body.success, true); assert.equal(first.body.totalQuantity, 299, 'Ticket quantities must not be capped');
+  const body = { clientRequestId: randomUUID(), items: Array.from({ length: 100 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: 1 })) };
+  const first = response(); await run({ body }, first); assert.equal(first.body.success, true); assert.equal(first.body.totalQuantity, 100, 'Exactly 100 tickets must be accepted');
   const retry = response(); await run({ body }, retry); assert.equal(retry.body.orderId, first.body.orderId); assert.equal(accepted, 1);
   const conflict = response(); await run({ body: { ...body, items: [{ number: '456', quantity: 1 }] } }, conflict); assert.equal(conflict.code, 409);
   const busy = response(); await run({ body: { ...body, clientRequestId: randomUUID() } }, busy); assert.equal(busy.code, 503);
 });
-test('96 distinct numbers totaling 108 tickets remain allowed by the requested rule', async () => {
+test('96 distinct numbers totaling 108 tickets are rejected before queueing', async () => {
   let accepted = 0;
   const run = handler('/api/order-direct', 'post', {
     applyDirectOrderCors: () => true, extractClientIp: () => 'test', rateLimiter: { check: () => true },
@@ -72,7 +72,7 @@ test('96 distinct numbers totaling 108 tickets remain allowed by the requested r
   });
   const result = response();
   await run({ body: { clientRequestId: randomUUID(), items: Array.from({ length: 96 }, (_, i) => ({ number: String(i).padStart(3, '0'), quantity: i < 12 ? 2 : 1 })) } }, result);
-  assert.equal(result.body.success, true); assert.equal(result.body.totalQuantity, 108); assert.equal(accepted, 1);
+  assert.equal(result.code, 400); assert.equal(result.body.success, false); assert.equal(accepted, 0);
 });
 
 test('login QR must have random filename and expire; error images are never served', () => {

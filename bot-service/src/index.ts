@@ -941,8 +941,8 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   }
 
   const totalQuantity = validItems.reduce((sum, it) => sum + it.quantity, 0);
-  if (new Set(validItems.map(it => it.number)).size > 100) {
-    res.status(400).json({ success: false, error: `เลือกได้ไม่เกิน 100 เลขที่ไม่ซ้ำกันต่อออเดอร์ กรุณาลดจำนวนเลข` });
+  if (totalQuantity > 100) {
+    res.status(400).json({ success: false, error: `สั่งซื้อได้ไม่เกิน 100 ใบต่อออเดอร์ กรุณาลดจำนวนใบ` });
     return;
   }
   const totalPrice = totalQuantity * 20;
@@ -2149,8 +2149,8 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       }
 
       const totalQuantity = parsedItems.reduce((sum, it) => sum + it.quantity, 0);
-      if (new Set(parsedItems.map(it => it.number)).size > 100) {
-        await lineHandler.reply(replyToken, [{ type: 'text', text: `เลือกได้ไม่เกิน 100 เลขที่ไม่ซ้ำกันต่อออเดอร์ กรุณาลดจำนวนเลขครับ` }]);
+      if (totalQuantity > 100) {
+        await lineHandler.reply(replyToken, [{ type: 'text', text: `สั่งซื้อได้ไม่เกิน 100 ใบต่อออเดอร์ กรุณาลดจำนวนใบครับ` }]);
         continue;
       }
       const totalPrice = totalQuantity * 20;

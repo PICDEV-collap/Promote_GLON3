@@ -45,9 +45,11 @@ export class N3OrderService {
     return `payment-${randomUUID()}.png`;
   }
   public static async checkCartLimitModal(page: Page): Promise<void> {
-    const modal = page.locator('div.fixed, [role="dialog"], .modal').filter({ hasText: /สูงสุด\s*100\s*ใบ/ }).first();
-    if (await modal.isVisible().catch(() => false)) {
-      throw new Error('GLO รองรับสูงสุด 100 ใบต่อรายการ กรุณาแบ่งคำสั่งซื้อให้ไม่เกิน 100 ใบต่อครั้ง');
+    const warnings = page.getByText(/สูงสุด\s*100\s*ใบ/);
+    for (const warning of await warnings.all()) {
+      if (await warning.isVisible().catch(() => false)) {
+        throw new Error('GLO รองรับสูงสุด 100 ใบต่อรายการ กรุณาแบ่งคำสั่งซื้อให้ไม่เกิน 100 ใบต่อครั้ง');
+      }
     }
   }
   public static async clickSearchControl(page: Page, control: Locator): Promise<void> {
@@ -108,9 +110,9 @@ export class N3OrderService {
       const items: OrderItem[] = Array.isArray(lotteryNumberOrItems)
         ? lotteryNumberOrItems
         : [{ number: lotteryNumberOrItems, quantity }];
-      const requestedTotal = new Set(items.map(item => item.number)).size;
+      const requestedTotal = items.reduce((sum, item) => sum + item.quantity, 0);
       if (requestedTotal > 100) {
-        return { success: false, error: `เลือกได้ไม่เกิน 100 เลขที่ไม่ซ้ำกันต่อออเดอร์ แต่รายการนี้มี ${requestedTotal} เลข กรุณาลดจำนวนเลข` };
+        return { success: false, error: `สั่งซื้อได้ไม่เกิน 100 ใบต่อออเดอร์ แต่รายการนี้มี ${requestedTotal} ใบ กรุณาลดจำนวนใบ` };
       }
 
       const fulfilledItems: OrderItem[] = [];
@@ -402,7 +404,10 @@ export class N3OrderService {
 
       // 3. รอหน้ายืนยันรายการ (/lotto-confirm/)
       console.log('[N3 ORDER STEP 3] รอนำทางสู่หน้า lotto-confirm...');
-      await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 });
+      await page.waitForURL(url => url.toString().includes('lotto-confirm'), { timeout: 15000 }).catch(async error => {
+        await this.checkCartLimitModal(page);
+        throw error;
+      });
       await page.waitForTimeout(600); // รอ React render หน้า lotto-confirm และดึง expect-reward ให้สมบูรณ์
 
       // จัดการกรณีระบบ GLO ประมวลผลช้าและขึ้นปุ่ม "โหลดอีกครั้ง"
