@@ -894,6 +894,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
       });
       return;
     }
+    customerRegistry.registerOrUpdateUser(effectiveUserId, profile.displayName);
   }
 
   // กรองตัวเลขสลาก 3 หลัก
@@ -1010,7 +1011,7 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, validItems.length);
 
   // ส่งแจ้งเตือนคำสั่งซื้อใหม่เข้า Telegram ของแอดมินทันที
-  TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, effectiveUserId).catch(() => {});
+  TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, effectiveUserId, orderId).catch(() => {});
 
   // หน้าเว็บแสดงคิวและผลการสร้าง QR ผ่าน /api/order-status อยู่แล้ว จึงไม่ส่ง
   // LINE Push ยืนยันรับออเดอร์ซ้ำและสงวนโควตาไว้สำหรับแชท/แคมเปญที่จำเป็น
@@ -1507,7 +1508,7 @@ orderQueue.setWorker(async (task: OrderTask) => {
 
       // ส่งแจ้งเตือนออเดอร์สำเร็จพร้อมภาพ QR ชำระเงินเข้า Telegram ของแอดมิน
       const fulfilledDesc = (result.fulfilledItems || orderItems).map(i => `${i.number} (${i.quantity} ใบ)`).join(', ');
-      TelegramService.getInstance().notifyOrderCompleted(fulfilledDesc, actualPrice, qrFilePath || qrPublicUrl, task.userId).catch(() => {});
+      TelegramService.getInstance().notifyOrderCompleted(fulfilledDesc, actualPrice, qrFilePath || qrPublicUrl, task.userId, task.orderId).catch(() => {});
 
       // 6. ดำเนินการกดกลับหน้าหลักและซิงค์โควต้าสดจาก GLO Portal (await เพื่อความแน่นอน ป้องกันคิวถัดไปชนกัน)
       try {
@@ -2206,7 +2207,7 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
       const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, parsedItems.length);
 
       // ส่งแจ้งเตือนคำสั่งซื้อใหม่เข้า Telegram ของแอดมินทันที
-      TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, userId).catch(() => {});
+      TelegramService.getInstance().notifyOrderCreated(formattedSummary, totalPrice, queuePos, userId, orderTask.orderId).catch(() => {});
 
       // สำหรับออเดอร์ทั่วไป (คิวที่ 1-2): สงวน ReplyToken ไว้ส่ง QR Code สุดท้าย เพื่อให้ฟรี 100% ตลอดชีพ
       // เฉพาะกรณีคิวยาวมาก (คิว >= 3 และเวลารอ > 45 วินาที): แจ้งเตือนข้อความรอคิวก่อน ReplyToken หมดอายุ

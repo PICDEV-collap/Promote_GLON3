@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CONFIG } from '../config';
+import { CustomerRegistry } from '../storage/customer-registry';
 
 export interface TelegramTestResult {
   ok: boolean;
@@ -213,9 +214,19 @@ export class TelegramService {
   /**
    * ส่งแจ้งเตือนเมื่อมีออเดอร์ใหม่เข้ามาในคิว
    */
-  public async notifyOrderCreated(orderSummary: string, totalPrice: number, queuePos: number, customerId?: string): Promise<boolean> {
-    const customerTag = customerId ? `\n👤 ลูกค้า: ${customerId.slice(0, 10)}...` : '';
-    const text = `🛒 [มีคำสั่งซื้อสลาก N3 ใหม่] (คิวที่ ${queuePos})\n\n` +
+  private orderIdentity(customerId?: string, orderId?: string): string {
+    const anonymous = !customerId || customerId === 'anonymous_web_user';
+    const admin = !anonymous && customerId === CONFIG.ADMIN_LINE_USER_ID;
+    const name = anonymous ? '' : CustomerRegistry.getInstance().getCustomer(customerId!)?.displayName;
+    return `\n👤 ${admin ? 'แอดมินทดสอบ' : 'ลูกค้า'}: ${name || (anonymous ? 'ผู้สั่งซื้อผ่านเว็บ (ไม่ทราบบัญชี LINE)' : customerId)}` +
+      (!anonymous ? `\n🆔 LINE ID: ${customerId}` : '') +
+      (orderId ? `\n🧾 เลขออเดอร์: ${orderId}` : '');
+  }
+
+  public async notifyOrderCreated(orderSummary: string, totalPrice: number, queuePos: number, customerId?: string, orderId?: string): Promise<boolean> {
+    const customerTag = this.orderIdentity(customerId, orderId);
+    const admin = !!customerId && customerId !== 'anonymous_web_user' && customerId === CONFIG.ADMIN_LINE_USER_ID;
+    const text = `${admin ? '🧪 [ออเดอร์ทดสอบโดยแอดมิน]' : '🛒 [มีคำสั่งซื้อสลาก N3 ใหม่]'} (คิวที่ ${queuePos})\n\n` +
       `🎯 รายการ: ${orderSummary}\n` +
       `💰 ยอดรวม: ${totalPrice.toLocaleString()} บาท${customerTag}\n` +
       `⚡ บอทกำลังดำเนินการสั่งซื้อกับระบบ GLO อัตโนมัติ...`;
@@ -226,9 +237,10 @@ export class TelegramService {
   /**
    * ส่งแจ้งเตือนเมื่อประมวลผลออเดอร์สำเร็จและได้ภาพ QR Code ชำระเงิน
    */
-  public async notifyOrderCompleted(orderSummary: string, totalPrice: number, qrImageUrl?: string, customerId?: string): Promise<boolean> {
-    const customerTag = customerId ? `\n👤 ลูกค้า: ${customerId.slice(0, 10)}...` : '';
-    const caption = `✅ [ออก QR Code ชำระเงินสำเร็จ]\n\n` +
+  public async notifyOrderCompleted(orderSummary: string, totalPrice: number, qrImageUrl?: string, customerId?: string, orderId?: string): Promise<boolean> {
+    const customerTag = this.orderIdentity(customerId, orderId);
+    const admin = !!customerId && customerId !== 'anonymous_web_user' && customerId === CONFIG.ADMIN_LINE_USER_ID;
+    const caption = `${admin ? '🧪 [ออเดอร์ทดสอบแอดมิน: ออก QR สำเร็จ]' : '✅ [ออก QR Code ชำระเงินสำเร็จ]'}\n\n` +
       `🎯 รายการ: ${orderSummary}\n` +
       `💰 ยอดชำระ: ${totalPrice.toLocaleString()} บาท${customerTag}\n` +
       `👛 ส่ง QR Code ให้ลูกค้าสแกนจ่ายผ่านเป๋าตังเรียบร้อยแล้ว`;
