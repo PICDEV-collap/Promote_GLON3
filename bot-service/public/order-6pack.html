@@ -3116,6 +3116,7 @@
         }
 
         // Send order to bot backend API
+        currentOrderData.clientRequestId ||= (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
         const response = await fetch('/api/order-direct', {
           method: 'POST',
           headers: {
@@ -3124,6 +3125,7 @@
           },
           body: JSON.stringify({
             userId: currentUserId,
+            clientRequestId: currentOrderData.clientRequestId,
             items: currentOrderData.aggregatedItems,
             command: currentOrderData.orderCommand
           })
@@ -3150,11 +3152,41 @@
         // Dynamically calculate maxPolls so polling never times out prematurely for multi-number orders
         const maxPolls = Math.max(120, Math.ceil((targetSeconds + 60) / 1.5));
 
+        const pollDeadline = Date.now() + maxPolls * 1500;
+        let pollInFlight = false;
+        let pollRetryAt = 0;
         orderPollInterval = setInterval(async () => {
+          if (Date.now() >= pollDeadline) {
+            clearInterval(orderPollInterval);
+            if (progressTimer) {
+              clearInterval(progressTimer);
+              progressTimer = null;
+            }
+            orderPollInterval = null;
+            if (modalTitle) modalTitle.textContent = 'ใช้เวลาดำเนินการนานกว่าปกติ';
+            if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทนเพื่อความรวดเร็ว';
+            if (modalProcessingArea) modalProcessingArea.style.display = 'none';
+            if (modalOrderPreview) modalOrderPreview.style.display = 'block';
+            if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
+            if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
+            if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
+            return;
+          }
+          if (pollInFlight || Date.now() < pollRetryAt) return;
+          pollInFlight = true;
           pollCount++;
           try {
-            const statusRes = await fetch(`/api/order-status/${orderId}`);
-            if (!statusRes.ok) return;
+            const statusRes = await fetch(`/api/order-status/${orderId}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
+            if (statusRes.status === 429) {
+              const retry = Number(statusRes.headers.get('Retry-After')) || 5;
+              pollRetryAt = Date.now() + Math.min(60, Math.max(1, retry)) * 1000;
+              return;
+            }
+            if (!statusRes.ok) {
+              pollRetryAt = Date.now() + 3000;
+              return;
+            }
+            if (Date.now() >= pollDeadline) return;
             const statusData = await statusRes.json();
 
             if (statusData.queuePosition && statusData.queuePosition > 0) {
@@ -3228,6 +3260,7 @@
                 showToast('✅ สร้าง QR Code สำเร็จแล้ว!', 'success');
               }, 400);
             } else if (statusData.status === 'failed') {
+              delete currentOrderData.clientRequestId;
               clearInterval(orderPollInterval);
               if (progressTimer) {
                 clearInterval(progressTimer);
@@ -3246,22 +3279,8 @@
             }
           } catch (pollErr) {
             console.warn('Poll error:', pollErr);
-          }
-
-          if (pollCount >= maxPolls) {
-            clearInterval(orderPollInterval);
-            if (progressTimer) {
-              clearInterval(progressTimer);
-              progressTimer = null;
-            }
-            orderPollInterval = null;
-            if (modalTitle) modalTitle.textContent = 'ใช้เวลาดำเนินการนานกว่าปกติ';
-            if (modalDesc) modalDesc.textContent = 'ระบบใช้เวลาดำเนินการนานกว่าปกติ กรุณาส่งคำสั่งซื้อผ่านแอป LINE แทนเพื่อความรวดเร็ว';
-            if (modalProcessingArea) modalProcessingArea.style.display = 'none';
-            if (modalOrderPreview) modalOrderPreview.style.display = 'block';
-            if (btnModalSubmitDirect) btnModalSubmitDirect.style.display = 'flex';
-            if (btnModalOpenLine) btnModalOpenLine.style.display = 'flex';
-            if (btnModalCopyCmd) btnModalCopyCmd.style.display = 'inline-flex';
+          } finally {
+            pollInFlight = false;
           }
         }, 1500);
 

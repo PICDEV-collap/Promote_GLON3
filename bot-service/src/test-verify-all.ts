@@ -2252,6 +2252,7 @@ async function runTests() {
     let normalNextCalled = false;
 
     const mockReqNormal: any = {
+      socket: { remoteAddress: '203.0.113.99' },
       headers: { 'x-real-ip': '203.0.113.99' },
       url: '/health',
       path: '/health',
@@ -2278,6 +2279,7 @@ async function runTests() {
     let jailedHeaders: Record<string, string> = {};
 
     const mockReqJailed: any = {
+      socket: { remoteAddress: '203.0.113.88' },
       headers: { 'x-real-ip': '203.0.113.88' },
       url: '/health',
       path: '/health',

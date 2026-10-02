@@ -66,11 +66,12 @@ test('a busy configured bot port exits without binding an adjacent port', async 
   const code = ts.transpileModule(startup.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
   const listeners = new Map();
   const ports = [];
+  const hosts = [];
   const exits = [];
   let serversCreated = 0;
   const mainModule = {};
   const fakeServer = {
-    listen(port) { ports.push(port); return this; },
+    listen(port, host) { ports.push(port); hosts.push(host); return this; },
     on(event, handler) { listeners.set(event, handler); return this; }
   };
   const context = vm.createContext({
@@ -84,6 +85,7 @@ test('a busy configured bot port exits without binding an adjacent port', async 
   await listeners.get('error')({ code: 'EADDRINUSE' });
   assert.equal(serversCreated, 1);
   assert.deepEqual(ports, [3333]);
+  assert.deepEqual(hosts, ['127.0.0.1']);
   assert.deepEqual(exits, [1]);
   assert.equal(context.hasNotifiedShutdown, true);
 });

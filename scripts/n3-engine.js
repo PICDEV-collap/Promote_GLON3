@@ -673,7 +673,7 @@ async function startBackground(options = {}) {
     metadata.processes.tunnel = knownTunnel;
   } else {
     fs.writeFileSync(tunnelLogPath, '', 'utf8');
-    const tunnel = spawn(cf.command, [...cf.args, 'tunnel', '--url', `http://localhost:${BOT_PORT}`, '--logfile', tunnelLogPath], {
+    const tunnel = spawn(cf.command, [...cf.args, 'tunnel', '--url', `http://127.0.0.1:${BOT_PORT}`, '--logfile', tunnelLogPath], {
       cwd: ROOT_DIR, detached: true, shell: false, windowsHide: true, stdio: 'ignore'
     });
     tunnel.unref();

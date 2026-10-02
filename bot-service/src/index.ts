@@ -1,5 +1,5 @@
 import express, { Request, Response, RequestHandler } from 'express';
-import { randomUUID, timingSafeEqual } from 'crypto';
+import { randomUUID, timingSafeEqual, createHash } from 'crypto';
 import { Page, BrowserContext } from 'playwright';
 import { validateSignature, messagingApi } from '@line/bot-sdk';
 import http from 'http';
@@ -193,6 +193,18 @@ if (require.main === module) {
 app.use('/qrcodes/:filename', (req: Request, res: Response, next) => {
   const rawParam = req.params.filename;
   const filename = path.basename(Array.isArray(rawParam) ? rawParam[0] : (rawParam || ''));
+  if (filename.startsWith('paotang-login-qr-')) {
+    const validName = /^paotang-login-qr-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.png$/i.test(filename);
+    const filePath = path.join(CONFIG.QR_OUTPUT_DIR, filename);
+    res.setHeader('Cache-Control', 'no-store');
+    if (!validName || !fs.existsSync(filePath) || Date.now() - fs.statSync(filePath).mtimeMs > 5 * 60000) {
+      res.status(404).end();
+      return;
+    }
+  } else if (!/^payment-[\w.-]+\.png$/i.test(filename)) {
+    res.status(404).end();
+    return;
+  }
   const cachedBuf = getQrFromMemoryCache(filename);
   if (cachedBuf) {
     res.setHeader('Content-Type', 'image/png');
@@ -208,9 +220,10 @@ app.use('/qrcodes/:filename', (req: Request, res: Response, next) => {
 app.use('/qrcodes', (req: Request, res: Response, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.setHeader('Cache-Control', 'public, max-age=86400');
+  if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'private, max-age=600');
   next();
 }, express.static(CONFIG.QR_OUTPUT_DIR, { dotfiles: 'ignore', index: false }));
+app.use('/public/qrcodes', (_req, res) => { res.status(404).end(); });
 app.use('/public', express.static(path.join(__dirname, '../../public'), { dotfiles: 'ignore', index: false }));
 app.use('/public', express.static(path.join(__dirname, '../public'), { dotfiles: 'ignore', index: false }));
 app.use('/css', express.static(path.join(__dirname, '../../css'), { dotfiles: 'ignore', index: false }));
@@ -295,7 +308,7 @@ app.get(['/webhook', '/webhook/'], (req: Request, res: Response) => {
 
 // Endpoint ดาวน์โหลดไฟล์รูปภาพ QR Code ส่งตรงเข้าเครื่องทันที (Direct Download)
 app.get('/download-qr/:filename', (req: Request, res: Response): void => {
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'unknown';
+  const ip = extractClientIp(req);
   if (!rateLimiter.check(`download:${ip}`, 60, 60000)) {
     res.status(429).send('คำขอดาวน์โหลดถี่เกินไป กรุณารอ 1 นาที');
     return;
@@ -306,7 +319,7 @@ app.get('/download-qr/:filename', (req: Request, res: Response): void => {
   const filename = path.basename(paramStr);
 
   // ตรวจสอบความถูกต้องของชื่อไฟล์ ต้องเป็นรูปภาพ PNG เฉพาะของระบบสลาก N3 เท่านั้น
-  if (!/^payment-[\w.-]+\.png$/i.test(filename) && !/^[\w.-]+\.png$/i.test(filename)) {
+  if (!/^payment-[\w.-]+\.png$/i.test(filename)) {
     res.status(400).send('รูปแบบชื่อไฟล์ไม่ถูกต้อง');
     return;
   }
@@ -632,6 +645,7 @@ export interface StoredOrderStatus {
 }
 
 export const orderStatusStore: Map<string, StoredOrderStatus> = new Map();
+const directRequestCache = new Map<string, { fingerprint: string; orderId: string; expiresAt: number }>();
 
 // -------------------------------------------------------------------------
 // 0. Seamless LINE Membership Verification API (ฟรี 100% ไม่เสียโควต้าข้อความ LINE)
@@ -796,8 +810,11 @@ app.all('/api/check-line-member', async (req: Request, res: Response): Promise<v
 // ล้างคำสั่งซื้อเก่าเกิน 30 นาทีออกจากหน่วยความจำอัตโนมัติ
 const orderCleanupTimer = setInterval(() => {
   const now = Date.now();
+  for (const [key, request] of directRequestCache) {
+    if (now >= request.expiresAt) directRequestCache.delete(key);
+  }
   for (const [orderId, status] of orderStatusStore.entries()) {
-    if (now - status.createdAt > 30 * 60 * 1000) {
+    if ((status.status === 'completed' || status.status === 'failed') && now - status.createdAt > 30 * 60 * 1000) {
       orderStatusStore.delete(orderId);
     }
   }
@@ -805,6 +822,7 @@ const orderCleanupTimer = setInterval(() => {
 orderCleanupTimer.unref();
 
 app.get('/api/order-status/:orderId', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
@@ -899,6 +917,28 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
     return;
   }
 
+  const requestId = req.body.clientRequestId;
+  if (requestId !== undefined && (typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{16,100}$/.test(requestId))) {
+    res.status(400).json({ success: false, error: 'รหัสคำขอไม่ถูกต้อง กรุณาเปิดหน้าสั่งซื้อใหม่' });
+    return;
+  }
+  const fingerprint = createHash('sha256').update(JSON.stringify([effectiveUserId, validItems])).digest('hex');
+  const cachedRequest = requestId ? directRequestCache.get(requestId) : undefined;
+  if (cachedRequest && Date.now() < cachedRequest.expiresAt) {
+    if (cachedRequest.fingerprint !== fingerprint) {
+      res.status(409).json({ success: false, error: 'รหัสคำขอถูกใช้กับรายการอื่นแล้ว' });
+      return;
+    }
+    const position = orderQueue.getPosition(cachedRequest.orderId);
+    res.json({ success: true, orderId: cachedRequest.orderId, queuePosition: position, estimatedSeconds: orderQueue.getEstimatedWaitTime(position, validItems.length) });
+    return;
+  }
+  if (!orderQueue.canAccept()) {
+    res.setHeader('Retry-After', '30');
+    res.status(503).json({ success: false, error: 'คิวสั่งซื้อเต็มชั่วคราว กรุณาลองใหม่อีกครั้งใน 30 วินาที' });
+    return;
+  }
+
   const totalQuantity = validItems.reduce((sum, it) => sum + it.quantity, 0);
   const totalPrice = totalQuantity * 20;
 
@@ -957,6 +997,10 @@ app.post('/api/order-direct', async (req: Request, res: Response): Promise<void>
   });
 
   const queuePos = orderQueue.enqueue(orderTask);
+  if (requestId) {
+    if (directRequestCache.size >= 2000) directRequestCache.delete(directRequestCache.keys().next().value!);
+    directRequestCache.set(requestId, { fingerprint, orderId, expiresAt: Date.now() + 30 * 60000 });
+  }
   orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
   const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, validItems.length);
 
@@ -2153,6 +2197,10 @@ app.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         hasRepliedQueue: false
       };
 
+      if (!orderQueue.canAccept()) {
+        await lineHandler.reply(replyToken, [{ type: 'text', text: 'คิวสั่งซื้อเต็มชั่วคราว กรุณาลองใหม่อีกครั้งใน 30 วินาทีครับ' }]);
+        continue;
+      }
       const queuePos = orderQueue.enqueue(orderTask);
       orderHeartbeat.start(orderTask, () => orderQueue.getPosition(orderTask.orderId));
       const estSeconds = orderQueue.getEstimatedWaitTime(queuePos, parsedItems.length);
@@ -2365,7 +2413,7 @@ function startServerWithPort(targetPort: number) {
   server.requestTimeout = 15000;  // สูงสุด 15 วินาทีต่อ 1 Request
   server.keepAliveTimeout = 5000; // 5 วินาทีสำหรับ Idle Keep-Alive Socket
 
-  server.listen(targetPort, async () => {
+  server.listen(targetPort, '127.0.0.1', async () => {
     console.log(`====================================================`);
     console.log(`[SERVICE] N3 Order Bot is RUNNING at: http://localhost:${targetPort}`);
     const qStatus = quotaManager.getStatus();

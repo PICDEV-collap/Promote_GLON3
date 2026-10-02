@@ -22,6 +22,7 @@ export interface OrderTask {
 export type OrderWorkerFunction = (task: OrderTask) => Promise<void>;
 
 export class OrderQueue {
+  public static readonly MAX_PENDING_ORDERS = 100;
   private queue: OrderTask[] = [];
   private isProcessing: boolean = false;
   private currentRunningTask: OrderTask | null = null;
@@ -54,6 +55,9 @@ export class OrderQueue {
    * นำคำสั่งซื้อเข้าคิว
    */
   public enqueue(task: OrderTask): number {
+    const existing = this.getPosition(task.orderId);
+    if (existing > 0) return existing;
+    if (!this.canAccept()) throw new Error('Order queue is full');
     this.queue.push(task);
     // ตำแหน่งคิว = รายการที่รอในแถว + (หากมีตัวกำลังรันอยู่)
     const queuePosition = this.queue.length + (this.currentRunningTask ? 1 : 0);
@@ -115,7 +119,11 @@ export class OrderQueue {
     if (idx !== -1) {
       return idx + 1 + (this.currentRunningTask ? 1 : 0);
     }
-    return 1;
+    return 0;
+  }
+
+  public canAccept(): boolean {
+    return this.queue.length + (this.currentRunningTask ? 1 : 0) < OrderQueue.MAX_PENDING_ORDERS;
   }
 
   public getCurrentRunningTask(): OrderTask | null {

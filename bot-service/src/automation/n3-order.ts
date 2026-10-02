@@ -691,7 +691,9 @@ export class N3OrderService {
     } catch (err: any) {
       console.error('[N3 ORDER ERROR]', err);
       if (page && !page.isClosed()) {
-        const errShot = path.join(CONFIG.QR_OUTPUT_DIR, `error-${Date.now()}.png`);
+        const diagnosticsDir = path.resolve(__dirname, '../../data/diagnostics');
+        fs.mkdirSync(diagnosticsDir, { recursive: true });
+        const errShot = path.join(diagnosticsDir, `error-${Date.now()}.png`);
         await page.screenshot({ path: errShot }).catch(() => {});
       }
 

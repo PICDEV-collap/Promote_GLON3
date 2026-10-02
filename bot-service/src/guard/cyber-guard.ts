@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { TelegramService } from '../notify/telegram-service';
+import { isIP } from 'net';
 
 export interface JailedIpInfo {
   ip: string;
@@ -234,19 +235,13 @@ export class MultiTierRateLimiter {
  * ฟังก์ชันดึง Client IP ที่แท้จริงผ่าน Cloudflare / Reverse Proxy
  */
 export function extractClientIp(req: Request): string {
+  const remote = (req.socket?.remoteAddress || req.ip || '').replace(/^::ffff:/, '');
   const cfIp = req.headers['cf-connecting-ip'];
-  if (typeof cfIp === 'string' && cfIp) return cfIp.trim();
-
-  const xRealIp = req.headers['x-real-ip'];
-  if (typeof xRealIp === 'string' && xRealIp) return xRealIp.trim();
-
-  const xForwardedFor = req.headers['x-forwarded-for'];
-  if (typeof xForwardedFor === 'string' && xForwardedFor) {
-    const firstIp = xForwardedFor.split(',')[0].trim();
-    if (firstIp) return firstIp;
+  // Only the local Cloudflare connector may supply a verified client address.
+  if ((remote === '127.0.0.1' || remote === '::1') && typeof cfIp === 'string' && isIP(cfIp.trim())) {
+    return cfIp.trim();
   }
-
-  return req.ip || req.socket.remoteAddress || '127.0.0.1';
+  return isIP(remote) ? remote : 'unknown';
 }
 
 /**
@@ -348,6 +343,14 @@ export function createCyberGuardMiddleware(
         jailManager.recordStrike(ip, 'Webhook Flooding เกิน 120 ครั้ง/นาที', 5, 15, req.path);
         res.setHeader('Retry-After', '60');
         res.status(429).send('Too Many Requests: Webhook Rate Limit Exceeded');
+        return;
+      }
+    }
+    // Polling every 1.5s must not consume the order-creation allowance.
+    else if (pathLower.startsWith('/api/order-status/') && req.method === 'GET') {
+      if (!rateLimiter.check(`order-status:${ip}`, 120, 60000)) {
+        res.setHeader('Retry-After', '60');
+        res.status(429).json({ error: 'Too Many Requests', message: 'Status polling rate limit exceeded' });
         return;
       }
     }

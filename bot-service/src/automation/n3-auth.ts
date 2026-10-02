@@ -2,6 +2,7 @@ import { BrowserContext, Page } from 'playwright';
 import { CONFIG } from '../config';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 
 export class N3Auth {
   /**
@@ -169,7 +170,7 @@ export class N3Auth {
 
     // ดึง base64 data
     const src = await qrImageLocator.getAttribute('src');
-    const qrFileName = `paotang-login-qr-${Date.now()}.png`;
+    const qrFileName = `paotang-login-qr-${randomUUID()}.png`;
     const qrImagePath = path.join(CONFIG.QR_OUTPUT_DIR, qrFileName);
 
     if (src && src.startsWith('data:image/')) {
