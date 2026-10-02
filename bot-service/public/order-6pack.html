@@ -2220,21 +2220,51 @@
       }
     });
 
-    // Close Modal
-    btnModalClose.addEventListener('click', () => {
-      const modalQrArea = document.getElementById('modal-qr-area');
-      const wasQrShown = modalQrArea && modalQrArea.style.display !== 'none';
-      modalConfirm.classList.remove('active');
+    function clearOrderBrowserData() {
+      currentOrderData = null;
+      window.currentQrData = null;
       resetModalState();
-      if (wasQrShown) {
-        // Reset table for a fresh order
-        rowsData = [createRow()];
-        renderTable();
-        addedSets = [];
-        renderAddedSets();
-        selectedDigits = ['', '', ''];
-        updateDigitDisplay();
-        updateGrandTotal();
+      modalConfirm.classList.remove('active');
+      const qrImage = document.getElementById('modal-qr-img');
+      if (qrImage) qrImage.removeAttribute('src');
+      const savedImage = document.getElementById('image-saver-img');
+      if (savedImage) savedImage.removeAttribute('src');
+      ['btn-image-saver-share', 'btn-image-saver-external', 'btn-image-saver-dl'].forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.onclick = null;
+      });
+      ['modal-items-text', 'modal-qty-text', 'modal-price-text', 'modal-cmd-display'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = '';
+      });
+      if (typeof ImageSaver !== 'undefined') ImageSaver.closeModal();
+      rowsData = [createRow()];
+      addedSets = [];
+      selectedDigits = ['', '', ''];
+      currentSetQty = 1;
+      permutationKey = '';
+      excludedPermutations.clear();
+      permutationQuantities = {};
+      activeBoxIndex = 0;
+      renderTable();
+      renderAddedSets();
+      updateDigitDisplay();
+      updateGrandTotal();
+      try {
+        const url = new URL(window.location.href);
+        ['n', 'number', 'q', 'qty', 'order', 'numbers', 'liff.state'].forEach(key => url.searchParams.delete(key));
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+      } catch (_) {}
+    }
+
+    // Completed orders are cleared before closing or navigating back.
+    btnModalClose.addEventListener('click', () => {
+      const qrArea = document.getElementById('modal-qr-area');
+      const finished = qrArea && qrArea.style.display !== 'none';
+      if (finished) handleExitOrBack();
+      else {
+        modalConfirm.classList.remove('active');
+        resetModalState();
       }
     });
 
@@ -3139,6 +3169,7 @@
 
     // Execute direct order against bot-service backend
     async function executeDirectOrder() {
+      const submittedOrder = currentOrderData;
       if (!currentOrderData || !currentOrderData.aggregatedItems || currentOrderData.aggregatedItems.length === 0) {
         showToast('ไม่พบรายการสลากที่จะสั่งซื้อ กรุณาลองใหม่อีกครั้ง', 'error');
         return;
@@ -3243,6 +3274,7 @@
         }
 
         // Send order to bot backend API
+        if (currentOrderData !== submittedOrder) return;
         currentOrderData.clientRequestId ||= (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
         const response = await fetch('/api/order-direct', {
           method: 'POST',
@@ -3263,6 +3295,7 @@
           resData = await response.json();
         } catch (_) {}
 
+        if (currentOrderData !== submittedOrder) return;
         if (!response.ok || !resData.success || !resData.orderId) {
           throw new Error(resData.error || resData.reason || `เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ (รหัส ${response.status})`);
         }
@@ -3315,6 +3348,7 @@
             }
             if (Date.now() >= pollDeadline) return;
             const statusData = await statusRes.json();
+            if (!currentOrderData) return;
 
             if (statusData.queuePosition && statusData.queuePosition > 0) {
               const est = statusData.estimatedSeconds || (statusData.queuePosition * 12);
@@ -3368,7 +3402,7 @@
                 if (modalActionBtns) modalActionBtns.style.marginTop = '6px';
 
                 if (btnModalClose) {
-                  btnModalClose.textContent = 'เสร็จสิ้น / สั่งซื้อชุดใหม่';
+                  btnModalClose.textContent = 'เสร็จสิ้น / ออกจากหน้านี้';
                   btnModalClose.style.display = 'block';
                   btnModalClose.style.width = '100%';
                   btnModalClose.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
@@ -3707,30 +3741,32 @@
       } catch (e) {}
 
       window.addEventListener('popstate', () => {
-        handleExitOrBack();
+        // Back already moved history once; never skip another page.
+        clearOrderBrowserData();
+        if (isLineBrowser() && typeof liff !== 'undefined') {
+          try { liff.closeWindow(); } catch (_) {}
+        }
+      });
+      window.addEventListener('pagehide', clearOrderBrowserData);
+      window.addEventListener('pageshow', event => {
+        if (event.persisted) clearOrderBrowserData();
       });
     }
 
     function handleExitOrBack() {
-      if (isLineBrowser()) {
-        if (typeof liff !== 'undefined') {
-          try {
-            liff.closeWindow();
-            return;
-          } catch (err) {
-            console.warn('[LIFF] closeWindow failed:', err);
-          }
-        }
-        try {
-          window.close();
-          return;
-        } catch (err) {}
+      clearOrderBrowserData();
+      if (isLineBrowser() && typeof liff !== 'undefined') {
+        try { liff.closeWindow(); } catch (_) {}
       }
-      if (window.history.length > 1) {
-        window.history.back();
-      } else {
-        window.location.href = './';
+      if (window.opener || isLineBrowser()) {
+        try { window.close(); } catch (_) {}
       }
+      // A normal browser tab may refuse close(); navigation still leaves a clean page.
+      setTimeout(() => {
+        if (window.closed) return;
+        if (window.history.length > 1) window.history.back();
+        else window.location.replace('./');
+      }, 100);
     }
 
     // Start Page
