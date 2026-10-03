@@ -259,15 +259,8 @@ export class LineReplyHandler {
    */
   public async notifyNightlyClose(timeStr?: string): Promise<boolean> {
     const time = timeStr || getThaiTime();
-    TelegramService.getInstance().notifyDailySchedule('CLOSE', time).catch(() => {});
-    try {
-      const { FlexMessageBuilder } = await import('./flex-message');
-      const flexMsg = FlexMessageBuilder.buildNightlyCloseMessage(time);
-      return await this.pushToAdmin([flexMsg]);
-    } catch {
-      const text = `🌙 [แจ้งเตือน] ปิดร้านสลาก N3 ประจำวัน (${time})\n\n🔒 ไม่มีการสั่ง Logoff หรือล้างเซสชัน ให้ระบบ GLO จัดการเวลาหมดอายุเอง\n🔔 ระบบจะแจ้งเตือนอีกครั้งในเวลา 06:00 น. ครับ`;
-      return this.pushToAdmin([{ type: 'text', text }]);
-    }
+    // Daily notices go only to Telegram to preserve the LINE push quota.
+    return TelegramService.getInstance().notifyDailySchedule('CLOSE', time);
   }
 
   /**
@@ -275,15 +268,7 @@ export class LineReplyHandler {
    */
   public async notifyMorningStoreOpen(timeStr?: string): Promise<boolean> {
     const time = timeStr || getThaiTime();
-    TelegramService.getInstance().notifyDailySchedule('OPEN', time).catch(() => {});
-    try {
-      const { FlexMessageBuilder } = await import('./flex-message');
-      const flexMsg = FlexMessageBuilder.buildMorningStoreOpenMessage(time);
-      return await this.pushToAdmin([flexMsg]);
-    } catch {
-      const text = `☀️ [แจ้งเตือน] เปิดระบบจำหน่ายสลาก N3 ประจำวัน (${time})\n\n🟢 สำนักงานสลากฯ เปิดระบบแล้ว ขอให้แอดมินเข้าสู่ระบบด้วยแอปเป๋าตังเพื่อเริ่มขาย\n📲 พิมพ์ "login" ในห้องแชทเพื่อขอรับ QR เข้าสู่ระบบได้เลยครับ`;
-      return this.pushToAdmin([{ type: 'text', text }]);
-    }
+    return TelegramService.getInstance().notifyDailySchedule('OPEN', time);
   }
 
   /**

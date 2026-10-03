@@ -104,11 +104,12 @@ export class DailyScheduleService {
       // ไม่สั่ง Logoff ไม่ล้าง Cookie/Storage และไม่เปลี่ยนหน้า Login ให้ GLO หมดอายุเซสชันตามระบบเอง
       console.log('[DAILY SCHEDULE] 🔒 แจ้งปิดร้านแล้ว คงเซสชัน GLO ไว้ และปล่อยให้ระบบจัดการเวลาหมดอายุเอง');
 
-      // ส่งข้อความแจ้งเตือนแอดมินทาง LINE
+      // ส่งแจ้งเตือนแอดมินทาง Telegram เท่านั้น
       try {
         const timeStr = getThaiTime(now);
-        await this.lineHandler.notifyNightlyClose(timeStr);
-        console.log('[DAILY SCHEDULE] ✅ ส่งข้อความแจ้งเตือน 23:00 ปิดร้านประจำวันให้แอดมินสำเร็จ');
+        const sent = await this.lineHandler.notifyNightlyClose(timeStr);
+        if (sent) console.log('[DAILY SCHEDULE] ✅ แจ้งปิดร้าน 23:00 ทาง Telegram สำเร็จ');
+        else console.warn('[DAILY SCHEDULE] ส่งแจ้งปิดร้านทาง Telegram ไม่สำเร็จ ไม่มีการส่งสำรองผ่าน LINE');
       } catch (notifyErr) {
         console.error('[DAILY SCHEDULE NOTIFY ERROR] ไม่สามารถส่งแจ้งเตือน 23:00 ได้:', notifyErr);
       }
@@ -122,8 +123,9 @@ export class DailyScheduleService {
 
       try {
         const timeStr = getThaiTime(now);
-        await this.lineHandler.notifyMorningStoreOpen(timeStr);
-        console.log('[DAILY SCHEDULE] ✅ ส่งข้อความแจ้งเตือน 06:00 เปิดร้านให้แอดมินสำเร็จ');
+        const sent = await this.lineHandler.notifyMorningStoreOpen(timeStr);
+        if (sent) console.log('[DAILY SCHEDULE] ✅ แจ้งเปิดร้าน 06:00 ทาง Telegram สำเร็จ');
+        else console.warn('[DAILY SCHEDULE] ส่งแจ้งเปิดร้านทาง Telegram ไม่สำเร็จ ไม่มีการส่งสำรองผ่าน LINE');
       } catch (notifyErr) {
         console.error('[DAILY SCHEDULE NOTIFY ERROR] ไม่สามารถส่งแจ้งเตือน 06:00 ได้:', notifyErr);
       }
