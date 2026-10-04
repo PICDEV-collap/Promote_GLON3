@@ -622,6 +622,8 @@ function waitForKeypress() {
  * @param {Object} options - { forceNewTunnel: boolean }
  */
 async function startBackground(options = {}) {
+  const supervisorPause = path.join(BOT_DIR, 'data', 'supervisor-paused');
+  if (fs.existsSync(supervisorPause)) fs.unlinkSync(supervisorPause);
   const forceNewTunnel = options.forceNewTunnel === true;
   const keepBrowser = options.keepBrowser !== false;
   // Compile and inspect ownership before stopping the currently running bot.
@@ -710,6 +712,8 @@ async function startBackground(options = {}) {
  * @param {Object} options - { stopTunnel: boolean }
  */
 async function stopBot(options = {}) {
+  fs.mkdirSync(path.join(BOT_DIR, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(BOT_DIR, 'data', 'supervisor-paused'), new Date().toISOString());
   const stopTunnel = options.stopTunnel !== false; // default true for full stop
   console.clear();
   console.log('===============================================================================');
